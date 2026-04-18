@@ -32,3 +32,16 @@ shrink_video() {
 apply_vdr_marks() {
     echo "Werbeschnitt (via Marks) in Vorbereitung für $1" >> "/var/log/vdr-rectools.log"
 }
+
+extract_images() {
+    local VIDEO_FILE="$1"
+    local DEST_DIR="$(dirname "$VIDEO_FILE")"
+    
+    # Versuchen, ein eingebettetes Cover (Video-Stream 1 oder höher) zu finden
+    ffmpeg -i "$VIDEO_FILE" -map 0:v -map -0:V -c copy "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
+    
+    # Falls kein Cover eingebettet ist, erstellen wir einen Screenshot bei Sekunde 10 als Fanart
+    if [ ! -f "$DEST_DIR/fanart.jpg" ]; then
+        ffmpeg -ss 00:00:10 -i "$VIDEO_FILE" -vframes 1 -q:v 2 "$DEST_DIR/fanart.jpg" </dev/null >/dev/null 2>&1
+    fi
+}

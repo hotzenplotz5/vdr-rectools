@@ -172,6 +172,7 @@ process_folder() {
             ln -sf "00001.srt" "${PLEX_LINK%.ts}.srt"
         elif [[ ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             extract_subtitles "$NEW_VDR_FILE"
+            extract_images "$NEW_VDR_FILE"
         fi
         
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"
