@@ -1,0 +1,114 @@
+vdr-rectools (1.7.2) unstable; urgency=low
+
+  * NEW: Automatische Untertitel-Suche via OpenSubtitles/Subliminal
+         während des MKV-Imports.
+  * NEW: Debconf-Abfrage für Untertitel-Download bei der Installation.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 18 Apr 2026 14:00:00 +0200
+
+vdr-rectools (1.7.1) unstable; urgency=low
+
+  * FIX: Plex/Kodi-Symlinks und NFO-Dateien werden nun sofort nach 
+         erfolgreichem MKV-Import generiert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 18 Apr 2026 09:30:00 +0200
+
+vdr-rectools (1.7.0) unstable; urgency=medium
+
+  * FIX: Systemd-Drop-In Workaround für yaVDR-Ansible Umgebungen.
+  * FIX: Syntax in VDR-Befehlsmenü auf Standard (reccmds) korrigiert.
+  * FIX: ffmpeg Untertitel-Mapping Fehler bei Reparatur behoben.
+  * NEW: Intelligentes E-Mail-Reporting (Log als Anhang > 50 Zeilen).
+  * NEW: E-Mail-Benachrichtigung bei erfolgreichem Import & Reparatur.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 18 Apr 2026 09:00:00 +0200
+
+vdr-rectools (1.6.0) unstable; urgency=low
+
+  * NEW: VDR OSD-Befehlsmenü Integration (reccommands).
+  * NEW: H.265 Shrink-Modus zur massiven Platzersparnis.
+  * NEW: Automatischer Untertitel-Export (SRT) für Plex/Kodi.
+  * FIX: Korrektur des Reparatur-Vorgangs (ffmpeg Timestamps & Mappings).
+  * NEW: Intelligenter Audio-Filter entfernt Audio-Description.
+  * NEW: Modulare Struktur (media_tools.sh).
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Fri, 17 Apr 2026 22:30:00 +0200
+
+vdr-rectools (1.5.0) unstable; urgency=low
+
+  * NEW: Namensänderung zu vdr-rectools (ersetzt vdr-reccleaner).
+  * NEW: Systemd-Timer für nächtliche Automatisierung.
+  * NEW: Debconf-Integration für interaktive Installation.
+  * NEW: NFO-Generierung für Plex/Kodi.
+  * NEW: Automatisches Bereinigen leerer Archivordner.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 16 Apr 2026 21:00:00 +0200
+
+vdr-reccleaner (1.4.2) unstable; urgency=low
+
+  * NEW: Ordnerbasierter Import (Kategorien/Serien Support).
+  * FIX: find-Logik für Import-Scan auf Unterverzeichnisse erweitert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 16 Apr 2026 19:30:00 +0200
+
+vdr-reccleaner (1.4.1) unstable; urgency=low
+
+  * NEW: Modulare Skript-Architektur (Auslagerung in functions.sh).
+  * NEW: Import-Modus für externe Videodateien (MKV/MP4 zu TS).
+  * NEW: Codec-Prüfung verhindert den Import inkompatibler Medien.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 16 Apr 2026 17:30:00 +0200
+
+vdr-reccleaner (1.3.1) unstable; urgency=low
+
+  * NEW: Dry-Run Modus für risikofreie Tests.
+  * NEW: MD5-Checksummen-Validierung beim Austausch.
+  * NEW: Mail-Benachrichtigung bei erfolgreicher Reparatur.
+  * NEW: Logrotate Integration für saubere Logs.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 16 Apr 2026 16:30:00 +0200
+
+vdr-reccleaner (1.3.0) unstable; urgency=low
+
+  * NEW: AUTO_CLEAN Option in der Config-Datei für Recording-Hooks.
+  * FIX: Prozess-Handling für Einzelpfad-Aufrufe optimiert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 16 Apr 2026 12:00:00 +0200
+
+vdr-reccleaner (1.2.9) unstable; urgency=medium
+
+  * NEW: Pre-Flight Check implementiert (Stoppt, wenn < 20 GB frei).
+  * FIX: Fehlerbehandlung bei vollen Dateisystemen.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 15 Apr 2026 23:45:00 +0200
+
+vdr-reccleaner (1.2.8) unstable; urgency=medium
+
+  * NEW: Auto-Replace Modus nach erfolgreicher Validierung.
+  * NEW: Standard-Limit auf 10 Filme pro Durchlauf gesetzt (MAX_FILES).
+  * FIX: Automatisches Neuerstellen des VDR-Index nach Austausch.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 15 Apr 2026 23:20:00 +0200
+
+vdr-reccleaner (1.2.7) unstable; urgency=low
+
+  * NEW: Klartext-Benennung im Staging-Ordner (Filmtitel statt Zeitstempel).
+  * FIX: Sonderzeichen-Filter für Dateinamen (sed-Regex).
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 15 Apr 2026 23:00:00 +0200
+
+vdr-reccleaner (1.2.6) unstable; urgency=critical
+
+  * NEW: Einführung des Staging-Verfahrens (/srv/vdr/repaired_files).
+  * NEW: Validierung der Dateigröße (98% Schwellenwert).
+  * NEW: ffprobe-Integritätscheck vor Abschluss der Reparatur.
+  * FIX: Entfernung aller destruktiven Schreiboperationen im repair-Modus.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 15 Apr 2026 22:30:00 +0200
+
+vdr-reccleaner (1.2.2) unstable; urgency=low
+
+  * INITIAL: Basis-Version mit Join-Funktion und Plex-Links.
+  * ACHTUNG: Keine Validierung der Quelldaten.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Mon, 13 Apr 2026 18:00:00 +0200

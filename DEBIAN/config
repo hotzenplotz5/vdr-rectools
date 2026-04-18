@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+. /usr/share/debconf/confmodule
+
+db_settitle vdr-rectools/setup_title
+db_input high vdr-rectools/mail || true
+db_input high vdr-rectools/timer || true
+db_input high vdr-rectools/subtitles || true
+db_go || true

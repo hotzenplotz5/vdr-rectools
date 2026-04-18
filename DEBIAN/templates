@@ -1,0 +1,23 @@
+Template: vdr-rectools/setup_title
+Type: title
+Description: VDR-Rectools Konfiguration
+
+Template: vdr-rectools/mail
+Type: string
+Description: E-Mail für Fehler/Erfolgsmeldungen:
+ Bitte gib eine E-Mail-Adresse ein, an die das Skript Berichte senden soll.
+ (Lass das Feld leer, um E-Mail-Benachrichtigungen zu deaktivieren).
+
+Template: vdr-rectools/timer
+Type: boolean
+Default: true
+Description: Nächtlichen Auto-Scan aktivieren?
+ Soll das Systemd-Timer-Modul aktiviert werden? Das Skript sucht dann 
+ jede Nacht um 03:00 Uhr nach neuen Importen oder Fragmenten.
+
+Template: vdr-rectools/subtitles
+Type: boolean
+Default: true
+Description: Fehlende Untertitel online suchen?
+ Sollen beim MKV-Import fehlende deutsche Untertitel (SRT) 
+ automatisch via Subliminal heruntergeladen und integriert werden?

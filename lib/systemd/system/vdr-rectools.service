@@ -1,0 +1,9 @@
+[Unit]
+Description=VDR-Rectools Nightly Task
+After=vdr.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/vdr-rectools cron
+Nice=19
+IOSchedulingClass=idle

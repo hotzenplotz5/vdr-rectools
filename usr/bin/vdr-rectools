@@ -1,0 +1,85 @@
+#!/bin/bash
+# ==============================================================================
+# vdr-rectools - V1.7.2 (Control Script)
+# Maintainer: Holger Schvestka <hotzenplotz5@gmx.de>
+# Lizenz: GPL-3.0+
+# ==============================================================================
+
+VIDEO_DIR="/srv/vdr/video.00"
+LOG_FILE="/var/log/vdr-rectools.log"
+REPAIR_STAGING="/srv/vdr/repaired_files"
+IMPORT_DIR="/srv/videos-other"
+MAX_FILES=10
+MIN_FREE_GB=20
+AUTO_CLEAN=0
+AUTO_TIMER=1
+AUTO_SUB_DOWNLOAD=1
+SUB_LANG="de"
+PID_FILE="/tmp/vdr-rectools.pid"
+CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
+FUNCTIONS_LIB="/usr/share/vdr-rectools/functions.sh"
+
+[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+if [ ! -f "$FUNCTIONS_LIB" ]; then
+    echo "Bibliothek nicht gefunden: $FUNCTIONS_LIB"
+    exit 1
+fi
+source "$FUNCTIONS_LIB"
+
+case "$1" in
+    start|repair|dryrun|import)
+        MODE="$1"
+        [[ "$1" == "start" ]] && MODE="normal"
+        [[ "$1" == "import" ]] && MODE="normal"
+        if [[ -f "$PID_FILE" ]] && ps -p $(cat "$PID_FILE") > /dev/null; then
+            echo "Läuft bereits."
+        else
+            echo "Modus $1 gestartet (Hintergrund)..."
+            nohup nice -n 19 ionice -c 3 "$0" --daemon "$MODE" >> "$LOG_FILE" 2>&1 &
+        fi
+        ;;
+    --daemon)
+        echo $$ > "$PID_FILE"
+        mkdir -p "$REPAIR_STAGING" "$IMPORT_DIR"
+        run_scan "$2"
+        ;;
+    status)
+        if [[ -f "$PID_FILE" ]]; then
+            echo "Aktiv (PID: $(cat "$PID_FILE"))"
+        else
+            echo "Inaktiv"
+        fi
+        tail -n 10 "$LOG_FILE"
+        ;;
+    stop)
+        if [[ -f "$PID_FILE" ]]; then
+            kill $(cat "$PID_FILE") && rm -f "$PID_FILE"
+        fi
+        ;;
+    repair_single)
+        process_folder "$2" "repair"
+        ;;
+    sync_single)
+        process_folder "$2" "normal"
+        ;;
+    shrink_single)
+        shrink_video "$2/00001.ts"
+        ;;
+    cut_single)
+        apply_vdr_marks "$2"
+        ;;
+    cron)
+        if [[ "$AUTO_TIMER" -eq 1 ]]; then
+            mkdir -p "$REPAIR_STAGING" "$IMPORT_DIR"
+            run_scan "normal" >> "$LOG_FILE" 2>&1
+        fi
+        ;;
+    /*)
+        if [[ "$AUTO_CLEAN" -eq 1 ]]; then
+            process_folder "$1" "normal"
+        fi
+        ;;
+    *)
+        echo "vdr-rectools {start|repair|import|dryrun|status|stop|cron}"
+        ;;
+esac

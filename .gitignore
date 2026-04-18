@@ -1,0 +1,14 @@
+# Debian Build Artefakte
+*.deb
+*.tar.gz
+*.tar.xz
+*.dsc
+*.changes
+*.buildinfo
+.pc/
+obj-*/
+debian/.debhelper/
+debian/vdr-rectools/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
