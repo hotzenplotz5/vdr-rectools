@@ -70,7 +70,7 @@ process_import() {
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
 
     mkdir -p "$STAGING_REC"
-    ffmpeg -y -i "$SOURCE_FILE" -c copy -copyts -fflags +genpts -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+    ffmpeg -y -i "$SOURCE_FILE" -map 0:v -map 0:a -map -0:a:m:disposition:visual_impaired? -c copy -copyts -fflags +genpts -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
 
     if [ -f "$STAGING_REC/00001.ts" ]; then
         echo "T $CLEAN_NAME" > "$STAGING_REC/info"
