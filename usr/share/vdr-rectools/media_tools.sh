@@ -37,11 +37,18 @@ extract_images() {
     local VIDEO_FILE="$1"
     local DEST_DIR="$(dirname "$VIDEO_FILE")"
     
-    # Versuchen, ein eingebettetes Cover (Video-Stream 1 oder höher) zu finden
-    ffmpeg -i "$VIDEO_FILE" -map 0:v -map -0:V -c copy "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
+    # 1. Versuch: Eingebettetes Cover extrahieren (falls vorhanden)
+    ffmpeg -y -i "$VIDEO_FILE" -map 0:v -map -0:V -c copy "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
     
-    # Falls kein Cover eingebettet ist, erstellen wir einen Screenshot bei Sekunde 10 als Fanart
-    if [ ! -f "$DEST_DIR/fanart.jpg" ]; then
-        ffmpeg -ss 00:00:10 -i "$VIDEO_FILE" -vframes 1 -q:v 2 "$DEST_DIR/fanart.jpg" </dev/null >/dev/null 2>&1
+    # 2. Versuch: Falls poster.jpg fehlt oder zu klein ist (< 10kb), Snapshot mit FFmpeg 8.x Syntax
+    if [ ! -f "$DEST_DIR/poster.jpg" ] || [ $(stat -c%s "$DEST_DIR/poster.jpg" 2>/dev/null || echo 0) -lt 10000 ]; then
+        # -update 1 sorgt dafür, dass ein einzelnes Bild geschrieben wird
+        ffmpeg -y -ss 00:05:00 -i "$VIDEO_FILE" -frames:v 1 -update 1 -q:v 2 "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
+    fi
+
+    # Fanart kopieren, falls poster.jpg erfolgreich war
+    if [ -f "$DEST_DIR/poster.jpg" ]; then
+        cp "$DEST_DIR/poster.jpg" "$DEST_DIR/fanart.jpg"
+        chown vdr:vdr "$DEST_DIR/poster.jpg" "$DEST_DIR/fanart.jpg" 2>/dev/null || true
     fi
 }
