@@ -14,6 +14,13 @@ get_audio_map() {
 
 shrink_video() {
     local OUT="${1%.ts}_HEVC.ts"
+
+    # Prüfen, ob die Datei bereits in H.265 vorliegt
+    local CURRENT_CODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$1" 2/dev/null)
+    if [[ "$CURRENT_CODEC" == "hevc" ]]; then
+        echo "[$(date +%T)] SHRINK: $1 ist bereits in H.265 (HEVC). Abbruch." >> "/var/log/vdr-rectools.log"
+        return 0
+    fi
     echo "Starte H.265 Kompression für $1" >> "/var/log/vdr-rectools.log"
     ffmpeg -y -i "$1" -c:v libx265 -crf 23 -preset medium -c:a copy "$OUT" </dev/null >/dev/null 2>&1
     if [ -f "$OUT" ]; then
