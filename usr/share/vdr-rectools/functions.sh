@@ -12,10 +12,10 @@ send_mail() {
     [[ -z "$RECIPIENT" ]] && return
 
     local TMP_LOG="/tmp/rectools_mail_log.txt"
-    tail -n 100 "$LOG_PATH" > "$TMP_LOG"
+    tail -n 50 "$LOG_PATH" > "$TMP_LOG"
     
     local LOG_CONTENT=$(cat "$TMP_LOG")
-    echo -e "$BODY\n\n--- Letzte 100 Zeilen aus dem Log ---\n$LOG_CONTENT" | \
+    echo -e "$BODY\n\n--- Letzte Log-Eintraege ---\n$LOG_CONTENT" | \
     mail -s "VDR-Rectools: $SUBJECT" "$RECIPIENT"
     
     rm -f "$TMP_LOG"
@@ -132,7 +132,7 @@ process_folder() {
 
         ffmpeg -y -threads 1 -fflags +genpts -i "$NEW_VDR_FILE" $A_MAP -copyts -muxdelay 0 "$TARGET_FILE" </dev/null >/dev/null 2>&1
 
-        if [ -f "$TARGET_FILE" ] && ffprobe -v error "$TARGET_FILE" 2>/dev/null; then
+        if [ -f "$TARGET_FILE" ]; then
             local ORIG_SIZE=$(stat -c%s "$NEW_VDR_FILE")
             local NEW_SIZE=$(stat -c%s "$TARGET_FILE")
             local MIN_SIZE=$((ORIG_SIZE * 98 / 100))
@@ -141,6 +141,9 @@ process_folder() {
                 mv "$TARGET_FILE" "$NEW_VDR_FILE"
                 /usr/bin/vdr --genindex=. >/dev/null 2>&1
                 send_mail "Die Aufnahme '$FILM_TITLE' wurde erfolgreich repariert." "Reparatur erfolgreich: $FILM_TITLE"
+            else
+                echo "[FEHLER] Reparatur bei $FILM_TITLE fehlgeschlagen. Zieldatei zu klein." >> "$LOG_FILE"
+                rm -f "$TARGET_FILE"
             fi
         fi
     fi
@@ -156,7 +159,6 @@ process_folder() {
             extract_subtitles "$NEW_VDR_FILE"
         fi
         
-        # Das hier muss immer laufen:
         extract_images "$NEW_VDR_FILE"
 
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"

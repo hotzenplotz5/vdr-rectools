@@ -4,7 +4,7 @@ Section: utils
 Priority: optional
 Architecture: all
 Maintainer: Holger Schvestka <hotzenplotz5@gmx.de>
-Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal
+Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo
 Conflicts: vdr-reccleaner
 Replaces: vdr-reccleaner
 Description: VDR Media-Suite: Join, Import, Repair, Auto-Subtitles & Systemd.
