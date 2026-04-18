@@ -8,21 +8,16 @@ send_mail() {
     local SUBJECT="$2"
     local LOG_PATH="/var/log/vdr-rectools.log"
     local RECIPIENT="$MAIL_NOTIFY"
-    
+
     [[ -z "$RECIPIENT" ]] && return
 
     local TMP_LOG="/tmp/rectools_mail_log.txt"
     tail -n 100 "$LOG_PATH" > "$TMP_LOG"
-    local LINE_COUNT=$(wc -l < "$TMP_LOG")
-
-    if [ "$LINE_COUNT" -gt 50 ]; then
-        echo -e "$BODY\n\nDas Log war zu umfangreich und wurde als Datei angehaengt." | \
-        mail -s "VDR-Rectools: $SUBJECT" -a "$TMP_LOG" "$RECIPIENT"
-    else
-        local LOG_CONTENT=$(cat "$TMP_LOG")
-        echo -e "$BODY\n\n--- Log-Auszug ---\n$LOG_CONTENT" | \
-        mail -s "VDR-Rectools: $SUBJECT" "$RECIPIENT"
-    fi
+    
+    local LOG_CONTENT=$(cat "$TMP_LOG")
+    echo -e "$BODY\n\n--- Letzte 100 Zeilen aus dem Log ---\n$LOG_CONTENT" | \
+    mail -s "VDR-Rectools: $SUBJECT" "$RECIPIENT"
+    
     rm -f "$TMP_LOG"
 }
 
@@ -45,7 +40,7 @@ process_import() {
     local FILENAME=$(basename "$SOURCE_FILE")
     local FILM_TITLE="${FILENAME%.*}"
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
-    
+
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     if [[ "$REL_PATH" != "." ]]; then
@@ -62,9 +57,9 @@ process_import() {
         echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"
         return 0
     fi
-    
+
     check_disk_space || return 1
-    
+
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
     local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
@@ -90,12 +85,12 @@ process_import() {
 
         mv "$STAGING_REC" "$FINAL_DEST"
         chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
-        
+
         process_folder "$FINAL_DEST" "normal"
-        
+
         touch "$VIDEO_DIR/.update"
         rm -f "$SOURCE_FILE"
-        
+
         send_mail "Der Film/Die Serie '$CLEAN_NAME' wurde erfolgreich importiert." "Import abgeschlossen: $CLEAN_NAME"
         return 0
     fi
@@ -105,18 +100,18 @@ process_import() {
 process_folder() {
     local REC_DIR="$1"
     local MODE="$2"
-    
+
     if [[ ! -d "$REC_DIR" ]]; then
         return 1
     fi
-    
+
     cd "$REC_DIR" || return 1
-    
+
     local FILM_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[^a-zA-Z0-9._-]/_/g')
     if [[ -z "$FILM_TITLE" ]]; then
         FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     fi
-    
+
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
     local NEW_VDR_FILE="00001.ts"
     local PLEX_LINK="$CLEAN_NAME.ts"
@@ -134,31 +129,18 @@ process_folder() {
         check_disk_space || return 1
         local TARGET_FILE="$REPAIR_STAGING/${FILM_TITLE}_REPAIRED.ts"
         local A_MAP=$(get_audio_map "$NEW_VDR_FILE")
-        
+
         ffmpeg -y -threads 1 -fflags +genpts -i "$NEW_VDR_FILE" $A_MAP -copyts -muxdelay 0 "$TARGET_FILE" </dev/null >/dev/null 2>&1
-        
+
         if [ -f "$TARGET_FILE" ] && ffprobe -v error "$TARGET_FILE" 2>/dev/null; then
-            
-            # Historisches Feature: Validierung Dateigröße (Min 98%)
             local ORIG_SIZE=$(stat -c%s "$NEW_VDR_FILE")
             local NEW_SIZE=$(stat -c%s "$TARGET_FILE")
             local MIN_SIZE=$((ORIG_SIZE * 98 / 100))
-            
+
             if [ "$NEW_SIZE" -ge "$MIN_SIZE" ]; then
-                # Historisches Feature: MD5 Validierung beim Austausch
-                local MD5_TARGET=$(md5sum "$TARGET_FILE" | awk '{print $1}')
                 mv "$TARGET_FILE" "$NEW_VDR_FILE"
-                local MD5_NEW=$(md5sum "$NEW_VDR_FILE" | awk '{print $1}')
-                
-                if [ "$MD5_TARGET" == "$MD5_NEW" ]; then
-                    /usr/bin/vdr --genindex=. >/dev/null 2>&1
-                    send_mail "Die Aufnahme '$FILM_TITLE' wurde erfolgreich repariert." "Reparatur erfolgreich: $FILM_TITLE"
-                else
-                    echo "[FEHLER] MD5 Checksummen-Abweichung bei $FILM_TITLE!" >> "$LOG_FILE"
-                fi
-            else
-                echo "[FEHLER] Reparatur bei $FILM_TITLE fehlgeschlagen. Zieldatei ist zu klein (< 98%)." >> "$LOG_FILE"
-                rm -f "$TARGET_FILE"
+                /usr/bin/vdr --genindex=. >/dev/null 2>&1
+                send_mail "Die Aufnahme '$FILM_TITLE' wurde erfolgreich repariert." "Reparatur erfolgreich: $FILM_TITLE"
             fi
         fi
     fi
@@ -167,14 +149,16 @@ process_folder() {
         if [[ ! -L "$PLEX_LINK" ]]; then
             ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
         fi
-        
+
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             ln -sf "00001.srt" "${PLEX_LINK%.ts}.srt"
         elif [[ ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             extract_subtitles "$NEW_VDR_FILE"
-            extract_images "$NEW_VDR_FILE"
         fi
         
+        # Das hier muss immer laufen:
+        extract_images "$NEW_VDR_FILE"
+
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"
         if [[ ! -f "$NFO_FILE" && -f "info" ]]; then
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
@@ -200,7 +184,7 @@ run_scan() {
             ((COUNT++))
         fi
     done
-    
+
     while read -r DIR; do
         if [[ $COUNT -ge $MAX_FILES ]]; then
             break
@@ -209,7 +193,7 @@ run_scan() {
             ((COUNT++))
         fi
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
-    
+
     cleanup_empty_dirs
     rm -f "$PID_FILE"
 }
