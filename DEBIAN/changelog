@@ -1,3 +1,13 @@
+vdr-rectools (1.7.3) unstable; urgency=low
+
+  * Umstellung auf dynamische Konfiguration via debconf/postinst.
+  * Neuer Konfigurationspfad: /etc/vdr/conf.d/vdr-rectools.conf.
+  * Manpage aktualisiert und Pfade angepasst.
+  * Optimierung des Audio-Mappings und Log-Handlings.
+  * Korrektur der Snapshot-Logik in den Media-Tools.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 19 Apr 2026 09:15:00 +0200
+
 vdr-rectools (1.7.2) unstable; urgency=low
 
   * NEW: Automatische Untertitel-Suche via OpenSubtitles/Subliminal
