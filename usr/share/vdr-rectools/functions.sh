@@ -36,14 +36,12 @@ send_mail() {
     mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY"
 }
 
-# --- STUFE 1: Schneller Fix (Header & Bitstream) ---
+# --- NEU: STUFE 1 (Schneller Fix) ---
 sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
     local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE")
-
     echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
-
     if [[ "$codec" == "h264" ]]; then
         ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts -avoid_negative_ts make_zero "$tmp_file" </dev/null >/dev/null 2>&1
     elif [[ "$codec" == "hevc" ]]; then
@@ -51,7 +49,6 @@ sanitize_stream() {
     else
         ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts "$tmp_file" </dev/null >/dev/null 2>&1
     fi
-
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         return 0
@@ -59,22 +56,15 @@ sanitize_stream() {
     return 1
 }
 
-# --- STUFE 2: Deep Repair (Nuclear Option - Force Sync) ---
+# --- NEU: STUFE 2 (Deep Repair - Nuclear) ---
 recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
-
-    ffmpeg -y -i "$FILE" \
-        -c:v libx264 -preset superfast -crf 22 \
-        -vsync cfr -r 25 \
-        -c:a aac -b:a 192k \
-        -fflags +genpts+igndts -avoid_negative_ts make_zero \
-        -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
-
+    ffmpeg -y -i "$FILE" -c:v libx264 -preset superfast -crf 22 -vsync cfr -r 25 -c:a aac -b:a 192k -fflags +genpts+igndts -avoid_negative_ts make_zero -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
-        echo "[$(date +%T)] Deep-Repair erfolgreich abgeschlossen" >> "$LOG_FILE"
+        echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
         return 0
     fi
     return 1
@@ -85,7 +75,7 @@ smart_repair() {
     sanitize_stream "$TARGET"
     local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TARGET" | cut -d. -f1)
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
-        echo "[$(date +%T)] Aufnahme-Dauer ($duration s) unplausibel. Triggere Deep-Repair..." >> "$LOG_FILE"
+        echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
     fi
 }
@@ -102,7 +92,6 @@ process_folder() {
     local MODE="$2"
     [[ ! -d "$REC_DIR" ]] && return 1
     cd "$REC_DIR" || return 1
-
     local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[^a-zA-Z0-9._-]/_/g')
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
@@ -111,7 +100,6 @@ process_folder() {
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
         local STAGING_REC="$REPAIR_STAGING/${MODE}_$FILM_TITLE"
         mkdir -p "$STAGING_REC"
-
         case "$MODE" in
             repair)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
@@ -126,7 +114,6 @@ process_folder() {
                 ffmpeg -y -i "$STAGING_REC/joined.ts" -c:v libx265 -crf 23 -c:a copy -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
                 ;;
         esac
-
         if [ -f "$STAGING_REC/00001.ts" ]; then
             cp info "$STAGING_REC/" 2>/dev/null
             /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
@@ -139,10 +126,8 @@ process_folder() {
         fi
     fi
 
-    # --- PLEX / KODI SYNC ---
     local NEW_VDR_FILE="00001.ts"
     local PLEX_LINK="$CLEAN_NAME.ts"
-
     if [[ -f "$NEW_VDR_FILE" ]]; then
         [[ ! -L "$PLEX_LINK" ]] && ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
@@ -166,39 +151,40 @@ process_import() {
     local FILENAME=$(basename "$SOURCE_FILE")
     local FILM_TITLE="${FILENAME%.*}"
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
-
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
-
     local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
     if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ ]]; then
         echo "[$(date +%T)] IMPORT ABGELEHNT: Codec $VCODEC in $FILENAME" >> "$LOG_FILE"
         return 1
     fi
-
+    [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
-
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
     local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
-
     mkdir -p "$STAGING_REC"
     local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
     ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
-
     if [ -f "$STAGING_REC/joined.ts" ]; then
         smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
         echo "T $CLEAN_NAME" > "$STAGING_REC/info"
         echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
+        if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
+            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
+            local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
+            [[ -f "$DOWNLOADED_SRT" ]] && mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+        fi
         mkdir -p "$(dirname "$FINAL_DEST")"
         mv "$STAGING_REC" "$FINAL_DEST"
         chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
         process_folder "$FINAL_DEST" "normal"
         touch "$VIDEO_DIR/.update"
         rm -f "$SOURCE_FILE"
+        send_mail "Der Film '$CLEAN_NAME' wurde erfolgreich importiert." "Import erfolgreich: $CLEAN_NAME"
         return 0
     fi
     return 1
