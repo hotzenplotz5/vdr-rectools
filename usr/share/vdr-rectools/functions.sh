@@ -3,7 +3,7 @@
 # vdr-rectools - Core Functions (V1.7.3)
 # ==============================================================================
 
-# 1. HARDCODED DEFAULTS (Sicherheitsnetz)
+# 1. HARDCODED DEFAULTS
 VIDEO_DIR="/srv/vdr/video"
 IMPORT_DIR="/srv/vdr/import"
 REPAIR_STAGING="/srv/vdr/tmp/staging"
@@ -14,7 +14,7 @@ MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
 
-# 2. CONFIG EINLESEN (Der neue Standard-Pfad via Debconf)
+# 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
 if [ -f "$CONFIG_FILE" ]; then
     . "$CONFIG_FILE"
@@ -32,8 +32,7 @@ send_mail() {
     local BODY="$1"
     local SUBJECT="$2"
     [[ -z "$MAIL_NOTIFY" ]] && return
-
-    echo -e "$BODY\n\n--- Letzte Log-Eintraege ---\n$(tail -n 20 $LOG_FILE)" | \
+    echo -e "$BODY\n\n--- Letzte Log-Eintraege ---\n$(tail -n 20 "$LOG_FILE" 2>/dev/null)" | \
     mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY"
 }
 
@@ -44,65 +43,6 @@ check_disk_space() {
     return 0
 }
 
-process_import() {
-    local SOURCE_FILE="$1"
-    local MODE="$2"
-    local FILENAME=$(basename "$SOURCE_FILE")
-    local FILM_TITLE="${FILENAME%.*}"
-    local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
-
-    # REL_PATH Logik für Unterordner im Import
-    local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
-    local TARGET_SUBDIR=""
-    [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
-
-    # Codec Check via ffprobe
-    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
-    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ ]]; then
-        echo "[$(date +%T)] IMPORT ABGELEHNT: Codec $VCODEC in $FILENAME" >> "$LOG_FILE"
-        return 1
-    fi
-
-    [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
-    
-    check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz für $FILENAME" >> "$LOG_FILE"; return 1; }
-
-    local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
-    local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
-    local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
-
-    mkdir -p "$STAGING_REC"
-    
-    # Audio Params holen und remuxen
-    local AUDIO_PARAMS=$(get_audio_map)
-    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
-
-    if [ -f "$STAGING_REC/00001.ts" ]; then
-        echo "T $CLEAN_NAME" > "$STAGING_REC/info"
-        echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
-        
-        /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
-        
-        if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
-            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
-            local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
-            [[ -f "$DOWNLOADED_SRT" ]] && mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
-        fi
-
-        mkdir -p "$(dirname "$FINAL_DEST")"
-        mv "$STAGING_REC" "$FINAL_DEST"
-        chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
-
-        process_folder "$FINAL_DEST" "normal"
-        touch "$VIDEO_DIR/.update"
-        rm -f "$SOURCE_FILE"
-        
-        send_mail "Der Film '$CLEAN_NAME' wurde erfolgreich importiert." "Import erfolgreich: $CLEAN_NAME"
-        return 0
-    fi
-    return 1
-}
-
 process_folder() {
     local REC_DIR="$1"
     local MODE="$2"
@@ -111,21 +51,45 @@ process_folder() {
 
     local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[^a-zA-Z0-9._-]/_/g')
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
-
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
+
+    # --- REPARATUR / SCHNITT / SHRINK LOGIK ---
+    if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" ]]; then
+        echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
+        local STAGING_REC="$REPAIR_STAGING/${MODE}_$FILM_TITLE"
+        mkdir -p "$STAGING_REC"
+
+        case "$MODE" in
+            repair)
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                ffmpeg -y -i "$STAGING_REC/joined.ts" -c copy -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+                ;;
+            cut)
+                /usr/bin/vdr-mvgently "$REC_DIR" "$STAGING_REC" >> "$LOG_FILE" 2>&1
+                ;;
+            shrink)
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                ffmpeg -y -i "$STAGING_REC/joined.ts" -c:v libx265 -crf 23 -c:a copy "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+                ;;
+        esac
+
+        if [ -f "$STAGING_REC/00001.ts" ]; then
+            cp info "$STAGING_REC/" 2>/dev/null
+            /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
+            rm -f 000*.ts index marks 2>/dev/null
+            mv "$STAGING_REC/00001.ts" .
+            mv "$STAGING_REC/index" .
+            [[ -f "$STAGING_REC/marks" ]] && mv "$STAGING_REC/marks" .
+            rm -rf "$STAGING_REC"
+            echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
+        fi
+    fi
+
+    # --- PLEX / KODI SYNC ---
     local NEW_VDR_FILE="00001.ts"
     local PLEX_LINK="$CLEAN_NAME.ts"
 
-    if ls 000[0-9][0-9].ts 2>/dev/null | grep -qv "00001.ts"; then
-        [[ "$MODE" != "dryrun" ]] && {
-            cat $(ls -v 000[0-9][0-9].ts | grep -v "00001.ts") > "00001.ts.tmp"
-            rm 000[0-9][0-9].ts index marks 2>/dev/null
-            mv "00001.ts.tmp" "00001.ts"
-            /usr/bin/vdr --genindex=. >/dev/null 2>&1
-        }
-    fi
-
-    if [[ -f "$NEW_VDR_FILE" && "$MODE" != "dryrun" ]]; then
+    if [[ -f "$NEW_VDR_FILE" ]]; then
         [[ ! -L "$PLEX_LINK" ]] && ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
         
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
@@ -141,15 +105,66 @@ process_folder() {
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
-            chown vdr:vdr "$NFO_FILE" 2>/dev/null || true
         fi
     fi
+}
+
+process_import() {
+    local SOURCE_FILE="$1"
+    local MODE="$2"
+    local FILENAME=$(basename "$SOURCE_FILE")
+    local FILM_TITLE="${FILENAME%.*}"
+    local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+
+    local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
+    local TARGET_SUBDIR=""
+    [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
+
+    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
+    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ ]]; then
+        echo "[$(date +%T)] IMPORT ABGELEHNT: Codec $VCODEC in $FILENAME" >> "$LOG_FILE"
+        return 1
+    fi
+
+    [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
+    
+    check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz für $FILENAME" >> "$LOG_FILE"; return 1; }
+
+    local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
+    local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
+    local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
+
+    mkdir -p "$STAGING_REC"
+    local AUDIO_PARAMS=$(get_audio_map)
+    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+
+    if [ -f "$STAGING_REC/00001.ts" ]; then
+        echo "T $CLEAN_NAME" > "$STAGING_REC/info"
+        echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
+        /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
+        
+        if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
+            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
+            local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
+            [[ -f "$DOWNLOADED_SRT" ]] && mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+        fi
+
+        mkdir -p "$(dirname "$FINAL_DEST")"
+        mv "$STAGING_REC" "$FINAL_DEST"
+        chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
+        process_folder "$FINAL_DEST" "normal"
+        touch "$VIDEO_DIR/.update"
+        rm -f "$SOURCE_FILE"
+        send_mail "Der Film '$CLEAN_NAME' wurde erfolgreich importiert." "Import erfolgreich: $CLEAN_NAME"
+        return 0
+    fi
+    return 1
 }
 
 run_scan() {
     local MODE="$1"
     local COUNT=0
-    find "$IMPORT_DIR" -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" \) | while read -r FILE; do
+    find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" \) | while read -r FILE; do
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done
