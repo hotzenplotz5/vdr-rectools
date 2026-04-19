@@ -18,8 +18,6 @@
 
 ## 🛠 Installation
 
-Da das Projekt als natives Debian-Paket strukturiert ist, kann es einfach gebaut und installiert werden:
-
 ```bash
 # Repository klonen
 git clone [https://github.com/hotzenplotz5/vdr-rectools.git](https://github.com/hotzenplotz5/vdr-rectools.git)
@@ -39,8 +37,6 @@ sudo dpkg -i ../vdr-rectools_1.7.3_all.deb
 Die zentrale Konfiguration befindet sich unter:  
 `/etc/vdr/conf.d/vdr-rectools.conf`
 
-Die Datei wird bei der Installation automatisch erstellt oder bei Upgrades um neue Variablen ergänzt.
-
 | Variable | Beschreibung | Standard |
 | :--- | :--- | :--- |
 | **AUTO_START_NIGHT** | Erlaubt den nächtlichen Automatik-Scan (1=An, 0=Aus) | `0` |
@@ -48,44 +44,48 @@ Die Datei wird bei der Installation automatisch erstellt oder bei Upgrades um ne
 | **IMPORT_DIR** | Pfad zu neuen Filmen für den Import | `/srv/video/Filme` |
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
 | **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
-| **SUB_LANG** | Sprache für Untertitel (z.B. de, en) | `de` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
-| **MAX_FILES** | Maximale Anzahl zu verarbeitender Dateien pro Lauf | `10` |
-| **PAUSE_WORK** | Pause zwischen Arbeitsschritten in Sekunden | `30` |
-| **SNAPSHOT_TIME** | Zeitstempel für generierte Vorschaubilder | `00:05:00` |
 
 ---
 
-## 🕹 Bedienung
+## 🕹 Bedienung & Workflows
 
-### Manuelle Steuerung via Terminal
-Das Tool kann jederzeit manuell gestartet werden:
-
-* `vdr-rectools start` - Startet einen sofortigen Scan im Hintergrund.
-* `vdr-rectools status` - Zeigt den aktuellen Status und die letzten Log-Einträge.
-* `vdr-rectools stop` - Beendet laufende Hintergrundprozesse sauber.
-* `vdr-rectools cron` - Simuliert den Timer-Aufruf (beachtet `AUTO_START_NIGHT`).
-
-### Systemd-Timer (Automatik)
-Der Timer ist standardmäßig aktiv, führt den Job aber nur aus, wenn die Konfiguration es zulässt:
+### Einzelfall-Reparatur (Manuell)
+Wenn eine spezifische Aufnahme defekt ist, kann diese gezielt repariert werden, ohne einen Voll-Scan zu starten:
 ```bash
-sudo systemctl status vdr-rectools.timer
+# Syntax: vdr-rectools repair_single <Pfad_zur_Aufnahme>
+vdr-rectools repair_single "/srv/vdr/video.00/Mein_Film/2026-04-19.10.00.1-0.rec"
 ```
+*Das Skript erstellt ein Re-Mux der `.ts`-Dateien, korrigiert die Zeitstempel und stellt sicher, dass die Aufnahme wieder flüssig abspielbar ist.*
 
-### VDR OSD-Integration
-Nach der Installation finden sich im VDR-Menü unter "Befehle" bei den Aufnahmen neue Punkte:
-* **Aufnahme reparieren (Rectools)**
-* **Werbung schneiden (Rectools)**
-* **Platz sparen H.265 (Rectools)**
-* **Plex/Kodi Sync (Rectools)**
+### Globale Steuerung
+* `vdr-rectools start` - Vollständiger Scan (Import & Cleanup) im Hintergrund.
+* `vdr-rectools status` - Zeigt an, ob ein Prozess läuft, die PID und die letzten Log-Zeilen.
+* `vdr-rectools stop` - Bricht eine laufende Hintergrund-Verarbeitung sofort ab.
 
 ---
 
-## 📋 Voraussetzungen
-Das Paket installiert folgende Abhängigkeiten automatisch mit:
-* `vdr`, `ffmpeg`, `bash (>= 4.0)`, `coreutils`, `findutils`
-* `debconf`, `mediainfo`, `subliminal` (für Untertitel)
-* `bsd-mailx | mailx` (für Benachrichtigungen)
+## 📈 Monitoring & Feedback
+
+### Logging
+Alle Aktionen werden detailliert protokolliert. Dies ist die erste Anlaufstelle bei Problemen:
+* **Logfile:** `/var/log/vdr-rectools.log`
+* **Echtzeit-Überwachung:** `tail -f /var/log/vdr-rectools.log`
+
+### E-Mail-Benachrichtigungen
+Falls `MAIL_NOTIFY` konfiguriert ist, versendet das System nach Abschluss eines automatischen Scans oder einer Reparatur eine Zusammenfassung. Diese enthält:
+* **Status:** Erfolg oder Fehlermeldung des Prozesses.
+* **Statistik:** Anzahl der importierten Filme und reparierten Aufnahmen.
+* **Speicherplatz:** Aktueller Füllstand der Video-Partition.
+* **Fehler-Details:** Falls FFmpeg oder andere Tools auf Probleme gestoßen sind.
+
+---
+
+## 🕹 VDR OSD-Integration
+Nach der Installation finden sich im VDR-Menü unter "Befehle" (innerhalb einer Aufnahme) folgende Optionen:
+* **Aufnahme reparieren (Rectools):** Startet `repair_single` für die aktuelle Aufnahme.
+* **Werbung schneiden (Rectools):** Schneidet die Aufnahme basierend auf gesetzten Marken.
+* **Platz sparen H.265 (Rectools):** Konvertiert die aktuelle Aufnahme nach HEVC.
 
 ---
 
