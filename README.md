@@ -6,13 +6,26 @@
 
 ## 🚀 Hauptfunktionen
 
-* **Automatischer Import:** Überwacht Verzeichnisse und importiert externe Aufnahmen in die VDR-Struktur.
+* **MKV-to-VDR Import:** Verwandelt externe MKV-Dateien vollautomatisch in abspielbare VDR-Aufnahmen.
 * **Reparatur-Modus:** Repariert defekte Aufnahmen (z.B. nach Stream-Fehlern) durch Re-Muxing via FFmpeg.
 * **Werbung schneiden:** Wendet VDR-Schnittmarken direkt auf die Dateien an (verlustfrei).
 * **H.265 Shrink:** Konvertiert Aufnahmen platzsparend nach HEVC (H.265).
 * **Nacht-Modus:** Ein intelligenter Systemd-Timer führt Wartungsarbeiten nur dann aus, wenn du es in der Config erlaubst.
-* **Debconf-Integration:** Einfache Konfiguration der wichtigsten Parameter während der Installation.
-* **OSD-Befehle:** Alle Funktionen sind direkt über das VDR-Menü "Befehle" erreichbar (via systemd-drop-in).
+* **OSD-Befehle:** Alle Funktionen sind direkt über das VDR-Menü "Befehle" erreichbar.
+
+---
+
+## 📂 Der MKV-Import Workflow (Highlight)
+
+Dies ist die Kernfunktion für die Integration externer Medien. Das Tool überwacht den in der Config definierten `IMPORT_DIR`.
+
+### Was passiert beim Import?
+Wenn du eine `.mkv` Datei in den Import-Ordner legst und `vdr-rectools import` startest (oder der Timer läuft):
+1. **Validierung:** Das Tool prüft via `mediainfo`, ob die Datei valide Video-Streams enthält.
+2. **Struktur-Erstellung:** Es wird ein VDR-konformer Aufnahme-Ordner erstellt (z.B. `Filmname/2026-04-19.10.00.1-0.rec`).
+3. **Re-Muxing:** Die MKV wird ohne Qualitätsverlust (Stream-Copy) in eine `.ts` Datei umgewandelt.
+4. **Metadaten-Generierung:** Es wird automatisch eine `info`-Datei generiert, damit der VDR Titel, Länge und technische Details im Menü anzeigt.
+5. **Bereinigung:** Nach erfolgreichem Import wird die ursprüngliche MKV-Datei gelöscht (konfigurierbar), um Platz zu sparen.
 
 ---
 
@@ -39,56 +52,15 @@ Die zentrale Konfiguration befindet sich unter:
 
 | Variable | Beschreibung | Standard |
 | :--- | :--- | :--- |
+| **IMPORT_DIR** | Pfad, in den MKV-Filme zum Import kopiert werden | `/srv/video/Filme` |
 | **AUTO_START_NIGHT** | Erlaubt den nächtlichen Automatik-Scan (1=An, 0=Aus) | `0` |
 | **AUTO_TIMER** | Genereller Schalter für Timer-Aktionen | `0` |
-| **IMPORT_DIR** | Pfad zu neuen Filmen für den Import | `/srv/video/Filme` |
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
-| **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
 
 ---
 
 ## 🕹 Bedienung & Workflows
 
-### Einzelfall-Reparatur (Manuell)
-Wenn eine spezifische Aufnahme defekt ist, kann diese gezielt repariert werden, ohne einen Voll-Scan zu starten:
-```bash
-# Syntax: vdr-rectools repair_single <Pfad_zur_Aufnahme>
-vdr-rectools repair_single "/srv/vdr/video.00/Mein_Film/2026-04-19.10.00.1-0.rec"
-```
-*Das Skript erstellt ein Re-Mux der `.ts`-Dateien, korrigiert die Zeitstempel und stellt sicher, dass die Aufnahme wieder flüssig abspielbar ist.*
-
 ### Globale Steuerung
-* `vdr-rectools start` - Vollständiger Scan (Import & Cleanup) im Hintergrund.
-* `vdr-rectools status` - Zeigt an, ob ein Prozess läuft, die PID und die letzten Log-Zeilen.
-* `vdr-rectools stop` - Bricht eine laufende Hintergrund-Verarbeitung sofort ab.
-
----
-
-## 📈 Monitoring & Feedback
-
-### Logging
-Alle Aktionen werden detailliert protokolliert. Dies ist die erste Anlaufstelle bei Problemen:
-* **Logfile:** `/var/log/vdr-rectools.log`
-* **Echtzeit-Überwachung:** `tail -f /var/log/vdr-rectools.log`
-
-### E-Mail-Benachrichtigungen
-Falls `MAIL_NOTIFY` konfiguriert ist, versendet das System nach Abschluss eines automatischen Scans oder einer Reparatur eine Zusammenfassung. Diese enthält:
-* **Status:** Erfolg oder Fehlermeldung des Prozesses.
-* **Statistik:** Anzahl der importierten Filme und reparierten Aufnahmen.
-* **Speicherplatz:** Aktueller Füllstand der Video-Partition.
-* **Fehler-Details:** Falls FFmpeg oder andere Tools auf Probleme gestoßen sind.
-
----
-
-## 🕹 VDR OSD-Integration
-Nach der Installation finden sich im VDR-Menü unter "Befehle" (innerhalb einer Aufnahme) folgende Optionen:
-* **Aufnahme reparieren (Rectools):** Startet `repair_single` für die aktuelle Aufnahme.
-* **Werbung schneiden (Rectools):** Schneidet die Aufnahme basierend auf gesetzten Marken.
-* **Platz sparen H.265 (Rectools):** Konvertiert die aktuelle Aufnahme nach HEVC.
-
----
-
-## 📄 Lizenz & Maintainer
-GPL-3.0+  
-Maintainer: **Holger Schvestka** <hotzenplotz5@gmx.de>
+* `vdr-rectools import` - Startet gezielt den Scan des `IMPORT_DIR
