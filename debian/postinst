@@ -72,9 +72,10 @@ EOFF
 fi
 
 # 5. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
-mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files
-chown -R vdr:vdr /srv/vdr/tmp /srv/vdr/repaired_files
-chmod -R 775 /srv/vdr/tmp /srv/vdr/repaired_files
+# Erstellt staging und repaired_files, korrigiert Rechte für video.00
+mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files /srv/vdr/video.00
+chown -R vdr:vdr /srv/vdr/tmp /srv/vdr/repaired_files /srv/vdr/video.00
+chmod -R 775 /srv/vdr/tmp /srv/vdr/repaired_files /srv/vdr/video.00
 
 # Logfile für vdr-user schreibbar machen
 touch /var/log/vdr-rectools.log
