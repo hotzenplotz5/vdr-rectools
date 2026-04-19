@@ -56,12 +56,20 @@ sanitize_stream() {
     return 1
 }
 
-# --- NEU: STUFE 2 (Deep Repair - Nuclear) ---
+# --- NEU: STUFE 2 (Deep Repair - Nuclear Option) ---
 recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
-    ffmpeg -y -i "$FILE" -c:v libx264 -preset superfast -crf 22 -vsync cfr -r 25 -c:a aac -b:a 192k -fflags +genpts+igndts -avoid_negative_ts make_zero -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
+
+    # DER RICHTIGE AUFRUF (NUCLEAR):
+    ffmpeg -y -i "$FILE" \
+        -c:v libx264 -preset superfast -crf 22 \
+        -vsync cfr -r 25 \
+        -c:a aac -b:a 192k \
+        -fflags +genpts+igndts -avoid_negative_ts make_zero \
+        -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
+
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
@@ -69,7 +77,6 @@ recode_stream() {
     fi
     return 1
 }
-
 smart_repair() {
     local TARGET="$1"
     sanitize_stream "$TARGET"
