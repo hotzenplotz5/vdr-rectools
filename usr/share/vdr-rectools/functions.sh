@@ -91,13 +91,13 @@ process_folder() {
 
     if [[ -f "$NEW_VDR_FILE" ]]; then
         [[ ! -L "$PLEX_LINK" ]] && ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
-        
+
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             ln -sf "00001.srt" "${PLEX_LINK%.ts}.srt"
         elif [[ ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             extract_subtitles "$NEW_VDR_FILE"
         fi
-        
+
         extract_images "$NEW_VDR_FILE"
 
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"
@@ -127,7 +127,7 @@ process_import() {
     fi
 
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
-    
+
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz für $FILENAME" >> "$LOG_FILE"; return 1; }
 
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
@@ -135,14 +135,16 @@ process_import() {
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
 
     mkdir -p "$STAGING_REC"
-    local AUDIO_PARAMS=$(get_audio_map)
+    
+    # PERFEKTION: Übergabe der Quelldatei an die Mapping-Funktion
+    local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
     ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
 
     if [ -f "$STAGING_REC/00001.ts" ]; then
         echo "T $CLEAN_NAME" > "$STAGING_REC/info"
         echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
-        
+
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
             subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
             local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
@@ -168,7 +170,7 @@ run_scan() {
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done
-    
+
     while read -r DIR; do
         process_folder "$DIR" "$MODE"
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
