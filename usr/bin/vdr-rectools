@@ -75,25 +75,30 @@ case "$1" in
         fi
         ;;
 
-    repair_single)
+repair_single)
         # Direktaufruf (meist via OSD)
         process_folder "$2" "repair"
+        chown -R vdr:vdr "$2" && svdrpsend UPDB
         ;;
 
     sync_single)
         # Direktaufruf (meist via OSD)
         process_folder "$2" "normal"
+        chown -R vdr:vdr "$2" && svdrpsend UPDB
         ;;
 
     shrink_single)
         # Direktaufruf (meist via OSD)
         shrink_video "$2/00001.ts"
+        chown -R vdr:vdr "$2" && svdrpsend UPDB
         ;;
 
     cut_single)
         # Direktaufruf (meist via OSD)
         apply_vdr_marks "$2"
+        chown -R vdr:vdr "$2" && svdrpsend UPDB
         ;;
+
 
     cron)
         # Aufruf durch systemd-timer
