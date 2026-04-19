@@ -1,0 +1,59 @@
+cat << 'EOF' > usr/share/man/man1/vdr-rectools.1
+.TH VDR-RECTOOLS 1 "2026-04-19" "V1.7.3" "vdr-rectools"
+.SH NAME
+vdr-rectools \- Import, Reparatur und Nachbearbeitung von VDR-Aufnahmen
+.SH SYNOPSIS
+.B vdr-rectools
+[ \fICOMMAND\fR ] [ \fIOPTIONS\fR ]
+.SH DESCRIPTION
+\fBvdr-rectools\fR ist eine Skriptsammlung zur automatisierten Nachbearbeitung von VDR (Video Disk Recorder) Aufnahmen. Es unterstuetzt den automatischen Import von externen Videodateien, das Schneiden von Werbung, die Konvertierung in platzsparende H.265 (HEVC) Formate, den Download von Untertiteln sowie die Synchronisation fuer Plex oder Kodi.
+.SH COMMANDS
+Die folgenden Befehle koennen direkt im Terminal oder ueber das VDR-OSD (reccmds.conf) aufgerufen werden:
+.TP
+.B repair_single
+Repariert die Index-Dateien einer einzelnen Aufnahme und stellt die VDR-Struktur wieder her.
+.TP
+.B cut_single
+Startet den automatischen Werbeschnitt fuer eine Aufnahme basierend auf vorhandenen Marks.
+.TP
+.B shrink_single
+Konvertiert die Aufnahme mittels FFmpeg in das H.265/HEVC-Format, um massiv Speicherplatz zu sparen.
+.TP
+.B sync_single
+Erstellt NFO-Dateien, extrahiert Metadaten sowie Poster und synchronisiert die Aufnahme fuer externe Media-Center wie Plex oder Kodi.
+.SH CONFIGURATION
+Die zentrale Konfigurationsdatei wird durch das Paket-Setup (Debconf) generiert und liegt unter:
+.br
+\fB/etc/vdr/conf.d/vdr-rectools.conf\fR
+.SH VARIABLES
+Folgende Variablen koennen in der Konfigurationsdatei definiert und angepasst werden:
+.TP
+.B IMPORT_DIR
+Verzeichnis, aus dem neue Videos in das VDR-System importiert werden (Standard: /srv/videos-other).
+.TP
+.B MAX_FILES
+Maximale Anzahl an Dateien, die in einem Durchlauf verarbeitet werden (Standard: 10).
+.TP
+.B MIN_FREE_GB
+Minimale freie Festplattenkapazitaet in GB, bevor der Importvorgang gestoppt wird (Standard: 20).
+.TP
+.B SNAPSHOT_TIME
+Zeitstempel fuer die Poster-Extraktion per FFmpeg, falls kein externes Cover vorliegt (Standard: 00:05:00).
+.TP
+.B AUTO_SUB_DOWNLOAD
+Automatischer Download von Untertiteln via Subliminal (1 = Aktiviert, 0 = Deaktiviert).
+.TP
+.B SUB_LANG
+Sprache fuer den Untertitel-Download (Standard: de).
+.TP
+.B MAIL_NOTIFY
+E-Mail-Adresse fuer Benachrichtigungen nach erfolgreichem Import oder aufgetretenen Fehlern.
+.TP
+.B AUTO_CLEAN
+Automatische Bereinigung von temporaeren Dateien nach der Verarbeitung (1 = Aktiviert, 0 = Deaktiviert).
+.TP
+.B AUTO_TIMER
+Aktiviert die zeitgesteuerte Verarbeitung im Hintergrund ueber systemd-timer (1 = Aktiviert, 0 = Deaktiviert).
+.SH AUTHOR
+vdr-rectools Projekt
+EOF

@@ -1,19 +1,25 @@
+cat << 'EOF' > debian/postinst
 #!/bin/sh
 set -e
+
+# Debconf-Modul laden
 . /usr/share/debconf/confmodule
 
 CONF="/etc/vdr/conf.d/vdr-rectools.conf"
 
+# Verzeichnis sicherstellen
 mkdir -p /etc/vdr/conf.d
+
 if [ ! -f "$CONF" ]; then
-    cat <<EOF > "$CONF"
+    cat <<EOFF > "$CONF"
 MAX_FILES=10
 MIN_FREE_GB=20
 AUTO_CLEAN=1
 IMPORT_DIR="/srv/videos-other"
 PAUSE_WORK=30
 PAUSE_CHECK=2
-EOF
+SNAPSHOT_TIME="00:05:00"
+EOFF
 fi
 
 db_get vdr-rectools/mail
@@ -47,13 +53,13 @@ echo "SUB_LANG=\"de\"" >> "$CONF"
 
 if [ -f "/var/lib/vdr/reccmds.conf" ] || [ -d "/usr/share/yavdr-ansible" ]; then
     mkdir -p /etc/systemd/system/vdr.service.d
-    cat <<EOF > /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
+    cat <<EOFF > /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
 [Service]
 ExecStartPre=+/bin/bash -c "grep -q repair_single /var/lib/vdr/reccmds.conf || echo \"Aufnahme reparieren (Rectools) : /usr/bin/vdr-rectools repair_single\" >> /var/lib/vdr/reccmds.conf"
 ExecStartPre=+/bin/bash -c "grep -q cut_single /var/lib/vdr/reccmds.conf || echo \"Werbung schneiden (Rectools)   : /usr/bin/vdr-rectools cut_single\" >> /var/lib/vdr/reccmds.conf"
 ExecStartPre=+/bin/bash -c "grep -q shrink_single /var/lib/vdr/reccmds.conf || echo \"Platz sparen H.265 (Rectools)  : /usr/bin/vdr-rectools shrink_single\" >> /var/lib/vdr/reccmds.conf"
 ExecStartPre=+/bin/bash -c "grep -q sync_single /var/lib/vdr/reccmds.conf || echo \"Plex/Kodi Sync (Rectools)      : /usr/bin/vdr-rectools sync_single\" >> /var/lib/vdr/reccmds.conf"
-EOF
+EOFF
 else
     rm -f /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
 fi
@@ -64,4 +70,8 @@ if [ -d /run/systemd/system ]; then
 fi
 
 db_stop
+
+#DEBHELPER#
+
 exit 0
+EOF

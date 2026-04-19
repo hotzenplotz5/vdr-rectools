@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+# Standard-Einstiegspunkt für debhelper
+%:
+	dh $@
+
+# Wir greifen in den Komprimierungs-Schritt ein
+override_dh_compress:
+	# Verhindert, dass Shell-Skripte fälschlicherweise komprimiert werden
+	dh_compress -X.sh

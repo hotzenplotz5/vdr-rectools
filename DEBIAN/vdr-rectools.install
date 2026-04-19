@@ -1,0 +1,7 @@
+# Skripte und Libraries
+usr/bin/vdr-rectools usr/bin/
+usr/share/vdr-rectools/functions.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/media_tools.sh usr/share/vdr-rectools/
+
+# Die unkomprimierte Manpage aus den Sourcen
+usr/share/man/man1/vdr-rectools.1 usr/share/man/man1/
