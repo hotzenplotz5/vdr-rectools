@@ -1,3 +1,9 @@
+vdr-rectools (1.7.3ubuntu1) UNRELEASED; urgency=medium
+
+  * Fixed SVDRP command UPDT and directory permissions for VDR user
+
+ -- root <root@hotzenplotz5@gmx.de>  Sun, 19 Apr 2026 12:43:42 +0200
+
 vdr-rectools (1.7.3) unstable; urgency=low
 
   * Umstellung auf dynamische Konfiguration via debconf/postinst.

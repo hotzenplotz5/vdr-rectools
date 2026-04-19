@@ -25,7 +25,6 @@ SUB_LANG="de"
 EOFF
 else
     # 1b. Bestehende Datei prüfen und fehlende Variablen nachrüsten
-    # Wir loopen durch alle Variablen, die wir in 1.7.3 neu oder zwingend erwarten
     for VAR in MAX_FILES MIN_FREE_GB AUTO_CLEAN IMPORT_DIR PAUSE_WORK PAUSE_CHECK SNAPSHOT_TIME MAIL_NOTIFY AUTO_TIMER AUTO_START_NIGHT AUTO_SUB_DOWNLOAD SUB_LANG; do
         if ! grep -q "^$VAR=" "$CONF"; then
             case $VAR in
@@ -34,7 +33,6 @@ else
                 AUTO_SUB_DOWNLOAD) echo "AUTO_SUB_DOWNLOAD=1" >> "$CONF" ;;
                 SUB_LANG)          echo "SUB_LANG=\"de\"" >> "$CONF" ;;
                 MAIL_NOTIFY)       echo "MAIL_NOTIFY=\"\"" >> "$CONF" ;;
-                # Falls andere Basics fehlen (unwahrscheinlich, aber sicher ist sicher)
                 *) echo "$VAR=\"\"" >> "$CONF" ;;
             esac
         fi
@@ -49,7 +47,7 @@ db_get vdr-rectools/timer
 db_get vdr-rectools/subtitles
 [ "$RET" = "true" ] && SUB_VAL=1 || SUB_VAL=0
 
-# Werte sicher in der Datei aktualisieren (egal ob neu oder alt)
+# Werte sicher in der Datei aktualisieren
 sed -i "/^MAIL_NOTIFY=/c\MAIL_NOTIFY=\"$MAIL_VAL\"" "$CONF"
 sed -i "/^AUTO_TIMER=/c\AUTO_TIMER=$TIMER_VAL" "$CONF"
 sed -i "/^AUTO_SUB_DOWNLOAD=/c\AUTO_SUB_DOWNLOAD=$SUB_VAL" "$CONF"
@@ -72,6 +70,16 @@ ExecStartPre=+/bin/bash -c "grep -q shrink_single /var/lib/vdr/reccmds.conf || e
 ExecStartPre=+/bin/bash -c "grep -q sync_single /var/lib/vdr/reccmds.conf || echo \"Plex/Kodi Sync (Rectools)      : /usr/bin/vdr-rectools sync_single\" >> /var/lib/vdr/reccmds.conf"
 EOFF
 fi
+
+# 5. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
+mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files
+chown -R vdr:vdr /srv/vdr/tmp /srv/vdr/repaired_files
+chmod -R 775 /srv/vdr/tmp /srv/vdr/repaired_files
+
+# Logfile für vdr-user schreibbar machen
+touch /var/log/vdr-rectools.log
+chown vdr:vdr /var/log/vdr-rectools.log
+chmod 664 /var/log/vdr-rectools.log
 
 db_stop
 #DEBHELPER#
