@@ -5,51 +5,49 @@ set -e
 . /usr/share/debconf/confmodule
 
 CONF="/etc/vdr/conf.d/vdr-rectools.conf"
-
-# Verzeichnis sicherstellen
 mkdir -p /etc/vdr/conf.d
 
+# 1. Grundgerüst erstellen, falls Datei fehlt (mit all deinen Werten)
 if [ ! -f "$CONF" ]; then
     cat <<EOFF > "$CONF"
 MAX_FILES=10
 MIN_FREE_GB=20
 AUTO_CLEAN=1
-IMPORT_DIR="/srv/videos-other"
+IMPORT_DIR="/srv/video/Filme"
 PAUSE_WORK=30
 PAUSE_CHECK=2
 SNAPSHOT_TIME="00:05:00"
+MAIL_NOTIFY=""
+AUTO_TIMER=0
+AUTO_START_NIGHT=0
+AUTO_SUB_DOWNLOAD=1
+SUB_LANG="de"
 EOFF
 fi
 
+# 2. Debconf-Werte auslesen und in die Datei schreiben/ersetzen
 db_get vdr-rectools/mail
 MAIL_NOTIFY="$RET"
 
 db_get vdr-rectools/timer
-if [ "$RET" = "true" ]; then
-    AUTO_TIMER=1
-else
-    AUTO_TIMER=0
-fi
+[ "$RET" = "true" ] && AUTO_TIMER=1 || AUTO_TIMER=0
 
 db_get vdr-rectools/subtitles
-if [ "$RET" = "true" ]; then
-    AUTO_SUB_DOWNLOAD=1
-else
-    AUTO_SUB_DOWNLOAD=0
+[ "$RET" = "true" ] && AUTO_SUB_DOWNLOAD=1 || AUTO_SUB_DOWNLOAD=0
+
+# Werte sicher in der Datei aktualisieren
+sed -i "/^MAIL_NOTIFY=/c\MAIL_NOTIFY=\"$MAIL_NOTIFY\"" "$CONF"
+sed -i "/^AUTO_TIMER=/c\AUTO_TIMER=$AUTO_TIMER" "$CONF"
+sed -i "/^AUTO_SUB_DOWNLOAD=/c\AUTO_SUB_DOWNLOAD=$AUTO_SUB_DOWNLOAD" "$CONF"
+
+# 3. Systemd-Teil (Timer immer aktivieren, die Logik regelt AUTO_START_NIGHT)
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl enable vdr-rectools.timer || true
+    systemctl start vdr-rectools.timer || true
 fi
 
-sed -i "/^MAIL_NOTIFY=/d" "$CONF"
-echo "MAIL_NOTIFY=\"$MAIL_NOTIFY\"" >> "$CONF"
-
-sed -i "/^AUTO_TIMER=/d" "$CONF"
-echo "AUTO_TIMER=$AUTO_TIMER" >> "$CONF"
-
-sed -i "/^AUTO_SUB_DOWNLOAD=/d" "$CONF"
-echo "AUTO_SUB_DOWNLOAD=$AUTO_SUB_DOWNLOAD" >> "$CONF"
-
-sed -i "/^SUB_LANG=/d" "$CONF"
-echo "SUB_LANG=\"de\"" >> "$CONF"
-
+# 4. VDR OSD-Befehle (drop-in)
 if [ -f "/var/lib/vdr/reccmds.conf" ] || [ -d "/usr/share/yavdr-ansible" ]; then
     mkdir -p /etc/systemd/system/vdr.service.d
     cat <<EOFF > /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
@@ -59,17 +57,8 @@ ExecStartPre=+/bin/bash -c "grep -q cut_single /var/lib/vdr/reccmds.conf || echo
 ExecStartPre=+/bin/bash -c "grep -q shrink_single /var/lib/vdr/reccmds.conf || echo \"Platz sparen H.265 (Rectools)  : /usr/bin/vdr-rectools shrink_single\" >> /var/lib/vdr/reccmds.conf"
 ExecStartPre=+/bin/bash -c "grep -q sync_single /var/lib/vdr/reccmds.conf || echo \"Plex/Kodi Sync (Rectools)      : /usr/bin/vdr-rectools sync_single\" >> /var/lib/vdr/reccmds.conf"
 EOFF
-else
-    rm -f /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
-fi
-
-if [ -d /run/systemd/system ]; then
-    systemctl daemon-reload
-    systemctl enable --now vdr-rectools.timer || true
 fi
 
 db_stop
-
 #DEBHELPER#
-
 exit 0

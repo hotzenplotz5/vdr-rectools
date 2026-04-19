@@ -1,10 +1,11 @@
 #!/bin/bash
 # ==============================================================================
-# vdr-rectools - V1.7.2 (Control Script)
+# vdr-rectools - V1.7.3 (Control Script)
 # Maintainer: Holger Schvestka <hotzenplotz5@gmx.de>
 # Lizenz: GPL-3.0+
 # ==============================================================================
 
+# 1. STANDARDS (Werden durch Config überschrieben)
 VIDEO_DIR="/srv/vdr/video.00"
 LOG_FILE="/var/log/vdr-rectools.log"
 REPAIR_STAGING="/srv/vdr/repaired_files"
@@ -13,73 +14,113 @@ MAX_FILES=10
 MIN_FREE_GB=20
 AUTO_CLEAN=0
 AUTO_TIMER=1
+AUTO_START_NIGHT=0
 AUTO_SUB_DOWNLOAD=1
 SUB_LANG="de"
 PID_FILE="/tmp/vdr-rectools.pid"
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
 FUNCTIONS_LIB="/usr/share/vdr-rectools/functions.sh"
 
-[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+# 2. KONFIGURATION LADEN
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
+# 3. BIBLIOTHEK LADEN
 if [ ! -f "$FUNCTIONS_LIB" ]; then
     echo "Bibliothek nicht gefunden: $FUNCTIONS_LIB"
     exit 1
 fi
 source "$FUNCTIONS_LIB"
 
+# 4. HAUPTLOGIK
 case "$1" in
     start|repair|dryrun|import)
         MODE="$1"
         [[ "$1" == "start" ]] && MODE="normal"
         [[ "$1" == "import" ]] && MODE="normal"
+        
         if [[ -f "$PID_FILE" ]] && ps -p $(cat "$PID_FILE") > /dev/null; then
-            echo "Läuft bereits."
+            echo "vdr-rectools läuft bereits."
         else
             echo "Modus $1 gestartet (Hintergrund)..."
             nohup nice -n 19 ionice -c 3 "$0" --daemon "$MODE" >> "$LOG_FILE" 2>&1 &
         fi
         ;;
+
     --daemon)
         echo $$ > "$PID_FILE"
         mkdir -p "$REPAIR_STAGING" "$IMPORT_DIR"
         run_scan "$2"
+        # PID nach Abschluss entfernen
+        rm -f "$PID_FILE"
         ;;
+
     status)
         if [[ -f "$PID_FILE" ]]; then
             echo "Aktiv (PID: $(cat "$PID_FILE"))"
         else
             echo "Inaktiv"
         fi
-        tail -n 10 "$LOG_FILE"
+        [[ -f "$LOG_FILE" ]] && tail -n 10 "$LOG_FILE"
         ;;
+
     stop)
         if [[ -f "$PID_FILE" ]]; then
-            kill $(cat "$PID_FILE") && rm -f "$PID_FILE"
+            PID=$(cat "$PID_FILE")
+            echo "Stoppe vdr-rectools (PID: $PID)..."
+            kill "$PID" && rm -f "$PID_FILE"
+        else
+            echo "Kein laufender Prozess gefunden."
         fi
         ;;
+
     repair_single)
+        # Direktaufruf (meist via OSD)
         process_folder "$2" "repair"
         ;;
+
     sync_single)
+        # Direktaufruf (meist via OSD)
         process_folder "$2" "normal"
         ;;
+
     shrink_single)
+        # Direktaufruf (meist via OSD)
         shrink_video "$2/00001.ts"
         ;;
+
     cut_single)
+        # Direktaufruf (meist via OSD)
         apply_vdr_marks "$2"
         ;;
+
     cron)
+        # Aufruf durch systemd-timer
+        # AUTO_TIMER: Genereller Schalter (via Debconf)
+        # AUTO_START_NIGHT: Nacht-Bremse (via Config-File)
         if [[ "$AUTO_TIMER" -eq 1 ]]; then
-            mkdir -p "$REPAIR_STAGING" "$IMPORT_DIR"
-            run_scan "normal" >> "$LOG_FILE" 2>&1
+            if [[ "$AUTO_START_NIGHT" -eq 1 ]]; then
+                echo "[$(date +%T)] Starte geplanten Scan (Cron/Timer)..." >> "$LOG_FILE"
+                mkdir -p "$REPAIR_STAGING" "$IMPORT_DIR"
+                run_scan "normal" >> "$LOG_FILE" 2>&1
+            else
+                echo "[$(date +%T)] Cron-Aufruf ignoriert: AUTO_START_NIGHT ist deaktiviert (0)." >> "$LOG_FILE"
+            fi
         fi
         ;;
+
     /*)
+        # Falls ein Pfad als erstes Argument übergeben wird (VDR intern)
         if [[ "$AUTO_CLEAN" -eq 1 ]]; then
             process_folder "$1" "normal"
         fi
         ;;
+
     *)
-        echo "vdr-rectools {start|repair|import|dryrun|status|stop|cron}"
+        echo "Verwendung: vdr-rectools {start|repair|import|dryrun|status|stop|cron|repair_single <dir>|sync_single <dir>}"
+        exit 1
         ;;
 esac
+
+exit 0
