@@ -59,9 +59,7 @@ sanitize_stream() {
     return 1
 }
 
-# --- STUFE 2: Deep Repair (Full Recode & Sync Force) ---
-# Hier erzwingen wir neue Zeitstempel und eine feste Framerate,
-# um MMCO-Fehler oder korrupte PTS-Strukturen zu heilen.
+# --- STUFE 2: Deep Repair (Nuclear Option - Force Sync) ---
 recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
@@ -71,6 +69,7 @@ recode_stream() {
         -c:v libx264 -preset superfast -crf 22 \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
+        -fflags +genpts+igndts -avoid_negative_ts make_zero \
         -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
 
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
@@ -81,17 +80,10 @@ recode_stream() {
     return 1
 }
 
-# Kombinierte Logik: Erst putzen, wenn's zu kurz bleibt, dann recoden
 smart_repair() {
     local TARGET="$1"
-
-    # Versuche Stufe 1
     sanitize_stream "$TARGET"
-
-    # Dauer prüfen (Sekunden abschneiden)
     local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TARGET" | cut -d. -f1)
-
-    # Wenn Video kürzer als 300 Sek (5 Min) erkannt wird -> Deep Repair
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Aufnahme-Dauer ($duration s) unplausibel. Triggere Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
@@ -185,8 +177,6 @@ process_import() {
         return 1
     fi
 
-    [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
-
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
 
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
@@ -194,19 +184,15 @@ process_import() {
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
 
     mkdir -p "$STAGING_REC"
-
-    # Import mit Header-Sanitize kombinieren
     local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
     ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
 
     if [ -f "$STAGING_REC/joined.ts" ]; then
         smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
-
         echo "T $CLEAN_NAME" > "$STAGING_REC/info"
         echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
-
         mkdir -p "$(dirname "$FINAL_DEST")"
         mv "$STAGING_REC" "$FINAL_DEST"
         chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
@@ -225,7 +211,6 @@ run_scan() {
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done
-
     while read -r DIR; do
         process_folder "$DIR" "$MODE"
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
