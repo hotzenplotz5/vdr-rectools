@@ -258,15 +258,11 @@ process_import() {
 
         # --- TVScraper Integration ---
         if [[ "$USE_TVSCRAPER" -eq 1 ]]; then
-            if [[ -f "$TVSCRAPER_DB" ]]; then
-                if [[ "$TVSCRAPER_MODE" == "immediate" ]]; then
-                    echo "[$(date +%T)] TVScraper (immediate): Triggere Scrape für $FINAL_DEST" >> "$LOG_FILE"
-                    /usr/bin/svdrpsend plug tvscraper SCRAPE "$FINAL_DEST" >/dev/null 2>&1 || true
-                else
-                    echo "[$(date +%T)] TVScraper (batch): Film in VDR importiert, warte auf nächtlichen TVScraper-Lauf." >> "$LOG_FILE"
-                fi
+            if [[ "$TVSCRAPER_MODE" == "immediate" ]]; then
+                echo "[$(date +%T)] TVScraper (immediate): Triggere Scrape für $FINAL_DEST" >> "$LOG_FILE"
+                /usr/bin/svdrpsend plug tvscraper SCRAPE "$FINAL_DEST" >/dev/null 2>&1 || true
             else
-                echo "[$(date +%T)] WARNUNG: USE_TVSCRAPER=1, aber Datenbank nicht gefunden: $TVSCRAPER_DB" >> "$LOG_FILE"
+                echo "[$(date +%T)] TVScraper (batch): Film in VDR importiert, warte auf nächtlichen TVScraper-Lauf." >> "$LOG_FILE"
             fi
         fi
 

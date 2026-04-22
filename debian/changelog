@@ -1,5 +1,8 @@
 vdr-rectools (1.7.4) UNRELEASED; urgency=medium
 
+  * FIX: TVScraper-Integration. Die fehleranfällige Prüfung auf eine
+         Datenbank-Datei wurde entfernt. Der Scrape wird nun immer
+         versucht, wenn USE_TVSCRAPER=1 gesetzt ist.
   * FEAT: Intelligente Import-Weiche implementiert, die je nach Quell-Codec
           automatisch die passende Strategie wählt (Remux, Re-Encode,
           Deinterlace für DV).
