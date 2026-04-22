@@ -87,6 +87,24 @@ smart_repair() {
     fi
 }
 
+check_stream() {
+    local FILE="$1"
+    echo "[$(date +%T)] Starte Integritäts-Prüfung für: $FILE" >> "$LOG_FILE"
+    
+    # Führt ffmpeg aus und fängt alle Ausgaben (stdout und stderr) ab.
+    # -v error zeigt nur kritische Fehler an.
+    local FFERRORS
+    FFERRORS=$(ffmpeg -v error -i "$FILE" -f null - 2>&1)
+    
+    if [[ -n "$FFERRORS" ]]; then
+        echo "[$(date +%T)] FEHLER gefunden in $FILE:" >> "$LOG_FILE"
+        echo "$FFERRORS" >> "$LOG_FILE"
+        return 1 # Fehler gefunden
+    fi
+    echo "[$(date +%T)] Prüfung für $FILE erfolgreich. Keine Fehler gefunden." >> "$LOG_FILE"
+    return 0 # Keine Fehler
+}
+
 check_disk_space() {
     local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
     local FREE_GB=$((FREE_KB / 1024 / 1024))
@@ -103,7 +121,7 @@ process_folder() {
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
 
-    if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" ]]; then
+    if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
         local STAGING_REC="$REPAIR_STAGING/${MODE}_$FILM_TITLE"
         mkdir -p "$STAGING_REC"
@@ -119,6 +137,16 @@ process_folder() {
             shrink)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
                 ffmpeg -y -i "$STAGING_REC/joined.ts" -c:v libx265 -crf 23 -c:a copy -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+                ;;
+            check)
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                if check_stream "$STAGING_REC/joined.ts"; then
+                    send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
+                else
+                    send_mail "In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden. Details im Log." "Prüfung fehlgeschlagen"
+                fi
+                rm -rf "$STAGING_REC" # Nach der Prüfung aufräumen
+                return
                 ;;
         esac
         if [ -f "$STAGING_REC/00001.ts" ]; then
