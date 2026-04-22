@@ -202,9 +202,8 @@ process_import() {
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
     local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
-    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ ]]; then
-        echo "[$(date +%T)] IMPORT ABGELEHNT: Codec $VCODEC in $FILENAME" >> "$LOG_FILE"
-        return 1
+    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ && -n "$VCODEC" ]]; then
+        echo "[$(date +%T)] WARNUNG: Import mit unbekanntem Codec '$VCODEC' in $FILENAME wird versucht." >> "$LOG_FILE"
     fi
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
