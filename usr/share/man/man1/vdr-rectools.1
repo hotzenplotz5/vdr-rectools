@@ -1,79 +1,117 @@
-.TH vdr-rectools 1 "2026-04-22" "vdr-rectools" "vdr-rectools Manual"
+.TH VDR-RECTOOLS 1 "April 2026" "vdr-rectools" "User Commands"
 .SH NAME
-vdr-rectools \- Media-Suite für VDR: MKV-Import, Reparatur und Konvertierung.
-
+vdr-rectools \- Suite zur Verwaltung, Reparatur und Konvertierung von VDR-Aufnahmen
 .SH SYNOPSIS
 .B vdr-rectools
-[\fICOMMAND\fR] [\fIARGUMENTS\fR]
-
+[\fICOMMAND\fR] [\fIARGUMENT\fR]
 .SH DESCRIPTION
 .B vdr-rectools
-ist ein Toolkit für den Video Disk Recorder (VDR). Es automatisiert den Import von MKV-Dateien, repariert defekte Aufnahmen durch Re-Muxing und bietet Funktionen zur Platzersparnis (H.265).
-
+ist eine modulare, vollautomatisierte Bash-Suite für den Video Disk Recorder (VDR). Sie dient zur Verwaltung, Reparatur, Konvertierung und nahtlosen Integration von VDR-Aufnahmen sowie externen Videodateien in Media-Center wie Plex oder Kodi.
+.P
+Die Hauptfunktionen umfassen einen intelligenten Import von Videodateien (MKV, MP4 etc.), eine zweistufige Reparatur defekter Aufnahmen, die Konvertierung in platzsparende Formate (H.265/HEVC) und die automatische Erstellung von Metadaten und Symlinks für externe Mediaplayer.
 .SH COMMANDS
+Die folgenden Befehle können direkt im Terminal ausgeführt werden:
 .TP
 .B start
-Startet einen vollständigen Hintergrund-Scan (Import und Wartung).
+Startet einen vollständigen Scan (Import & Cleanup) im Hintergrund.
 .TP
 .B import
-Startet gezielt den MKV-to-VDR Import aus dem konfigurierten Import-Verzeichnis.
-Startet gezielt den MKV-to-VDR Import. Liegt neben der Videodatei eine
-.B .nfo
-Datei, werden deren Metadaten (Titel, Beschreibung) für die VDR-Aufnahme übernommen.
+Startet gezielt nur den Import-Prozess für Dateien im konfigurierten Import-Verzeichnis.
 .TP
 .B repair
-Sucht im Video-Verzeichnis nach defekten Aufnahmen und versucht diese zu reparieren.
-.TP
-.B repair_single \fI[PFAD]\fR
-Repariert gezielt die Aufnahme im angegebenen Verzeichnis.
-.TP
-.B check_single \fI[PFAD]\fR
-Prüft die Aufnahme im angegebenen Verzeichnis auf Stream-Fehler, ohne sie zu verändern.
-Das Ergebnis wird in die Log-Datei geschrieben und optional per E-Mail versendet.
-
-.TP
-.B stop
-Beendet alle laufenden Hintergrund-Prozesse von vdr-rectools.
+Startet einen Reparatur-Lauf für alle vorhandenen VDR-Aufnahmen.
 .TP
 .B status
-Zeigt den aktuellen Status, laufende PIDs und die letzten Log-Einträge an.
+Zeigt die Prozess-ID (PID), die bisherige Laufzeit und die letzten Log-Einträge eines laufenden Prozesses an.
+.TP
+.B stop
+Beendet laufende Hintergrundprozesse sauber.
 .TP
 .B cron
-Wird vom Systemd-Timer aufgerufen. Prüft die Konfiguration (AUTO_START_NIGHT) bevor Aktionen gestartet werden.
-
-.SH CONFIGURATION
-Die Konfiguration erfolgt über die Datei:
-.I /etc/vdr/conf.d/vdr-rectools.conf
-
-Wichtige Variablen:
-.IP \fBAUTO_START_NIGHT\fR
-Erlaubt automatische Scans (1=Ja, 0=Nein).
-.IP \fBIMPORT_DIR\fR
-Pfad für MKV-Dateien.
-.IP \fBUSE_TVSCRAPER\fR
-Aktiviert die automatische Aktualisierung der TVScraper-Datenbank nach einem erfolgreichen Medien-Import (1=An, 0=Aus).
-.IP \fBTVSCRAPER_MODE\fR
-Legt den Zeitpunkt für den Scrape fest ("immediate" sendet sofort einen SVDRP-Befehl, "batch" wartet auf den naechtlichen Lauf).
-.IP \fBTVSCRAPER_DB\fR
-Pfad zur SQLite-Datenbank des tvscraper-Plugins zur Validierung.
-
-.SH LOGGING
-Alle Aktionen werden nach
-.I /var/log/vdr-rectools.log
-geschrieben.
-
+Simuliert den nächtlichen Timer-Aufruf und prüft, ob die Automatik in der Konfiguration aktiviert ist.
+.TP
+.B repair_single \fI<Pfad zur .rec>\fR
+Repariert gezielt eine einzelne Aufnahme.
+.TP
+.B check_single \fI<Pfad zur .rec>\fR
+Prüft die Aufnahme im angegebenen Verzeichnis auf Stream-Fehler, ohne sie zu verändern. Das Ergebnis wird in die Log-Datei geschrieben.
+.SH IMPORT-WORKFLOW
+Der Import ist das Herzstück von
+.B vdr-rectools
+. Wenn eine Videodatei im Import-Verzeichnis gefunden wird, führt das Skript eine intelligente Analyse des Video-Codecs durch und wählt die passende Strategie:
+.IP "1. \fBKompatible Formate (h264, hevc, mpeg2video)\fR"
+Die Datei wird ohne Qualitätsverlust und sehr schnell in einen VDR-kompatiblen Transport-Stream-Container umgepackt (Remuxing).
+.IP "2. \fBWeb-Formate (vp8, vp9, av1)\fR"
+Die Datei wird in das moderne und platzsparende H.265 (HEVC) Format umkodiert.
+.IP "3. \fBMiniDV-Format (dvvideo)\fR"
+Die Datei wird unter Anwendung eines Deinterlace-Filters (yadif) nach H.264 umkodiert, um Bildartefakte zu entfernen.
+.IP "4. \fBAndere/Unbekannte Formate\fR"
+Als Fallback wird die Datei sicherheitshalber nach H.264 umkodiert.
+.P
+Dieser automatische Umkodier-Prozess kann über die Konfigurationsdatei deaktiviert werden, um CPU-intensive Operationen auf leistungsschwachen Systemen zu verhindern.
+.SH KONFIGURATION
+Die Konfiguration erfolgt über die Datei
+.BR /etc/vdr/conf.d/vdr-rectools.conf .
+Die wichtigsten Variablen sind:
+.TP
+.B AUTO_START_NIGHT
+Erlaubt den nächtlichen automatischen Scan (1=An, 0=Aus). Standard: 0.
+.TP
+.B IMPORT_DIR
+Verzeichnis, in dem nach zu importierenden Videodateien gesucht wird.
+.TP
+.B AUTO_ENCODE_IMPORT
+Erlaubt das automatische Re-Encoding beim Import, falls ein inkompatibler Codec erkannt wird (1=An, 0=Aus). Bei 0 wird der Import abgelehnt. Standard: 1.
+.TP
+.B AUTO_SUB_DOWNLOAD
+Aktiviert den automatischen Download von Untertiteln via Subliminal (1=An, 0=Aus). Standard: 1.
+.TP
+.B SUB_LANG
+Bevorzugte Sprache für Untertitel (z.B. de, en). Standard: "de".
+.TP
+.B MAIL_NOTIFY
+E-Mail-Adresse für Status- und Fehlerberichte. Wenn leer, werden keine Mails versendet.
+.TP
+.B MIN_FREE_GB
+Mindestfreispeicher (in GB) auf dem Video-Laufwerk. Unterschreitung führt zum Abbruch. Standard: 50.
+.TP
+.B USE_TVSCRAPER
+Aktiviert die Integration mit dem tvscraper-Plugin des VDR (1=An, 0=Aus). Standard: 0.
+.TP
+.B SNAPSHOT_TIME
+Zeitstempel (HH:MM:SS) für die Erstellung von Vorschaubildern. Standard: "00:05:00".
+.SH VDR OSD-INTEGRATION
+Das Paket installiert automatisch Befehle in das VDR-Aufnahmemenü (`reccmds.conf`), die direkt über die Fernbedienung aufgerufen werden können:
+.IP "• \fBAufnahme reparieren (Rectools)\fR"
+.IP "• \fBWerbung schneiden (Rectools)\fR"
+.IP "• \fBPlatz sparen H.265 (Rectools)\fR"
+.IP "• \fBPlex/Kodi Sync (Rectools)\fR"
 .SH FILES
-.I /etc/vdr/conf.d/vdr-rectools.conf
-.RS
-Zentrale Konfigurationsdatei.
-.RE
-.I /var/lib/vdr/reccmds.conf
-.RS
-VDR OSD-Befehlsliste (Integration via Systemd-Drop-in).
-.RE
-
+.TP
+.B /etc/vdr/conf.d/vdr-rectools.conf
+Hauptkonfigurationsdatei.
+.TP
+.B /var/log/vdr-rectools.log
+Logdatei, in der alle Operationen detailliert protokolliert werden.
+.TP
+.B /usr/share/vdr-rectools/
+Verzeichnis mit den Kernskripten (functions.sh, media_tools.sh).
+.TP
+.B /etc/vdr/reccmds.conf
+Konfigurationsdatei für das VDR-Befehlsmenü.
+.TP
+.B /lib/systemd/system/vdr-rectools.timer
+Systemd-Timer für die automatische, nächtliche Ausführung.
+.TP
+.B /usr/share/man/man1/vdr-rectools.1.gz
+Diese Manpage.
+.SH DIAGNOSE
+Alle Aktionen, Entscheidungen der Import-Weiche und Fehler werden in die Logdatei
+.B /var/log/vdr-rectools.log
+geschrieben. Dies ist die primäre Quelle zur Fehleranalyse. Bei konfiguriertem E-Mail-Versand werden kritische Fehler und eine Zusammenfassung des Laufs per Mail zugestellt.
 .SH AUTHOR
 Holger Schvestka <hotzenplotz5@gmx.de>
-
-.SH LICENSE
-GPL-3.0+
+.SH SEE ALSO
+.BR vdr (1),
+.BR ffmpeg (1),
+.BR systemctl (1)

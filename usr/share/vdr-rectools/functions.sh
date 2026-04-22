@@ -202,17 +202,31 @@ process_import() {
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
     local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
-    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ && -n "$VCODEC" ]]; then
-        echo "[$(date +%T)] WARNUNG: Import mit unbekanntem Codec '$VCODEC' in $FILENAME wird versucht." >> "$LOG_FILE"
-    fi
+
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
     local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
-    local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
+
+    echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
+
+    # --- Intelligente Import-Weiche ---
+    if [[ "$VCODEC" == "dvvideo" ]]; then
+        echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
+        ffmpeg -y -i "$SOURCE_FILE" -vf yadif -c:v libx264 -preset medium -crf 21 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+    elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
+        echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
+        ffmpeg -y -i "$SOURCE_FILE" -c:v libx265 -preset medium -crf 23 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+    elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
+        echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
+        local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
+        ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+    else
+        echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
+        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+    fi
     if [ -f "$STAGING_REC/joined.ts" ]; then
         smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"

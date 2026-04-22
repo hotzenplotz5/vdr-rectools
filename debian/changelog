@@ -1,12 +1,18 @@
 vdr-rectools (1.7.4) UNRELEASED; urgency=medium
 
+  * FEAT: Intelligente Import-Weiche implementiert, die je nach Quell-Codec
+          automatisch die passende Strategie wählt (Remux, Re-Encode,
+          Deinterlace für DV).
+  * FEAT: Neue Konfigurationsoption 'AUTO_ENCODE_IMPORT', um das
+          automatische Umkodieren auf leistungsschwachen Systemen zu
+          deaktivieren.
   * NEW: TVScraper-Integration zum automatischen Scrapen nach dem Import
          (Modi: "immediate" oder "batch").
-  * DOC: Readme-Dateien und Manpage aufgeräumt und vereinheitlicht.
-  * DOC: Feste Versionsnummern in Dokumentation und Installationsbefehlen
-         durch Wildcards (*) ersetzt, um die Wartung zu vereinfachen.
+  * DOC: Manpage (vdr-rectools.1) erstellt und umfassend aktualisiert,
+         um alle Befehle und Konfigurationsoptionen zu dokumentieren.
+  * LOG: Detailliertere Protokollierung für Untertitelsuche und Metadaten.
 
- -- Holger Schvestka <hotzenplotz5@gmx.de>  Tue, 21 Apr 2026 20:00:00 +0200
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 22 Apr 2026 22:08:00 +0200
 
 vdr-rectools (1.7.3ubuntu2) focal; urgency=medium
 

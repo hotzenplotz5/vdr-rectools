@@ -83,6 +83,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
 | **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
 | **SUB_LANG** | Sprache für Untertitel (z.B. de, en) | `de` |
+| **AUTO_ENCODE_IMPORT** | Automatisches Re-Encoding beim Import (1=An, 0=Aus) | `1` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
 | **MAX_FILES** | Maximale Anzahl Dateien pro Durchlauf | `10` |
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |
