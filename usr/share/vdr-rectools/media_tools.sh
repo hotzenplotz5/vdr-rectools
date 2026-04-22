@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# vdr-rectools - V1.7.3 (Media Processing Library)
+# vdr-rectools - Media Processing Library
 # ==============================================================================
 
 extract_subtitles() {
