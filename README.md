@@ -1,4 +1,5 @@
 # vdr-rectools (v1.7.3)
+# vdr-rectools (v1.7.4)
 
 **vdr-rectools** ist eine leistungsstarke Media-Suite für den Video Disk Recorder (VDR). Es bietet eine automatisierte Lösung zum Reparieren, Schneiden, Konvertieren und Importieren von Aufnahmen sowie eine nahtlose Integration in das VDR-OSD und moderne Media-Server wie Plex oder Kodi.
 
@@ -11,6 +12,7 @@
 * **Werbung schneiden:** Wendet VDR-Schnittmarken direkt auf die Dateien an (verlustfrei).
 * **H.265 Shrink:** Konvertiert Aufnahmen platzsparend nach HEVC (H.265).
 * **Nacht-Modus:** Ein intelligenter Systemd-Timer führt Wartungsarbeiten nur dann aus, wenn du es in der Konfiguration erlaubst.
+* **TVScraper Integration:** Aktualisiert nach einem Medien-Import automatisch die Metadaten über das VDR TVScraper-Plugin.
 * **OSD-Integration:** Alle Funktionen sind direkt über das VDR-Menü "Befehle" erreichbar.
 
 ---
@@ -25,6 +27,9 @@ Wenn du eine `.mkv` Datei in den Import-Ordner legst und `vdr-rectools import` s
 2. **Struktur-Erstellung:** Es wird ein VDR-konformer Aufnahme-Ordner erstellt (z.B. `Filmname/2026-04-19.10.00.1-0.rec`).
 3. **Re-Muxing:** Die MKV wird ohne Qualitätsverlust (Stream-Copy) in eine `.ts` Datei umgewandelt. Dabei werden inkompatible Container-Formate sauber für den VDR aufbereitet.
 4. **Metadaten-Generierung:** Es wird automatisch eine `info`-Datei generiert, damit der VDR Titel, Länge und technische Details im Menü anzeigt.
+4. **Intelligente Metadaten:** Das Skript befüllt die `info`-Datei des VDR.
+   - **Priorität 1:** Liegt eine `.nfo`-Datei (z.B. `Film.nfo`) neben der Videodatei, werden `<title>` und `<plot>` für die VDR-Aufnahme übernommen.
+   - **Priorität 2:** Ist keine `.nfo`-Datei vorhanden, wird der Dateiname als Titel verwendet.
 5. **Bereinigung:** Nach erfolgreichem Import wird die ursprüngliche MKV-Datei gelöscht (konfigurierbar), um Platz zu sparen.
 
 ---
@@ -39,6 +44,7 @@ cd vdr-rectools
 # Paket bauen & installieren
 debuild -us -uc
 sudo dpkg -i ../vdr-rectools_1.7.3_all.deb
+sudo dpkg -i ../vdr-rectools_1.7.4_all.deb
 ```
 
 ---

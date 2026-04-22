@@ -1,4 +1,5 @@
 .TH vdr-rectools 1 "2026-04-19" "v1.7.3" "vdr-rectools Manual"
+.TH vdr-rectools 1 "2026-04-21" "v1.7.4" "vdr-rectools Manual"
 .SH NAME
 vdr-rectools \- Media-Suite für VDR: MKV-Import, Reparatur und Konvertierung.
 
@@ -17,6 +18,9 @@ Startet einen vollständigen Hintergrund-Scan (Import und Wartung).
 .TP
 .B import
 Startet gezielt den MKV-to-VDR Import aus dem konfigurierten Import-Verzeichnis.
+Startet gezielt den MKV-to-VDR Import. Liegt neben der Videodatei eine
+.B .nfo
+Datei, werden deren Metadaten (Titel, Beschreibung) für die VDR-Aufnahme übernommen.
 .TP
 .B repair
 Sucht im Video-Verzeichnis nach defekten Aufnahmen und versucht diese zu reparieren.
@@ -42,6 +46,12 @@ Wichtige Variablen:
 Erlaubt automatische Scans (1=Ja, 0=Nein).
 .IP \fBIMPORT_DIR\fR
 Pfad für MKV-Dateien.
+.IP \fBUSE_TVSCRAPER\fR
+Aktiviert die automatische Aktualisierung der TVScraper-Datenbank nach einem erfolgreichen Medien-Import (1=An, 0=Aus).
+.IP \fBTVSCRAPER_MODE\fR
+Legt den Zeitpunkt für den Scrape fest ("immediate" sendet sofort einen SVDRP-Befehl, "batch" wartet auf den naechtlichen Lauf).
+.IP \fBTVSCRAPER_DB\fR
+Pfad zur SQLite-Datenbank des tvscraper-Plugins zur Validierung.
 
 .SH LOGGING
 Alle Aktionen werden nach

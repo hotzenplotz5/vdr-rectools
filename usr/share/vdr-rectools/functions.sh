@@ -155,9 +155,21 @@ process_folder() {
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
+
     local FILENAME=$(basename "$SOURCE_FILE")
-    local FILM_TITLE="${FILENAME%.*}"
-    local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local NFO_SOURCE="${SOURCE_FILE%.*}.nfo"
+    local META_TITLE=""
+    local META_DESC=""
+
+    if [[ -f "$NFO_SOURCE" ]]; then
+        echo "[$(date +%T)] Metadaten-Datei gefunden: $NFO_SOURCE" >> "$LOG_FILE"
+        META_TITLE=$(grep '<title>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<title>//' -e 's/<\/title>.*//' | tr -d '\r\n')
+        META_DESC=$(grep '<plot>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<plot>//' -e 's/<\/plot>.*//' | tr -d '\r\n')
+    fi
+
+    local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
+    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
@@ -177,8 +189,13 @@ process_import() {
     if [ -f "$STAGING_REC/joined.ts" ]; then
         smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
-        echo "T $CLEAN_NAME" > "$STAGING_REC/info"
-        echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
+
+        # info-Datei erstellen: NFO-Daten haben Vorrang
+        echo "T $PRETTY_TITLE" > "$STAGING_REC/info"
+        echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
+        # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
+        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PRETTY_TITLE}.nfo"
+
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
             subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
@@ -191,7 +208,22 @@ process_import() {
         process_folder "$FINAL_DEST" "normal"
         touch "$VIDEO_DIR/.update"
         rm -f "$SOURCE_FILE"
-        send_mail "Der Film '$CLEAN_NAME' wurde erfolgreich importiert." "Import erfolgreich: $CLEAN_NAME"
+
+        # --- TVScraper Integration ---
+        if [[ "$USE_TVSCRAPER" -eq 1 ]]; then
+            if [[ -f "$TVSCRAPER_DB" ]]; then
+                if [[ "$TVSCRAPER_MODE" == "immediate" ]]; then
+                    echo "[$(date +%T)] TVScraper (immediate): Triggere Scrape für $FINAL_DEST" >> "$LOG_FILE"
+                    /usr/bin/svdrpsend plug tvscraper SCRAPE "$FINAL_DEST" >/dev/null 2>&1 || true
+                else
+                    echo "[$(date +%T)] TVScraper (batch): Film in VDR importiert, warte auf nächtlichen TVScraper-Lauf." >> "$LOG_FILE"
+                fi
+            else
+                echo "[$(date +%T)] WARNUNG: USE_TVSCRAPER=1, aber Datenbank nicht gefunden: $TVSCRAPER_DB" >> "$LOG_FILE"
+            fi
+        fi
+
+        send_mail "Der Film '$PRETTY_TITLE' wurde erfolgreich importiert." "Import erfolgreich: $PRETTY_TITLE"
         return 0
     fi
     return 1
