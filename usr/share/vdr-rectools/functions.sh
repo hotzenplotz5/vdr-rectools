@@ -220,14 +220,20 @@ process_import() {
         # info-Datei erstellen: NFO-Daten haben Vorrang
         echo "T $PRETTY_TITLE" > "$STAGING_REC/info"
         echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
+        echo "[$(date +%T)] info-Datei für '$PRETTY_TITLE' wurde mit Metadaten befüllt." >> "$LOG_FILE"
         # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
         [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PRETTY_TITLE}.nfo"
 
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
-            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
+            echo "[$(date +%T)] Suche nach Untertiteln (Sprache: ${SUB_LANG:-de}) für $FILENAME..." >> "$LOG_FILE"
+            # Die Ausgabe von subliminal wird nun ins Log geschrieben
+            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
             local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
-            [[ -f "$DOWNLOADED_SRT" ]] && mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+            if [[ -f "$DOWNLOADED_SRT" ]]; then
+                mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+                echo "[$(date +%T)] Untertitel gefunden und als 00001.srt gespeichert." >> "$LOG_FILE"
+            fi
         fi
         mkdir -p "$(dirname "$FINAL_DEST")"
         mv "$STAGING_REC" "$FINAL_DEST"
