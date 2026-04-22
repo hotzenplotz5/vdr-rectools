@@ -6,7 +6,7 @@
 
 ## ✨ Features
 
-* **📥 Smart Import (MKV/MP4/TS):** Importiert externe Videodateien schonend durch reines Remuxing (`-c copy`) in das VDR-eigene `.ts`-Format.
+* **📥 Smart Import:** Erkennt und verarbeitet diverse Videoformate (z.B. MKV, MP4, AVI, MOV) und Codecs (H.264, HEVC, MiniDV, Web-Formate) automatisch und wählt die optimale Import-Strategie (Remuxing oder Re-Encoding).
 * **📝 Intelligente Metadaten:** Liest beim Import `.nfo`-Dateien (Titel, Plot) ein und schreibt sie direkt in die `info`-Datei des VDR für eine perfekte Darstellung.
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen Metadaten-Scrape im VDR (Modi: `immediate` oder `batch`).
 * **🛠️ Smart Repair:** Repariert defekte Aufnahmen in einem zweistufigen Verfahren: Zuerst ein schneller Header-Fix, bei Bedarf gefolgt von einem kompletten Re-Encoding.
@@ -20,7 +20,8 @@
 
 ## � Der Import-Workflow im Detail
 
-Der Import ist das Herzstück von `vdr-rectools`. Wenn eine Videodatei im `IMPORT_DIR` gefunden wird, passiert Folgendes im Hintergrund:
+Der Import ist das Herzstück von `vdr-rectools`. Das Skript durchsucht das `IMPORT_DIR` nach gängigen Videodateien wie `.mkv`, `.mp4`, `.avi`, `.mov` oder `.ts`.
+Wenn eine Datei gefunden wird, passiert Folgendes im Hintergrund:
 
 1.  **Metadaten finden:** Das Skript sucht nach einer passenden `.nfo`-Datei (z.B. `Mein Film.nfo`). Werden darin `<title>` und `<plot>` gefunden, werden diese für die VDR-Aufnahme übernommen. Andernfalls wird der Dateiname als Titel verwendet.
 2.  **Struktur anlegen:** Es wird ein VDR-konformer Aufnahmeordner erstellt (z.B. `/srv/vdr/video/Mein_Film/2026-04-22.10.00.1-0.rec/`).

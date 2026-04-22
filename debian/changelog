@@ -1,5 +1,8 @@
 vdr-rectools (1.7.4) UNRELEASED; urgency=medium
 
+  * FEAT(Import): Der Import-Scan wurde um die Dateitypen .avi und .mov
+    erweitert, um die Kompatibilität mit Formaten wie MiniDV zu verbessern.
+  * DOC: README aktualisiert, um die unterstützten Import-Formate klar zu benennen.
   * FIX: TVScraper-Integration. Die fehleranfällige Prüfung auf eine
          Datenbank-Datei wurde entfernt. Der Scrape wird nun immer
          versucht, wenn USE_TVSCRAPER=1 gesetzt ist.
