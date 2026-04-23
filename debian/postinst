@@ -36,6 +36,16 @@ else
                 AUTO_SUB_DOWNLOAD) echo "AUTO_SUB_DOWNLOAD=1" >> "$CONF" ;;
                 SUB_LANG)          echo "SUB_LANG=\"de\"" >> "$CONF" ;;
                 MAIL_NOTIFY)       echo "MAIL_NOTIFY=\"\"" >> "$CONF" ;;
+                CRF_H264_DEFAULT)  echo "CRF_H264_DEFAULT=23" >> "$CONF" ;;
+                PRESET_H264_DEFAULT) echo "PRESET_H264_DEFAULT=\"medium\"" >> "$CONF" ;;
+                CRF_H265_DEFAULT)  echo "CRF_H265_DEFAULT=23" >> "$CONF" ;;
+                PRESET_H265_DEFAULT) echo "PRESET_H265_DEFAULT=\"medium\"" >> "$CONF" ;;
+                CRF_H264_FALLBACK) echo "CRF_H264_FALLBACK=23" >> "$CONF" ;;
+                PRESET_H264_FALLBACK) echo "PRESET_H264_FALLBACK=\"fast\"" >> "$CONF" ;;
+                MIN_COMPRESSION_RATIO_H264) echo "MIN_COMPRESSION_RATIO_H264=70" >> "$CONF" ;;
+                MIN_COMPRESSION_RATIO_H265) echo "MIN_COMPRESSION_RATIO_H265=50" >> "$CONF" ;;
+                MIN_COMPRESSION_RATIO_H264_FALLBACK) echo "MIN_COMPRESSION_RATIO_H264_FALLBACK=70" >> "$CONF" ;;
+                AUTO_ENCODE_IMPORT) echo "AUTO_ENCODE_IMPORT=1" >> "$CONF" ;;
                 USE_TVSCRAPER)     echo "USE_TVSCRAPER=0" >> "$CONF" ;;
                 TVSCRAPER_MODE)    echo "TVSCRAPER_MODE=\"immediate\"" >> "$CONF" ;;
                 TVSCRAPER_DB)      echo "TVSCRAPER_DB=\"/var/cache/vdr/plugins/tvscraper/tvscraper.sqlite\"" >> "$CONF" ;;

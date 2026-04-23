@@ -85,6 +85,15 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
 | **SUB_LANG** | Sprache für Untertitel (z.B. de, en) | `de` |
 | **AUTO_ENCODE_IMPORT** | Automatisches Re-Encoding beim Import (1=An, 0=Aus) | `1` |
+| **CRF_H264_DEFAULT** | CRF-Wert für H.264 (niedriger=besser) | `23` |
+| **PRESET_H264_DEFAULT** | Preset für H.264 (z.B. `medium`, `fast`) | `medium` |
+| **CRF_H265_DEFAULT** | CRF-Wert für H.265 (niedriger=besser) | `23` |
+| **PRESET_H265_DEFAULT** | Preset für H.265 (z.B. `medium`, `fast`) | `medium` |
+| **CRF_H264_FALLBACK** | CRF-Wert für Fallback-Encoding | `23` |
+| **PRESET_H264_FALLBACK**| Preset für Fallback-Encoding | `fast` |
+| **MIN_COMPRESSION_RATIO_H264** | Max. Dateigröße in % des Originals für H.264-Encodes | `70` |
+| **MIN_COMPRESSION_RATIO_H265** | Max. Dateigröße in % des Originals für H.265-Encodes | `50` |
+| **MIN_COMPRESSION_RATIO_H264_FALLBACK** | Max. Dateigröße in % des Originals für H.264-Fallback | `70` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
 | **MAX_FILES** | Maximale Anzahl Dateien pro Durchlauf | `10` |
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |

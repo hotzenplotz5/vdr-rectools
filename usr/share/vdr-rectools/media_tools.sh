@@ -23,9 +23,16 @@ shrink_video() {
         echo "[$(date +%T)] SHRINK: $1 ist bereits in H.265 (HEVC). Abbruch." >> "$LOG_FILE"
         return 0
     fi
+    local INPUT_FILE_SIZE=$(stat -c %s "$1" 2>/dev/null || echo 0)
     echo "Starte H.265 Kompression für $1" >> "$LOG_FILE"
-    ffmpeg -y -i "$1" -c:v libx265 -crf 23 -preset medium -c:a copy "$OUT" </dev/null >/dev/null 2>&1
+    ffmpeg -y -i "$1" -c:v libx265 -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -max_muxing_queue_size 4000 "$OUT" </dev/null >/dev/null 2>&1
     if [ -f "$OUT" ]; then
+        if ! check_size "$1" "$OUT" "${MIN_COMPRESSION_RATIO_H265:-50}" "Shrink"; then
+            echo "[$(date +%T)] FEHLER: Shrink für $1 fehlgeschlagen oder Ergebnis verdächtig. Originaldatei bleibt erhalten." >> "$LOG_FILE"
+            send_mail "Shrink für '$1' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei bleibt erhalten." "Shrink-Fehler"
+            rm -f "$OUT" # Die fehlerhafte Ausgabedatei löschen
+            return 1
+        fi
         mv "$OUT" "$1"
         /usr/bin/vdr --genindex="$(dirname "$1")" >/dev/null 2>&1
     fi

@@ -8,8 +8,17 @@ VIDEO_DIR="/srv/vdr/video"
 IMPORT_DIR="/srv/vdr/import"
 REPAIR_STAGING="/srv/vdr/tmp/staging"
 SNAPSHOT_TIME="00:05:00"
+CRF_H264_DEFAULT=23
+PRESET_H264_DEFAULT="medium" # Preset for H.264 encoding (e.g., medium, fast, slow)
+CRF_H265_DEFAULT=23 # CRF for H.265 encoding
+PRESET_H265_DEFAULT="medium" # Preset for H.265 encoding
+CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
+PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
 MAIL_NOTIFY=""
 AUTO_SUB_DOWNLOAD=1
+MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
+MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
+MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
 MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
@@ -32,7 +41,9 @@ send_mail() {
     local BODY="$1"
     local SUBJECT="$2"
     [[ -z "$MAIL_NOTIFY" ]] && return
-    echo -e "$BODY\n\n--- Letzte Log-Eintraege ---\n$(tail -n 20 "$LOG_FILE" 2>/dev/null)" | \
+    # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
+    local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
+    echo "$WRAPPED_BODY" | \
     mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY"
 }
 
@@ -43,11 +54,11 @@ sanitize_stream() {
     local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE")
     echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
     if [[ "$codec" == "h264" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts -avoid_negative_ts make_zero "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     elif [[ "$codec" == "hevc" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts -avoid_negative_ts make_zero "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     else
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     fi
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
@@ -63,12 +74,11 @@ recode_stream() {
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
-    ffmpeg -y -i "$FILE" \
+    ffmpeg -y -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
         -c:v libx264 -preset superfast -crf 22 \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
-        -fflags +genpts+igndts -avoid_negative_ts make_zero \
-        -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
+        -f mpegts "$tmp_file" </dev/null >> "$LOG_FILE" 2>&1 # Log ffmpeg output for deep repair
 
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
@@ -80,13 +90,14 @@ recode_stream() {
 smart_repair() {
     local TARGET="$1"
     sanitize_stream "$TARGET"
-    local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TARGET" | cut -d. -f1)
+    local duration=$(get_duration "$TARGET")
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
     fi
 }
 
+# QA Check: Stream-Integrität
 check_stream() {
     local FILE="$1"
     echo "[$(date +%T)] Starte Integritäts-Prüfung für: $FILE" >> "$LOG_FILE"
@@ -103,6 +114,48 @@ check_stream() {
     fi
     echo "[$(date +%T)] Prüfung für $FILE erfolgreich. Keine Fehler gefunden." >> "$LOG_FILE"
     return 0 # Keine Fehler
+}
+
+# QA Check: Dateigröße
+check_size() {
+    local INPUT_FILE="$1"
+    local OUTPUT_FILE="$2"
+    local EXPECTED_RATIO_PERCENT="$3" # e.g., 70 for 70% of original size
+    local ACTION_TYPE="$4" # e.g., "Import-Encode", "Shrink", "Import-Remux"
+
+    local INPUT_SIZE=$(stat -c %s "$INPUT_FILE" 2>/dev/null || echo 0)
+    local OUTPUT_SIZE=$(stat -c %s "$OUTPUT_FILE" 2>/dev/null || echo 0)
+
+    if [[ "$INPUT_SIZE" -eq 0 || "$OUTPUT_SIZE" -eq 0 ]]; then
+        echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Dateigröße konnte nicht ermittelt werden für $INPUT_FILE oder $OUTPUT_FILE." >> "$LOG_FILE"
+        return 0 # Kann nicht prüfen, also kein Fehler
+    fi
+
+    # Check if output is larger than input (should only happen if remuxing and original was broken, or if encoding failed badly)
+    if [[ "$OUTPUT_SIZE" -gt "$INPUT_SIZE" ]]; then
+        echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ($((OUTPUT_SIZE/1024/1024))MB) ist größer als Eingabedatei ($((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+        return 1 # Verdächtig
+    fi
+
+    # Calculate actual ratio
+    local ACTUAL_RATIO_PERCENT=$(( OUTPUT_SIZE * 100 / INPUT_SIZE ))
+
+    # Check against expected ratio for encoding actions (for remuxing, we expect 100% or less, but not significantly less unless it's a repair)
+    if [[ "$ACTION_TYPE" =~ "Encode" || "$ACTION_TYPE" == "Shrink" ]]; then
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt "$EXPECTED_RATIO_PERCENT" ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Kompressionsrate verdächtig für $OUTPUT_FILE. Erwartet max. ${EXPECTED_RATIO_PERCENT}%, aber ist ${ACTUAL_RATIO_PERCENT}%." >> "$LOG_FILE"
+            return 1 # Verdächtig
+        fi
+    fi
+
+    echo "[$(date +%T)] $ACTION_TYPE - Dateigrößenprüfung erfolgreich: Input $((INPUT_SIZE/1024/1024))MB, Output $((OUTPUT_SIZE/1024/1024))MB (${ACTUAL_RATIO_PERCENT}%)." >> "$LOG_FILE"
+    return 0
+}
+
+# Hilfsfunktion: Dauer eines Videos ermitteln
+get_duration() {
+    local FILE="$1"
+    ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE" | cut -d. -f1
 }
 
 check_disk_space() {
@@ -213,23 +266,44 @@ process_import() {
     echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
 
     # --- Intelligente Import-Weiche ---
+    local ENCODING_PERFORMED=0
+    local EXPECTED_RATIO=100 # Default for remuxing, 100% of original size
+    local ACTION_TYPE_LOG="Import-Remux"
+
     if [[ "$VCODEC" == "dvvideo" ]]; then
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -vf yadif -c:v libx264 -preset medium -crf 21 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y -i "$SOURCE_FILE" -vf yadif -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
+        ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -c:v libx265 -preset medium -crf 23 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y -i "$SOURCE_FILE" -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
+        ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-        ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
     else
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -f mpegts "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264_FALLBACK:-70}" # Example: expect max 70% of original size
+        ACTION_TYPE_LOG="Import-Encode (Fallback)"
     fi
     if [ -f "$STAGING_REC/joined.ts" ]; then
         smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
+
+        # QA Check: Dateigröße
+        if ! check_size "$SOURCE_FILE" "$STAGING_REC/00001.ts" "$EXPECTED_RATIO" "$ACTION_TYPE_LOG"; then
+            echo "[$(date +%T)] FEHLER: $ACTION_TYPE_LOG für $FILENAME fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wird nicht gelöscht." >> "$LOG_FILE"
+            send_mail "$ACTION_TYPE_LOG für '$PRETTY_TITLE' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wurde nicht gelöscht." "Import-Fehler"
+            rm -rf "$STAGING_REC" # Den fehlerhaften Staging-Ordner löschen
+            return 1
+        fi
 
         # info-Datei erstellen: NFO-Daten haben Vorrang
         echo "T $PRETTY_TITLE" > "$STAGING_REC/info"

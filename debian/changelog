@@ -1,5 +1,15 @@
-vdr-rectools (1.7.4) UNRELEASED; urgency=medium
+vdr-rectools (1.7.4) unstable; urgency=medium
 
+  * FEAT: Detailliertere QA-Checks nach der Konvertierung, inklusive
+          Dateigrößenprüfung und konfigurierbaren Kompressionsverhältnissen.
+  * FEAT: Encoding-Parameter (CRF, Preset) sind nun über die Konfigurations-
+    datei steuerbar.
+  * FEAT: FFmpeg-Aufrufe wurden durch zusätzliche Flags (`+igndts`,
+    `max_muxing_queue_size`) robuster gestaltet.
+  * FIX(Mail): E-Mail-Body wird nun mit 'fold' umgebrochen, um "501 line too
+    long" Fehler serverseitig zu verhindern.
+  * FIX(Mail): Das Anhängen der letzten Log-Zeilen an E-Mails wurde
+    entfernt, um "501 Syntax error - line too long" Fehler zu vermeiden.
   * FEAT(Import): Der Import-Scan wurde um die Dateitypen .avi und .mov
     erweitert, um die Kompatibilität mit Formaten wie MiniDV zu verbessern.
   * DOC: README aktualisiert, um die unterstützten Import-Formate klar zu benennen.
@@ -18,7 +28,7 @@ vdr-rectools (1.7.4) UNRELEASED; urgency=medium
          um alle Befehle und Konfigurationsoptionen zu dokumentieren.
   * LOG: Detailliertere Protokollierung für Untertitelsuche und Metadaten.
 
- -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 22 Apr 2026 22:08:00 +0200
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 23 Apr 2026 17:55:00 +0200
 
 vdr-rectools (1.7.3ubuntu2) focal; urgency=medium
 

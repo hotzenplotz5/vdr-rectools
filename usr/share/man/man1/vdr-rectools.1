@@ -63,6 +63,24 @@ Verzeichnis, in dem nach zu importierenden Videodateien gesucht wird.
 .B AUTO_ENCODE_IMPORT
 Erlaubt das automatische Re-Encoding beim Import, falls ein inkompatibler Codec erkannt wird (1=An, 0=Aus). Bei 0 wird der Import abgelehnt. Standard: 1.
 .TP
+.B CRF_H264_DEFAULT
+Constant Rate Factor (CRF) für H.264-Encodierung. Ein niedrigerer Wert bedeutet bessere Qualität, aber größere Dateigröße. Standard: 23.
+.TP
+.B PRESET_H264_DEFAULT
+Preset für H.264-Encodierung (z.B. `medium`, `fast`, `slow`). Beeinflusst Geschwindigkeit und Effizienz. Standard: `medium`.
+.TP
+.B CRF_H265_DEFAULT
+CRF für H.265-Encodierung. Standard: 23.
+.TP
+.B PRESET_H265_DEFAULT
+Preset für H.265-Encodierung. Standard: `medium`.
+.TP
+.B CRF_H264_FALLBACK
+CRF für Fallback-Encodierung. Standard: 23.
+.TP
+.B PRESET_H264_FALLBACK
+Preset für Fallback-Encodierung. Standard: `fast`.
+.TP
 .B AUTO_SUB_DOWNLOAD
 Aktiviert den automatischen Download von Untertiteln via Subliminal (1=An, 0=Aus). Standard: 1.
 .TP
