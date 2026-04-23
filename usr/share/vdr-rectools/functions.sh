@@ -288,6 +288,12 @@ process_import() {
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
+    elif [[ "$VCODEC" == "mpeg4" ]]; then
+        echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
+        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
+        ACTION_TYPE_LOG="Import-Encode (MPEG4)"
     elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
