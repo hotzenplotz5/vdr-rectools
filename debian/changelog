@@ -1,5 +1,7 @@
 vdr-rectools (1.7.4) unstable; urgency=medium
 
+  * FIX(QA): Dateigrößenprüfung (`check_size`) für Remuxing-Vorgänge
+    gelockert, um den Container-Overhead (z.B. von MKV zu TS) zu tolerieren.
   * FEAT: Detailliertere QA-Checks nach der Konvertierung, inklusive
           Dateigrößenprüfung und konfigurierbaren Kompressionsverhältnissen.
   * FEAT: Encoding-Parameter (CRF, Preset) sind nun über die Konfigurations-

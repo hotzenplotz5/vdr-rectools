@@ -131,17 +131,23 @@ check_size() {
         return 0 # Kann nicht prüfen, also kein Fehler
     fi
 
-    # Check if output is larger than input (should only happen if remuxing and original was broken, or if encoding failed badly)
-    if [[ "$OUTPUT_SIZE" -gt "$INPUT_SIZE" ]]; then
-        echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ($((OUTPUT_SIZE/1024/1024))MB) ist größer als Eingabedatei ($((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
-        return 1 # Verdächtig
-    fi
-
-    # Calculate actual ratio
     local ACTUAL_RATIO_PERCENT=$(( OUTPUT_SIZE * 100 / INPUT_SIZE ))
 
-    # Check against expected ratio for encoding actions (for remuxing, we expect 100% or less, but not significantly less unless it's a repair)
-    if [[ "$ACTION_TYPE" =~ "Encode" || "$ACTION_TYPE" == "Shrink" ]]; then
+    if [[ "$ACTION_TYPE" == "Import-Remux" ]]; then
+        # For remuxing from MKV to TS, a size increase due to container overhead is normal.
+        # We allow up to 10% increase. More than that is suspicious.
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt 110 ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 10% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Verdächtig
+        fi
+    else # For "Import-Encode" or "Shrink"
+        # Check if output is larger than input
+        if [[ "$OUTPUT_SIZE" -gt "$INPUT_SIZE" ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ($((OUTPUT_SIZE/1024/1024))MB) ist größer als Eingabedatei ($((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Verdächtig
+        fi
+
+        # Check against expected compression ratio
         if [[ "$ACTUAL_RATIO_PERCENT" -gt "$EXPECTED_RATIO_PERCENT" ]]; then
             echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Kompressionsrate verdächtig für $OUTPUT_FILE. Erwartet max. ${EXPECTED_RATIO_PERCENT}%, aber ist ${ACTUAL_RATIO_PERCENT}%." >> "$LOG_FILE"
             return 1 # Verdächtig
