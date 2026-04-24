@@ -43,12 +43,48 @@ BEFEHLE:
     repair          Startet einen Reparatur-Lauf für alle Aufnahmen.
     repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
     status          Zeigt den Status laufender Prozesse an.
+    diag            Zeigt System-Diagnoseinformationen an.
     stop            Beendet laufende Hintergrundprozesse sauber.
     cron            Simuliert den nächtlichen Timer-Aufruf.
     help, --help    Zeigt diese Hilfe an.
 
 Weitere Informationen finden Sie in der Dokumentation unter /usr/share/doc/vdr-rectools/
 EOF
+}
+
+show_diagnostics() {
+    echo "--- vdr-rectools Diagnose ---"
+    echo
+    echo "FFmpeg Version:"
+    ffmpeg -version | head -n 1
+    echo
+    echo "Verfügbare Hardwarebeschleuniger:"
+    ffmpeg -hide_banner -hwaccels
+    echo
+    echo "Verfügbare relevante Encoder:"
+    ffmpeg -hide_banner -encoders | grep -E 'h264_nvenc|hevc_nvenc|h264_vaapi|hevc_vaapi|h264_qsv|hevc_qsv|libx264|libx265'
+    echo
+    echo "Grafik-Hardware:"
+    lspci | grep -E 'VGA|3D'
+    echo
+}
+
+interactive_status() {
+    trap 'tput cnorm; exit' INT # Cursor bei Abbruch wiederherstellen
+    tput civis # Cursor ausblenden
+    while true; do
+        clear
+        local PID=$(cat "$PID_FILE")
+        local RUNTIME=$(ps -p "$PID" -o etime= | tr -d ' ')
+        echo "vdr-rectools läuft (PID: $PID, Laufzeit: $RUNTIME)"
+        echo "--- Letzte 15 Log-Einträge ---"
+        tail -n 15 /var/log/vdr-rectools.log
+        echo
+        echo -e "\n[L] Live-Log aktualisieren | [Q] Beenden"
+        read -t 2 -n 1 key
+        [[ "$key" =~ (q|Q) ]] && break
+    done
+    tput cnorm # Cursor wieder einblenden
 }
 
 # 3. Haupt-Logik (Case-Statement)
@@ -143,14 +179,15 @@ case "$1" in
 
     status)
         if is_running; then
-            PID=$(cat "$PID_FILE")
-            RUNTIME=$(ps -p "$PID" -o etime= | tr -d ' ')
-            echo "vdr-rectools läuft (PID: $PID, Laufzeit: $RUNTIME)"
-            echo "--- Letzte Log-Einträge ---"
-            tail -n 10 /var/log/vdr-rectools.log 2>/dev/null
+            interactive_status
         else
             echo "vdr-rectools läuft nicht."
         fi
+        ;;
+
+    diag)
+        show_diagnostics
+        exit 0
         ;;
 
     stop)
