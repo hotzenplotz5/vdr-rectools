@@ -30,6 +30,26 @@ if [[ "$1" != "status" && "$1" != "stop" ]]; then
     fi
 fi
 
+show_help() {
+    cat << EOF
+vdr-rectools - Suite zur Verwaltung von VDR-Aufnahmen
+
+BENUTZUNG:
+    vdr-rectools [BEFEHL]
+
+BEFEHLE:
+    start           Startet einen vollständigen Scan (Import & Cleanup) im Hintergrund.
+    import          Startet nur den Import-Prozess für neue Videodateien.
+    repair          Startet einen Reparatur-Lauf für alle Aufnahmen.
+    repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
+    status          Zeigt den Status laufender Prozesse an.
+    stop            Beendet laufende Hintergrundprozesse sauber.
+    cron            Simuliert den nächtlichen Timer-Aufruf.
+    help, --help    Zeigt diese Hilfe an.
+
+Weitere Informationen finden Sie in der Dokumentation unter /usr/share/doc/vdr-rectools/
+EOF
+}
 
 # 3. Haupt-Logik (Case-Statement)
 case "$1" in
@@ -150,8 +170,14 @@ case "$1" in
         fi
         ;;
 
+    help|--help|-h)
+        show_help
+        exit 0
+        ;;
+
     *)
-        echo "Verwendung: vdr-rectools [start|import|repair|repair_single <Pfad>|check_single <Pfad>|sync_single <Pfad>|shrink_single <Pfad>|cut_single <Pfad>|cron|status|stop]"
+        echo "Unbekannter Befehl: $1" >&2
+        show_help
         exit 1
         ;;
 esac
