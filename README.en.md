@@ -89,6 +89,7 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **PRESET_H264_DEFAULT** | Preset for H.264 (e.g., `medium`, `fast`) | `medium` |
 | **CRF_H265_DEFAULT** | CRF value for H.265 (lower=better) | `23` |
 | **PRESET_H265_DEFAULT** | Preset for H.265 (e.g., `medium`, `fast`) | `medium` |
+| **HW_ACCEL** | Hardware acceleration (`none`, `nvenc`, `vaapi`, `qsv`) | `none` |
 | **CRF_H264_FALLBACK** | CRF value for fallback encoding | `23` |
 | **PRESET_H264_FALLBACK**| Preset for fallback encoding | `fast` |
 | **MIN_COMPRESSION_RATIO_H264** | Max file size in % of original for H.264 encodes | `70` |

@@ -14,6 +14,7 @@ CRF_H265_DEFAULT=23 # CRF for H.265 encoding
 PRESET_H265_DEFAULT="medium" # Preset for H.265 encoding
 CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
 PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
+HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
 MAIL_NOTIFY=""
 AUTO_SUB_DOWNLOAD=1
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
@@ -74,10 +75,21 @@ recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
+    local FFMPEG_HW_OPTS=""
+    local H264_ENC="libx264"
+    case "$HW_ACCEL" in
+        nvenc) FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"; H264_ENC="h264_nvenc" ;;
+        vaapi) FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"; H264_ENC="h264_vaapi" ;;
+        qsv) FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"; H264_ENC="h264_qsv" ;;
+    esac
+    if [[ "$HW_ACCEL" != "none" ]]; then
+        echo "[$(date +%T)] Deep-Repair mit Hardwarebeschleunigung ($H264_ENC) gestartet." >> "$LOG_FILE"
+    fi
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
-    ffmpeg -y -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
-        -c:v libx264 -preset superfast -crf 22 \
+    # Wir nutzen hier die Fallback-Parameter, da es ein Reparatur-Versuch ist.
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+        -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
         -f mpegts "$tmp_file" </dev/null >> "$LOG_FILE" 2>&1 # Log ffmpeg output for deep repair
@@ -198,7 +210,17 @@ process_folder() {
                 ;;
             shrink)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
-                ffmpeg -y -i "$STAGING_REC/joined.ts" -c:v libx265 -crf 23 -c:a copy -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+                local FFMPEG_HW_OPTS=""
+                local H265_ENC="libx265"
+                case "$HW_ACCEL" in
+                    nvenc) FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"; H265_ENC="hevc_nvenc" ;;
+                    vaapi) FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"; H265_ENC="hevc_vaapi" ;;
+                    qsv) FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"; H265_ENC="hevc_qsv" ;;
+                esac
+                if [[ "$HW_ACCEL" != "none" ]]; then
+                    echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
+                fi
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
                 ;;
             check)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
@@ -281,32 +303,57 @@ process_import() {
     local ENCODING_PERFORMED=0
     local EXPECTED_RATIO=100 # Default for remuxing, 100% of original size
     local ACTION_TYPE_LOG="Import-Remux"
+    local FFMPEG_HW_OPTS=""
+    local H264_ENC="libx264"
+    local H265_ENC="libx265"
+
+    # --- Hardwarebeschleunigung ---
+    case "$HW_ACCEL" in
+        nvenc)
+            FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"
+            H264_ENC="h264_nvenc"
+            H265_ENC="hevc_nvenc"
+            echo "[$(date +%T)] Hardwarebeschleunigung: Nvidia NVENC aktiviert." >> "$LOG_FILE"
+            ;;
+        vaapi)
+            FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"
+            H264_ENC="h264_vaapi"
+            H265_ENC="hevc_vaapi"
+            echo "[$(date +%T)] Hardwarebeschleunigung: VA-API aktiviert." >> "$LOG_FILE"
+            ;;
+        qsv)
+            FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"
+            H264_ENC="h264_qsv"
+            H265_ENC="hevc_qsv"
+            echo "[$(date +%T)] Hardwarebeschleunigung: Intel QSV aktiviert." >> "$LOG_FILE"
+            ;;
+    esac
 
     if [[ "$VCODEC" == "dvvideo" ]]; then
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -vf yadif -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" == "mpeg4" ]]; then
         echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
         ACTION_TYPE_LOG="Import-Encode (MPEG4)"
     elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-        ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
     else
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
-        ffmpeg -y -i "$SOURCE_FILE" -c:v libx264 -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264_FALLBACK:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (Fallback)"

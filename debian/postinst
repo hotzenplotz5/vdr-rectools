@@ -29,7 +29,7 @@ EOFF
 else
     # 1b. Bestehende Datei prüfen und fehlende Variablen nachrüsten
     for VAR in MAX_FILES MIN_FREE_GB AUTO_CLEAN IMPORT_DIR PAUSE_WORK PAUSE_CHECK SNAPSHOT_TIME MAIL_NOTIFY AUTO_TIMER AUTO_START_NIGHT AUTO_SUB_DOWNLOAD SUB_LANG USE_TVSCRAPER TVSCRAPER_MODE TVSCRAPER_DB; do        
-        if ! grep -q "^$VAR=" "$CONF"; then
+        if ! grep -q "^${VAR}=" "$CONF"; then
             case $VAR in
                 AUTO_START_NIGHT)  echo "AUTO_START_NIGHT=0" >> "$CONF" ;;
                 AUTO_TIMER)        echo "AUTO_TIMER=0" >> "$CONF" ;;
@@ -45,6 +45,7 @@ else
                 MIN_COMPRESSION_RATIO_H264) echo "MIN_COMPRESSION_RATIO_H264=70" >> "$CONF" ;;
                 MIN_COMPRESSION_RATIO_H265) echo "MIN_COMPRESSION_RATIO_H265=50" >> "$CONF" ;;
                 MIN_COMPRESSION_RATIO_H264_FALLBACK) echo "MIN_COMPRESSION_RATIO_H264_FALLBACK=70" >> "$CONF" ;;
+                HW_ACCEL)          echo "HW_ACCEL=\"none\"" >> "$CONF" ;;
                 AUTO_ENCODE_IMPORT) echo "AUTO_ENCODE_IMPORT=1" >> "$CONF" ;;
                 USE_TVSCRAPER)     echo "USE_TVSCRAPER=0" >> "$CONF" ;;
                 TVSCRAPER_MODE)    echo "TVSCRAPER_MODE=\"immediate\"" >> "$CONF" ;;
