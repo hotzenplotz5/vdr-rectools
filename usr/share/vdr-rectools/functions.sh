@@ -44,7 +44,9 @@ send_mail() {
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
     echo "$WRAPPED_BODY" | \
-    mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY"
+    if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" 2>> "$LOG_FILE"; then
+        echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
+    fi
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
@@ -110,7 +112,8 @@ check_stream() {
     if [[ -n "$FFERRORS" ]]; then
         echo "[$(date +%T)] FEHLER gefunden in $FILE:" >> "$LOG_FILE"
         echo "$FFERRORS" >> "$LOG_FILE"
-        return 1 # Fehler gefunden
+        echo "$FFERRORS" # Fehler an aufrufende Funktion zur Weiterverarbeitung ausgeben
+        return 1 # Signalisiert Fehler
     fi
     echo "[$(date +%T)] Prüfung für $FILE erfolgreich. Keine Fehler gefunden." >> "$LOG_FILE"
     return 0 # Keine Fehler
@@ -199,10 +202,13 @@ process_folder() {
                 ;;
             check)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
-                if check_stream "$STAGING_REC/joined.ts"; then
+                local CHECK_ERRORS
+                CHECK_ERRORS=$(check_stream "$STAGING_REC/joined.ts")
+                if [[ $? -eq 0 ]]; then
                     send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
                 else
-                    send_mail "In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden. Details im Log." "Prüfung fehlgeschlagen"
+                    local MAIL_BODY="In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden.\n\nFehlerdetails:\n$CHECK_ERRORS"
+                    send_mail "$MAIL_BODY" "Prüfung fehlgeschlagen: $CLEAN_NAME"
                 fi
                 rm -rf "$STAGING_REC" # Nach der Prüfung aufräumen
                 return
