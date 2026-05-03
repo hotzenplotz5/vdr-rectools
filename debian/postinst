@@ -7,6 +7,15 @@ set -e
 CONF="/etc/vdr/conf.d/vdr-rectools.conf"
 mkdir -p /etc/vdr/conf.d
 
+# 1. FIX FÜR DAS CONFFILE-PROBLEM (Warum keine Abfrage kam)
+# Wenn dpkg wegen alter sed-Änderungen die neue Datei als .dpkg-dist ablegt,
+# erzwingen wir hier das Update, damit du die neue kommentierte Datei bekommst!
+if [ -f "${CONF}.dpkg-dist" ]; then
+    mv "${CONF}.dpkg-dist" "$CONF"
+elif [ -f "${CONF}.dpkg-new" ]; then
+    mv "${CONF}.dpkg-new" "$CONF"
+fi
+
 # 2. Debconf-Werte auslesen
 db_get vdr-rectools/mail
 MAIL_VAL="$RET"
@@ -43,10 +52,12 @@ EOFF
 fi
 
 # 5. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
-# Erstellt staging und repaired_files, korrigiert Rechte für video.00
+# ACHTUNG: NIEMALS chown -R auf das komplette /srv/vdr/video.00 Verzeichnis!
 mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files /srv/vdr/video.00
-chown -R vdr:vdr /srv/vdr/tmp /srv/vdr/repaired_files /srv/vdr/video.00
-chmod -R 775 /srv/vdr/tmp /srv/vdr/repaired_files /srv/vdr/video.00
+chown -R vdr:vdr /srv/vdr/tmp/staging /srv/vdr/repaired_files
+chmod -R 775 /srv/vdr/tmp/staging /srv/vdr/repaired_files
+chown vdr:vdr /srv/vdr/video.00
+chmod 775 /srv/vdr/video.00
 
 # Logfile für vdr-user schreibbar machen
 touch /var/log/vdr-rectools.log
