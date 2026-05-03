@@ -1,3 +1,10 @@
+vdr-rectools (2.0.1-1) unstable; urgency=medium
+
+  * FIX: Konfigurationsdatei wird nun korrekt installiert (via vdr-rectools.install).
+  * FIX: postinst Skript korrekt benannt und Berechtigungs-Bug (chown -R) behoben.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 03 May 2026 17:50:00 +0000
+
 vdr-rectools (2.0.0-1) unstable; urgency=medium
 
   * Release Version 2.0.0
