@@ -1,3 +1,55 @@
+vdr-rectools (2.0.1-1) unstable; urgency=medium
+
+  * FIX: Konfigurationsdatei wird nun korrekt installiert (via vdr-rectools.install).
+  * FIX: postinst Skript korrekt benannt und Berechtigungs-Bug (chown -R) behoben.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 03 May 2026 17:50:00 +0000
+
+vdr-rectools (2.0.0-1) unstable; urgency=medium
+
+  * Release Version 2.0.0
+  * Konfigurationsdatei (vdr-rectools.conf) komplett überarbeitet und ausführlich dokumentiert.
+  * Veraltete TVSCRAPER_DB Variable entfernt, da das Skript SVDRP direkt nutzt.
+  * Allgemeine Stabilitätsverbesserungen und Cleanup.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 03 May 2026 17:18:20 +0000
+
+vdr-rectools (1.7.4) unstable; urgency=medium
+
+  * FEAT(Import): Explizite Behandlung für `mpeg4` (Xvid/DivX) Codec
+    im Import-Workflow hinzugefügt, um die Protokollierung zu verbessern.
+  * FIX(QA): Dateigrößenprüfung (`check_size`) für Remuxing-Vorgänge
+    gelockert, um den Container-Overhead (z.B. von MKV zu TS) zu tolerieren.
+  * FEAT: Detailliertere QA-Checks nach der Konvertierung, inklusive
+          Dateigrößenprüfung und konfigurierbaren Kompressionsverhältnissen.
+  * FEAT: Encoding-Parameter (CRF, Preset) sind nun über die Konfigurations-
+    datei steuerbar.
+  * FEAT: FFmpeg-Aufrufe wurden durch zusätzliche Flags (`+igndts`,
+    `max_muxing_queue_size`) robuster gestaltet.
+  * FIX(Mail): E-Mail-Body wird nun mit 'fold' umgebrochen, um "501 line too
+    long" Fehler serverseitig zu verhindern.
+  * FIX(Mail): Das Anhängen der letzten Log-Zeilen an E-Mails wurde
+    entfernt, um "501 Syntax error - line too long" Fehler zu vermeiden.
+  * FEAT(Import): Der Import-Scan wurde um die Dateitypen .avi und .mov
+    erweitert, um die Kompatibilität mit Formaten wie MiniDV zu verbessern.
+  * DOC: README aktualisiert, um die unterstützten Import-Formate klar zu benennen.
+  * FIX: TVScraper-Integration. Die fehleranfällige Prüfung auf eine
+         Datenbank-Datei wurde entfernt. Der Scrape wird nun immer
+         versucht, wenn USE_TVSCRAPER=1 gesetzt ist.
+  * FEAT: Intelligente Import-Weiche implementiert, die je nach Quell-Codec
+          automatisch die passende Strategie wählt (Remux, Re-Encode,
+          Deinterlace für DV).
+  * FEAT: Neue Konfigurationsoption 'AUTO_ENCODE_IMPORT', um das
+          automatische Umkodieren auf leistungsschwachen Systemen zu
+          deaktivieren.
+  * NEW: TVScraper-Integration zum automatischen Scrapen nach dem Import
+         (Modi: "immediate" oder "batch").
+  * DOC: Manpage (vdr-rectools.1) erstellt und umfassend aktualisiert,
+         um alle Befehle und Konfigurationsoptionen zu dokumentieren.
+  * LOG: Detailliertere Protokollierung für Untertitelsuche und Metadaten.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 23 Apr 2026 17:55:00 +0200
+
 vdr-rectools (1.7.3ubuntu2) focal; urgency=medium
 
   * Added smart_repair logic to functions.sh
@@ -9,13 +61,8 @@ vdr-rectools (1.7.3ubuntu2) focal; urgency=medium
 
 vdr-rectools (1.7.3ubuntu1) focal; urgency=medium
 
-  * Basic import and repair functions
-
- -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 18 Apr 2026 10:00:00 +0200
-
-vdr-rectools (1.7.3ubuntu1) UNRELEASED; urgency=medium
-
-  * Fixed SVDRP command UPDT and directory permissions for VDR user
+  * Fixed SVDRP command UPDT and directory permissions for VDR user.
+  * Basic import and repair functions.
 
  -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 19 Apr 2026 12:43:42 +0200
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# vdr-rectools - Core Functions (V1.7.3-smart)
+# vdr-rectools - Core Functions
 # ==============================================================================
 
 # 1. HARDCODED DEFAULTS
@@ -8,8 +8,19 @@ VIDEO_DIR="/srv/vdr/video"
 IMPORT_DIR="/srv/vdr/import"
 REPAIR_STAGING="/srv/vdr/tmp/staging"
 SNAPSHOT_TIME="00:05:00"
+CRF_H264_DEFAULT=23
+PRESET_H264_DEFAULT="medium" # Preset for H.264 encoding (e.g., medium, fast, slow)
+CRF_H265_DEFAULT=23 # CRF for H.265 encoding
+PRESET_H265_DEFAULT="medium" # Preset for H.265 encoding
+SHRINK_MAX_RES=0 # Max vertical resolution for shrink, 0 to disable. e.g. 1080 for Full HD
+CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
+PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
+HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
 MAIL_NOTIFY=""
 AUTO_SUB_DOWNLOAD=1
+MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
+MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
+MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
 MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
@@ -32,22 +43,26 @@ send_mail() {
     local BODY="$1"
     local SUBJECT="$2"
     [[ -z "$MAIL_NOTIFY" ]] && return
-    echo -e "$BODY\n\n--- Letzte Log-Eintraege ---\n$(tail -n 20 "$LOG_FILE" 2>/dev/null)" | \
-    mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY"
+    # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
+    local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
+    echo "$WRAPPED_BODY" | \
+    if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" 2>> "$LOG_FILE"; then
+        echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
+    fi
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
 sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
-    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE")
+    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE" | head -n 1 | tr -d '\r\n')
     echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
     if [[ "$codec" == "h264" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts -avoid_negative_ts make_zero "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     elif [[ "$codec" == "hevc" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts -avoid_negative_ts make_zero "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     else
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts "$tmp_file" </dev/null >/dev/null 2>&1
+        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     fi
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
@@ -61,14 +76,24 @@ recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
+    local FFMPEG_HW_OPTS=""
+    local H264_ENC="libx264"
+    case "$HW_ACCEL" in
+        nvenc) FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"; H264_ENC="h264_nvenc" ;;
+        vaapi) FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"; H264_ENC="h264_vaapi" ;;
+        qsv) FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"; H264_ENC="h264_qsv" ;;
+    esac
+    if [[ "$HW_ACCEL" != "none" ]]; then
+        echo "[$(date +%T)] Deep-Repair mit Hardwarebeschleunigung ($H264_ENC) gestartet." >> "$LOG_FILE"
+    fi
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
-    ffmpeg -y -i "$FILE" \
-        -c:v libx264 -preset superfast -crf 22 \
+    # Wir nutzen hier die Fallback-Parameter, da es ein Reparatur-Versuch ist.
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+        -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
-        -fflags +genpts+igndts -avoid_negative_ts make_zero \
-        -f mpegts "$tmp_file" </dev/null >/dev/null 2>&1
+        -f mpegts "$tmp_file" </dev/null >> "$LOG_FILE" 2>&1 # Log ffmpeg output for deep repair
 
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
@@ -81,11 +106,81 @@ smart_repair() {
     local TARGET="$1"
     local SKIP_SANITIZE="$2"
     [[ "$SKIP_SANITIZE" != "skip" ]] && sanitize_stream "$TARGET"
-    local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TARGET" | cut -d. -f1)
+    local duration=$(get_duration "$TARGET")
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
     fi
+}
+
+# QA Check: Stream-Integrität
+check_stream() {
+    local FILE="$1"
+    echo "[$(date +%T)] Starte Integritäts-Prüfung für: $FILE" >> "$LOG_FILE"
+    
+    # Führt ffmpeg aus und fängt alle Ausgaben (stdout und stderr) ab.
+    # -v error zeigt nur kritische Fehler an.
+    local FFERRORS
+    FFERRORS=$(ffmpeg -v error -i "$FILE" -f null - 2>&1)
+    
+    if [[ -n "$FFERRORS" ]]; then
+        echo "[$(date +%T)] FEHLER gefunden in $FILE:" >> "$LOG_FILE"
+        echo "$FFERRORS" >> "$LOG_FILE"
+        echo "$FFERRORS" # Fehler an aufrufende Funktion zur Weiterverarbeitung ausgeben
+        return 1 # Signalisiert Fehler
+    fi
+    echo "[$(date +%T)] Prüfung für $FILE erfolgreich. Keine Fehler gefunden." >> "$LOG_FILE"
+    return 0 # Keine Fehler
+}
+
+# QA Check: Dateigröße
+check_size() {
+    local INPUT_FILE="$1"
+    local OUTPUT_FILE="$2"
+    local EXPECTED_RATIO_PERCENT="$3" # e.g., 70 for 70% of original size
+    local ACTION_TYPE="$4" # e.g., "Import-Encode", "Shrink", "Import-Remux"
+
+    local INPUT_SIZE=$(stat -c %s "$INPUT_FILE" 2>/dev/null || echo 0)
+    local OUTPUT_SIZE=$(stat -c %s "$OUTPUT_FILE" 2>/dev/null || echo 0)
+
+    if [[ "$INPUT_SIZE" -eq 0 || "$OUTPUT_SIZE" -eq 0 ]]; then
+        echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Dateigröße konnte nicht ermittelt werden für $INPUT_FILE oder $OUTPUT_FILE." >> "$LOG_FILE"
+        return 0 # Kann nicht prüfen, also kein Fehler
+    fi
+
+    local ACTUAL_RATIO_PERCENT=$(( OUTPUT_SIZE * 100 / INPUT_SIZE ))
+
+    if [[ "$ACTION_TYPE" == "Import-Remux" ]]; then
+        # For remuxing from MKV to TS, a size increase due to container overhead is normal.
+        # We allow up to 25% increase and check for significant decrease (<80%).
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt 125 ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 25% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+        elif [[ "$ACTUAL_RATIO_PERCENT" -lt 80 ]]; then
+            echo "[$(date +%T)] FEHLER: $ACTION_TYPE - Ausgabedatei ist signifikant kleiner als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Fehler
+        fi
+    else # For "Import-Encode" or "Shrink"
+        # Check if output is larger than input
+        if [[ "$OUTPUT_SIZE" -gt "$INPUT_SIZE" ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ($((OUTPUT_SIZE/1024/1024))MB) ist größer als Eingabedatei ($((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Verdächtig
+        fi
+
+        # Check against expected compression ratio
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt "$EXPECTED_RATIO_PERCENT" ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Kompressionsrate verdächtig für $OUTPUT_FILE. Erwartet max. ${EXPECTED_RATIO_PERCENT}%, aber ist ${ACTUAL_RATIO_PERCENT}%." >> "$LOG_FILE"
+            return 1 # Verdächtig
+        fi
+    fi
+
+    echo "[$(date +%T)] $ACTION_TYPE - Dateigrößenprüfung erfolgreich: Input $((INPUT_SIZE/1024/1024))MB, Output $((OUTPUT_SIZE/1024/1024))MB (${ACTUAL_RATIO_PERCENT}%)." >> "$LOG_FILE"
+    return 0
+}
+
+# Hilfsfunktion: Dauer eines Videos ermitteln
+get_duration() {
+    local FILE="$1"
+    ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE" | cut -d. -f1
 }
 
 check_disk_space() {
@@ -104,7 +199,7 @@ process_folder() {
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
 
-    if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" ]]; then
+    if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
         local STAGING_REC="$REPAIR_STAGING/${MODE}_$FILM_TITLE"
         mkdir -p "$STAGING_REC"
@@ -119,7 +214,49 @@ process_folder() {
                 ;;
             shrink)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
-                ffmpeg -y -i "$STAGING_REC/joined.ts" -c:v libx265 -crf 23 -c:a copy -f mpegts "$STAGING_REC/00001.ts" </dev/null >/dev/null 2>&1
+                local FFMPEG_HW_OPTS=""
+                local H265_ENC="libx265"
+                case "$HW_ACCEL" in
+                    nvenc) FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"; H265_ENC="hevc_nvenc" ;;
+                    vaapi) FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"; H265_ENC="hevc_vaapi" ;;
+                    qsv) FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"; H265_ENC="hevc_qsv" ;;
+                esac
+                if [[ "$HW_ACCEL" != "none" ]]; then
+                    echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
+                fi
+
+                # --- Smart Downscaling ---
+                local VF_PARAMS=""
+                if [[ "${SHRINK_MAX_RES:-0}" -gt 0 ]]; then
+                    local CURRENT_HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$STAGING_REC/joined.ts" 2>/dev/null)
+                    if [[ -n "$CURRENT_HEIGHT" && "$CURRENT_HEIGHT" -gt "$SHRINK_MAX_RES" ]]; then
+                        echo "[$(date +%T)] SHRINK: Downscaling von ${CURRENT_HEIGHT}p auf ${SHRINK_MAX_RES}p wird angewendet." >> "$LOG_FILE"
+                        case "$HW_ACCEL" in
+                            nvenc)
+                                VF_PARAMS="-vf scale_npp=-2:${SHRINK_MAX_RES}" ;;
+                            vaapi)
+                                VF_PARAMS="-vf format=nv12,hwupload,scale_vaapi=-2:${SHRINK_MAX_RES}" ;;
+                            qsv)
+                                VF_PARAMS="-vf vpp_qsv=w=-2:h=${SHRINK_MAX_RES}" ;;
+                            *) # none
+                                VF_PARAMS="-vf scale=-2:${SHRINK_MAX_RES}" ;;
+                        esac
+                    fi
+                fi
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $VF_PARAMS -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
+                ;;
+            check)
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                local CHECK_ERRORS
+                CHECK_ERRORS=$(check_stream "$STAGING_REC/joined.ts")
+                if [[ $? -eq 0 ]]; then
+                    send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
+                else
+                    local MAIL_BODY="In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden.\n\nFehlerdetails:\n$CHECK_ERRORS"
+                    send_mail "$MAIL_BODY" "Prüfung fehlgeschlagen: $CLEAN_NAME"
+                fi
+                rm -rf "$STAGING_REC" # Nach der Prüfung aufräumen
+                return
                 ;;
         esac
         if [ -f "$STAGING_REC/00001.ts" ]; then
@@ -156,59 +293,133 @@ process_folder() {
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
+
     local FILENAME=$(basename "$SOURCE_FILE")
-    local FILM_TITLE="${FILENAME%.*}"
-    local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local NFO_SOURCE="${SOURCE_FILE%.*}.nfo"
+    local META_TITLE=""
+    local META_DESC=""
+
+    if [[ -f "$NFO_SOURCE" ]]; then
+        echo "[$(date +%T)] Metadaten-Datei gefunden: $NFO_SOURCE" >> "$LOG_FILE"
+        META_TITLE=$(grep '<title>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<title>//' -e 's/<\/title>.*//' | tr -d '\r\n')
+        META_DESC=$(grep '<plot>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<plot>//' -e 's/<\/plot>.*//' | tr -d '\r\n')
+    fi
+
+    local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
+    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
-    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
-    if [[ ! "$VCODEC" =~ ^(h264|mpeg2video|hevc)$ ]]; then
-        echo "[$(date +%T)] IMPORT ABGELEHNT: Codec $VCODEC in $FILENAME" >> "$LOG_FILE"
-        return 1
-    fi
+    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null | head -n 1 | tr -d '\r\n')
+
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
     local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
-    local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-    
-    local EXTRA_PARAMS=""
-    if [[ "$VCODEC" == "h264" ]]; then
-        EXTRA_PARAMS="-bsf:v h264_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
-    elif [[ "$VCODEC" == "hevc" ]]; then
-        EXTRA_PARAMS="-bsf:v hevc_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+
+    echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
+
+    # --- Intelligente Import-Weiche ---
+    local ENCODING_PERFORMED=0
+    local EXPECTED_RATIO=100 # Default for remuxing, 100% of original size
+    local ACTION_TYPE_LOG="Import-Remux"
+    local FFMPEG_HW_OPTS=""
+    local H264_ENC="libx264"
+    local H265_ENC="libx265"
+
+    # --- Hardwarebeschleunigung ---
+    case "$HW_ACCEL" in
+        nvenc)
+            FFMPEG_HW_OPTS="-hwaccel cuda -hwaccel_output_format cuda"
+            H264_ENC="h264_nvenc"
+            H265_ENC="hevc_nvenc"
+            echo "[$(date +%T)] Hardwarebeschleunigung: Nvidia NVENC aktiviert." >> "$LOG_FILE"
+            ;;
+        vaapi)
+            FFMPEG_HW_OPTS="-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128"
+            H264_ENC="h264_vaapi"
+            H265_ENC="hevc_vaapi"
+            echo "[$(date +%T)] Hardwarebeschleunigung: VA-API aktiviert." >> "$LOG_FILE"
+            ;;
+        qsv)
+            FFMPEG_HW_OPTS="-hwaccel qsv -hwaccel_output_format qsv"
+            H264_ENC="h264_qsv"
+            H265_ENC="hevc_qsv"
+            echo "[$(date +%T)] Hardwarebeschleunigung: Intel QSV aktiviert." >> "$LOG_FILE"
+            ;;
+    esac
+
+    if [[ "$VCODEC" == "dvvideo" ]]; then
+        echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
+        ACTION_TYPE_LOG="Import-Encode (DV)"
+    elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
+        echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
+        ACTION_TYPE_LOG="Import-Encode (Web)"
+    elif [[ "$VCODEC" == "mpeg4" ]]; then
+        echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
+        ACTION_TYPE_LOG="Import-Encode (MPEG4)"
+    elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
+        echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
+        local EXTRA_PARAMS=""
+        if [[ "$VCODEC" == "h264" ]]; then
+            EXTRA_PARAMS="-bsf:v h264_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+        elif [[ "$VCODEC" == "hevc" ]]; then
+            EXTRA_PARAMS="-bsf:v hevc_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+        fi
+        local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS $EXTRA_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+    else
+        echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ENCODING_PERFORMED=1
+        EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264_FALLBACK:-70}" # Example: expect max 70% of original size
+        ACTION_TYPE_LOG="Import-Encode (Fallback)"
     fi
-    
-    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS $EXTRA_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
     if [ -f "$STAGING_REC/joined.ts" ]; then
-        # Groessenpruefung: TS-Overhead einkalkulieren, aber Fehler bei zu kleinen Dateien abfangen
-        local ORIG_SIZE=$(stat -c%s "$SOURCE_FILE" 2>/dev/null || echo 0)
-        local NEW_SIZE=$(stat -c%s "$STAGING_REC/joined.ts" 2>/dev/null || echo 0)
-        
-        if [[ "$ORIG_SIZE" -gt 0 && "$NEW_SIZE" -gt 0 ]]; then
-            local MIN_EXPECTED=$((ORIG_SIZE * 80 / 100))
-            local MAX_EXPECTED=$((ORIG_SIZE * 125 / 100))
-            
-            if [[ "$NEW_SIZE" -lt "$MIN_EXPECTED" ]]; then
-                echo "[$(date +%T)] FEHLER: Import-Remux fehlgeschlagen (Ausgabedatei zu klein: $((NEW_SIZE/1024/1024))MB vs $((ORIG_SIZE/1024/1024))MB). Originaldatei wird nicht geloescht." >> "$LOG_FILE"
-                return 1
-            elif [[ "$NEW_SIZE" -gt "$MAX_EXPECTED" ]]; then
-                echo "[$(date +%T)] WARNUNG: Import-Remux - Ausgabedatei ist ueber 25% groesser als Eingabedatei ($((NEW_SIZE/1024/1024))MB vs $((ORIG_SIZE/1024/1024))MB)." >> "$LOG_FILE"
-            fi
+        if [[ "$VCODEC" =~ ^(h264|hevc)$ ]]; then
+            smart_repair "$STAGING_REC/joined.ts" "skip"
+        else
+            smart_repair "$STAGING_REC/joined.ts"
+        fi
+        mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
+
+        # QA Check: Dateigröße
+        if ! check_size "$SOURCE_FILE" "$STAGING_REC/00001.ts" "$EXPECTED_RATIO" "$ACTION_TYPE_LOG"; then
+            echo "[$(date +%T)] FEHLER: $ACTION_TYPE_LOG für $FILENAME fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wird nicht gelöscht." >> "$LOG_FILE"
+            send_mail "$ACTION_TYPE_LOG für '$PRETTY_TITLE' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wurde nicht gelöscht." "Import-Fehler"
+            rm -rf "$STAGING_REC" # Den fehlerhaften Staging-Ordner löschen
+            return 1
         fi
 
-        smart_repair "$STAGING_REC/joined.ts" "skip"
-        mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
-        echo "T $CLEAN_NAME" > "$STAGING_REC/info"
-        echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
+        # info-Datei erstellen: NFO-Daten haben Vorrang
+        echo "T $PRETTY_TITLE" > "$STAGING_REC/info"
+        echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
+        echo "[$(date +%T)] info-Datei für '$PRETTY_TITLE' wurde mit Metadaten befüllt." >> "$LOG_FILE"
+        # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
+        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PRETTY_TITLE}.nfo"
+
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
-            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >/dev/null 2>&1
+            echo "[$(date +%T)] Suche nach Untertiteln (Sprache: ${SUB_LANG:-de}) für $FILENAME..." >> "$LOG_FILE"
+            # Die Ausgabe von subliminal wird nun ins Log geschrieben
+            subliminal --quiet download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
             local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
-            [[ -f "$DOWNLOADED_SRT" ]] && mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+            if [[ -f "$DOWNLOADED_SRT" ]]; then
+                mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
+                echo "[$(date +%T)] Untertitel gefunden und als 00001.srt gespeichert." >> "$LOG_FILE"
+            fi
         fi
         mkdir -p "$(dirname "$FINAL_DEST")"
         mv "$STAGING_REC" "$FINAL_DEST"
@@ -216,7 +427,18 @@ process_import() {
         process_folder "$FINAL_DEST" "normal"
         touch "$VIDEO_DIR/.update"
         rm -f "$SOURCE_FILE"
-        send_mail "Der Film '$CLEAN_NAME' wurde erfolgreich importiert." "Import erfolgreich: $CLEAN_NAME"
+
+        # --- TVScraper Integration ---
+        if [[ "$USE_TVSCRAPER" -eq 1 ]]; then
+            if [[ "$TVSCRAPER_MODE" == "immediate" ]]; then
+                echo "[$(date +%T)] TVScraper (immediate): Triggere Scrape für $FINAL_DEST" >> "$LOG_FILE"
+                /usr/bin/svdrpsend plug tvscraper SCRAPE "$FINAL_DEST" >/dev/null 2>&1 || true
+            else
+                echo "[$(date +%T)] TVScraper (batch): Film in VDR importiert, warte auf nächtlichen TVScraper-Lauf." >> "$LOG_FILE"
+            fi
+        fi
+
+        send_mail "Der Film '$PRETTY_TITLE' wurde erfolgreich importiert." "Import erfolgreich: $PRETTY_TITLE"
         return 0
     fi
     return 1
@@ -225,7 +447,7 @@ process_import() {
 run_scan() {
     local MODE="$1"
     local COUNT=0
-    find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" \) | while read -r FILE; do
+    find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done

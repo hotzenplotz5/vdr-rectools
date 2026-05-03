@@ -1,0 +1,22 @@
+# Set default behavior for all files to have LF line endings.
+# This prevents issues when working on Windows.
+* text=auto eol=lf
+
+# These files are text and should be normalized (convert CRLF to LF).
+*.txt           text
+*.md            text
+*.conf          text
+*.1             text
+*.template      text
+*.postinst      text
+*.prerm         text
+*.postrm        text
+*.preinst       text
+*.rules         text
+*.service       text
+*.timer         text
+*.changelog     text
+
+# These files are scripts and MUST have LF endings.
+usr/bin/vdr-rectools text eol=lf
+*.sh            text eol=lf

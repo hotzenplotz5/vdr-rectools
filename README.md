@@ -1,44 +1,73 @@
-# vdr-rectools (v1.7.3)
+# 🎬 vdr-rectools
 
-**vdr-rectools** ist eine leistungsstarke Media-Suite für den Video Disk Recorder (VDR). Es bietet eine automatisierte Lösung zum Reparieren, Schneiden, Konvertieren und Importieren von Aufnahmen sowie eine nahtlose Integration in das VDR-OSD und moderne Media-Server wie Plex oder Kodi.
-
----
-
-## 🚀 Hauptfunktionen
-
-* **MKV-to-VDR Import:** Verwandelt externe MKV-Dateien vollautomatisch in abspielbare VDR-Aufnahmen inklusive Metadaten.
-* **Reparatur-Modus:** Repariert defekte Aufnahmen (z.B. nach Stream-Fehlern) durch Re-Muxing via FFmpeg.
-* **Werbung schneiden:** Wendet VDR-Schnittmarken direkt auf die Dateien an (verlustfrei).
-* **H.265 Shrink:** Konvertiert Aufnahmen platzsparend nach HEVC (H.265).
-* **Nacht-Modus:** Ein intelligenter Systemd-Timer führt Wartungsarbeiten nur dann aus, wenn du es in der Konfiguration erlaubst.
-* **OSD-Integration:** Alle Funktionen sind direkt über das VDR-Menü "Befehle" erreichbar.
+**vdr-rectools** (ehemals *vdr-reccleaner*) ist eine modulare, vollautomatisierte Bash-Suite für den Video Disk Recorder (VDR). Sie dient zur Verwaltung, Reparatur, Konvertierung und nahtlosen Integration von VDR-Aufnahmen in Media-Center wie Plex oder Kodi.
 
 ---
 
-## 📂 Der MKV-Import Workflow (Detail)
+## ✨ Features
 
-Dies ist die Kernfunktion für die Integration externer Medien. Das Tool überwacht den in der Config definierten `IMPORT_DIR`.
-
-### Was passiert beim Import?
-Wenn du eine `.mkv` Datei in den Import-Ordner legst und `vdr-rectools import` startest:
-1. **Validierung:** Das Tool prüft via `mediainfo`, ob die Datei valide Video-Streams enthält.
-2. **Struktur-Erstellung:** Es wird ein VDR-konformer Aufnahme-Ordner erstellt (z.B. `Filmname/2026-04-19.10.00.1-0.rec`).
-3. **Re-Muxing:** Die MKV wird ohne Qualitätsverlust (Stream-Copy) in eine `.ts` Datei umgewandelt. Dabei werden inkompatible Container-Formate sauber für den VDR aufbereitet.
-4. **Metadaten-Generierung:** Es wird automatisch eine `info`-Datei generiert, damit der VDR Titel, Länge und technische Details im Menü anzeigt.
-5. **Bereinigung:** Nach erfolgreichem Import wird die ursprüngliche MKV-Datei gelöscht (konfigurierbar), um Platz zu sparen.
+* **📥 Smart Import:** Erkennt und verarbeitet diverse Videoformate (z.B. MKV, MP4, AVI, MOV) und Codecs (H.264, HEVC, MiniDV, Web-Formate) automatisch und wählt die optimale Import-Strategie (Remuxing oder Re-Encoding).
+* **📝 Intelligente Metadaten:** Liest beim Import `.nfo`-Dateien (Titel, Plot) ein und schreibt sie direkt in die `info`-Datei des VDR für eine perfekte Darstellung.
+* **🎬 TVScraper Integration:** Triggert nach dem Import optional einen Metadaten-Scrape im VDR (Modi: `immediate` oder `batch`).
+* **🛠️ Smart Repair:** Repariert defekte Aufnahmen in einem zweistufigen Verfahren: Zuerst ein schneller Header-Fix, bei Bedarf gefolgt von einem kompletten Re-Encoding.
+* **💬 Auto-Subtitles:** Sucht beim Import automatisch nach passenden Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
+* **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
+* **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Smart Downscaling).
+* **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail.
+* **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 
 ---
 
-## 🛠 Installation
+## � Der Import-Workflow im Detail
+
+Der Import ist das Herzstück von `vdr-rectools`. Das Skript durchsucht das `IMPORT_DIR` nach gängigen Videodateien wie `.mkv`, `.mp4`, `.avi`, `.mov` oder `.ts`.
+Wenn eine Datei gefunden wird, passiert Folgendes im Hintergrund:
+
+1.  **Metadaten finden:** Das Skript sucht nach einer passenden `.nfo`-Datei (z.B. `Mein Film.nfo`). Werden darin `<title>` und `<plot>` gefunden, werden diese für die VDR-Aufnahme übernommen. Andernfalls wird der Dateiname als Titel verwendet.
+2.  **Struktur anlegen:** Es wird ein VDR-konformer Aufnahmeordner erstellt (z.B. `/srv/vdr/video/Mein_Film/2026-04-22.10.00.1-0.rec/`).
+3.  **Schonendes Remuxing:** Die Quelldatei (`.mkv`, `.mp4` etc.) wird ohne Qualitätsverlust in eine VDR-kompatible `.ts`-Datei umgewandelt (`-c copy`).
+4.  **Reparatur & Index:** Die neue `.ts`-Datei wird durch `smart_repair` geschickt, um Timestamps zu korrigieren. Anschließend wird der VDR-Index (`index`) neu generiert.
+5.  **Metadaten schreiben:** Die `info`-Datei wird mit Titel und Beschreibung aus Schritt 1 befüllt.
+6.  **Untertitel & TVScraper:** Das Skript sucht nach Untertiteln und triggert (falls konfiguriert) das TVScraper-Plugin.
+7.  **Aufräumen:** Nach dem erfolgreichen Import wird die Originaldatei aus dem Import-Verzeichnis gelöscht.
+
+---
+
+## �📦 Systemvoraussetzungen
+
+Das Skript ist für Debian/Ubuntu-basierte Systeme (wie yaVDR) optimiert. Folgende Abhängigkeiten werden bei der Installation des `.deb`-Pakets automatisch aufgelöst:
+
+* `vdr`
+* `ffmpeg`
+* `bash` (>= 4.0)
+* `coreutils`, `findutils`
+* `subliminal` (für den Untertitel-Download)
+* `bsd-mailx` oder `mailutils` (für das Reporting)
+
+---
+
+## 🚀 Installation
+
+### Variante A: Installation über das fertige `.deb` Paket (Empfohlen)
+Lade dir das aktuellste Release von der GitHub Releases Seite herunter und installiere es bequem via APT.
+
+```bash
+# Ersetze * durch die aktuelle Versionsnummer
+sudo apt install ./vdr-rectools_*.deb
+```
+
+### Variante B: Manuelle Installation aus dem Quellcode
+Diese Methode ist für Entwickler oder für manuelle Anpassungen gedacht.
 
 ```bash
 # Repository klonen
-git clone [https://github.com/hotzenplotz5/vdr-rectools.git](https://github.com/hotzenplotz5/vdr-rectools.git)
+git clone https://github.com/hotzenplotz5/vdr-rectools.git
 cd vdr-rectools
 
 # Paket bauen & installieren
 debuild -us -uc
-sudo dpkg -i ../vdr-rectools_1.7.3_all.deb
+# Ersetze * durch die aktuelle Versionsnummer
+sudo dpkg -i ../vdr-rectools_*.deb
 ```
 
 ---
@@ -55,6 +84,18 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
 | **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
 | **SUB_LANG** | Sprache für Untertitel (z.B. de, en) | `de` |
+| **AUTO_ENCODE_IMPORT** | Automatisches Re-Encoding beim Import (1=An, 0=Aus) | `1` |
+| **CRF_H264_DEFAULT** | CRF-Wert für H.264 (niedriger=besser) | `23` |
+| **PRESET_H264_DEFAULT** | Preset für H.264 (z.B. `medium`, `fast`) | `medium` |
+| **CRF_H265_DEFAULT** | CRF-Wert für H.265 (niedriger=besser) | `23` |
+| **PRESET_H265_DEFAULT** | Preset für H.265 (z.B. `medium`, `fast`) | `medium` |
+| **HW_ACCEL** | Hardwarebeschleunigung (`none`, `nvenc`, `vaapi`, `qsv`) | `none` |
+| **SHRINK_MAX_RES** | Maximale Auflösung (Höhe) für Shrink. `0`=deaktiviert | `0` |
+| **CRF_H264_FALLBACK** | CRF-Wert für Fallback-Encoding | `23` |
+| **PRESET_H264_FALLBACK**| Preset für Fallback-Encoding | `fast` |
+| **MIN_COMPRESSION_RATIO_H264** | Max. Dateigröße in % des Originals für H.264-Encodes | `70` |
+| **MIN_COMPRESSION_RATIO_H265** | Max. Dateigröße in % des Originals für H.265-Encodes | `50` |
+| **MIN_COMPRESSION_RATIO_H264_FALLBACK** | Max. Dateigröße in % des Originals für H.264-Fallback | `70` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
 | **MAX_FILES** | Maximale Anzahl Dateien pro Durchlauf | `10` |
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |
