@@ -1,3 +1,12 @@
+vdr-rectools (2.0.0-1) unstable; urgency=medium
+
+  * Release Version 2.0.0
+  * Konfigurationsdatei (vdr-rectools.conf) komplett überarbeitet und ausführlich dokumentiert.
+  * Veraltete TVSCRAPER_DB Variable entfernt, da das Skript SVDRP direkt nutzt.
+  * Allgemeine Stabilitätsverbesserungen und Cleanup.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 03 May 2026 17:18:20 +0000
+
 vdr-rectools (1.7.4) unstable; urgency=medium
 
   * FEAT(Import): Explizite Behandlung für `mpeg4` (Xvid/DivX) Codec

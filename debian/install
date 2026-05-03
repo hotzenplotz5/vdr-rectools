@@ -1,2 +1,1 @@
-README.md usr/share/doc/vdr-rectools
-README.en.md usr/share/doc/vdr-rectools
+debian/vdr-rectools.conf etc/vdr/conf.d
