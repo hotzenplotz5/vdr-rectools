@@ -18,7 +18,7 @@ shrink_video() {
     local LOG_FILE="/var/log/vdr-rectools.log"
 
     # Prüfen, ob die Datei bereits in H.265 vorliegt
-    local CURRENT_CODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null)
+    local CURRENT_CODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | head -n 1 | tr -d '\r\n')
     if [[ "$CURRENT_CODEC" == "hevc" ]]; then
         echo "[$(date +%T)] SHRINK: $1 ist bereits in H.265 (HEVC). Abbruch." >> "$LOG_FILE"
         return 0

@@ -54,7 +54,7 @@ send_mail() {
 sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
-    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE")
+    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE" | head -n 1 | tr -d '\r\n')
     echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
     if [[ "$codec" == "h264" ]]; then
         ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
@@ -288,7 +288,7 @@ process_import() {
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
-    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null)
+    local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null | head -n 1 | tr -d '\r\n')
 
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
