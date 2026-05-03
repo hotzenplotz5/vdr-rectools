@@ -103,7 +103,8 @@ recode_stream() {
 }
 smart_repair() {
     local TARGET="$1"
-    sanitize_stream "$TARGET"
+    local SKIP_SANITIZE="$2"
+    [[ "$SKIP_SANITIZE" != "skip" ]] && sanitize_stream "$TARGET"
     local duration=$(get_duration "$TARGET")
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
@@ -150,10 +151,12 @@ check_size() {
 
     if [[ "$ACTION_TYPE" == "Import-Remux" ]]; then
         # For remuxing from MKV to TS, a size increase due to container overhead is normal.
-        # We allow up to 10% increase. More than that is suspicious.
-        if [[ "$ACTUAL_RATIO_PERCENT" -gt 110 ]]; then
-            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 10% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
-            return 1 # Verdächtig
+        # We allow up to 25% increase and check for significant decrease (<80%).
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt 125 ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 25% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+        elif [[ "$ACTUAL_RATIO_PERCENT" -lt 80 ]]; then
+            echo "[$(date +%T)] FEHLER: $ACTION_TYPE - Ausgabedatei ist signifikant kleiner als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Fehler
         fi
     else # For "Import-Encode" or "Shrink"
         # Check if output is larger than input
@@ -349,8 +352,14 @@ process_import() {
         ACTION_TYPE_LOG="Import-Encode (MPEG4)"
     elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
+        local EXTRA_PARAMS=""
+        if [[ "$VCODEC" == "h264" ]]; then
+            EXTRA_PARAMS="-bsf:v h264_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+        elif [[ "$VCODEC" == "hevc" ]]; then
+            EXTRA_PARAMS="-bsf:v hevc_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+        fi
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS $EXTRA_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
     else
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
@@ -359,7 +368,11 @@ process_import() {
         ACTION_TYPE_LOG="Import-Encode (Fallback)"
     fi
     if [ -f "$STAGING_REC/joined.ts" ]; then
-        smart_repair "$STAGING_REC/joined.ts"
+        if [[ "$VCODEC" =~ ^(h264|hevc)$ ]]; then
+            smart_repair "$STAGING_REC/joined.ts" "skip"
+        else
+            smart_repair "$STAGING_REC/joined.ts"
+        fi
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
 
         # QA Check: Dateigröße

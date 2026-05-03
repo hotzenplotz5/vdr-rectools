@@ -38,5 +38,4 @@ Das Skript ist für Debian/Ubuntu-basierte Systeme (wie yaVDR) optimiert. Folgen
 Lade dir das aktuellste Release herunter und installiere es bequem via APT. Die Konfiguration (E-Mail, Auto-Subtitles) erfolgt interaktiv über Debconf-Dialoge während der Installation.
 
 ```bash
-sudo apt install ./vdr-rectools_1.7.2_all.deb
-sudo apt install ./vdr-rectools_1.7.4_all.deb
+sudo apt install ./vdr-rectools_*.deb
