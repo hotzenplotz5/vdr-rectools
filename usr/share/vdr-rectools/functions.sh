@@ -12,6 +12,7 @@ CRF_H264_DEFAULT=23
 PRESET_H264_DEFAULT="medium" # Preset for H.264 encoding (e.g., medium, fast, slow)
 CRF_H265_DEFAULT=23 # CRF for H.265 encoding
 PRESET_H265_DEFAULT="medium" # Preset for H.265 encoding
+SHRINK_MAX_RES=0 # Max vertical resolution for shrink, 0 to disable. e.g. 1080 for Full HD
 CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
 PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
 HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
@@ -223,7 +224,26 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
-                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
+
+                # --- Smart Downscaling ---
+                local VF_PARAMS=""
+                if [[ "${SHRINK_MAX_RES:-0}" -gt 0 ]]; then
+                    local CURRENT_HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$STAGING_REC/joined.ts" 2>/dev/null)
+                    if [[ -n "$CURRENT_HEIGHT" && "$CURRENT_HEIGHT" -gt "$SHRINK_MAX_RES" ]]; then
+                        echo "[$(date +%T)] SHRINK: Downscaling von ${CURRENT_HEIGHT}p auf ${SHRINK_MAX_RES}p wird angewendet." >> "$LOG_FILE"
+                        case "$HW_ACCEL" in
+                            nvenc)
+                                VF_PARAMS="-vf scale_npp=-2:${SHRINK_MAX_RES}" ;;
+                            vaapi)
+                                VF_PARAMS="-vf format=nv12,hwupload,scale_vaapi=-2:${SHRINK_MAX_RES}" ;;
+                            qsv)
+                                VF_PARAMS="-vf vpp_qsv=w=-2:h=${SHRINK_MAX_RES}" ;;
+                            *) # none
+                                VF_PARAMS="-vf scale=-2:${SHRINK_MAX_RES}" ;;
+                        esac
+                    fi
+                fi
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $VF_PARAMS -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
                 ;;
             check)
                 cat 000*.ts > "$STAGING_REC/joined.ts"

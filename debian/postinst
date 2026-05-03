@@ -25,10 +25,11 @@ SUB_LANG="de"
 USE_TVSCRAPER=0
 TVSCRAPER_MODE="immediate"
 TVSCRAPER_DB="/var/cache/vdr/plugins/tvscraper/tvscraper.sqlite"
+SHRINK_MAX_RES=0
 EOFF
 else
     # 1b. Bestehende Datei prüfen und fehlende Variablen nachrüsten
-    for VAR in MAX_FILES MIN_FREE_GB AUTO_CLEAN IMPORT_DIR PAUSE_WORK PAUSE_CHECK SNAPSHOT_TIME MAIL_NOTIFY AUTO_TIMER AUTO_START_NIGHT AUTO_SUB_DOWNLOAD SUB_LANG USE_TVSCRAPER TVSCRAPER_MODE TVSCRAPER_DB; do        
+    for VAR in MAX_FILES MIN_FREE_GB AUTO_CLEAN IMPORT_DIR PAUSE_WORK PAUSE_CHECK SNAPSHOT_TIME MAIL_NOTIFY AUTO_TIMER AUTO_START_NIGHT AUTO_SUB_DOWNLOAD SUB_LANG USE_TVSCRAPER TVSCRAPER_MODE TVSCRAPER_DB SHRINK_MAX_RES; do        
         if ! grep -q "^${VAR}=" "$CONF"; then
             case $VAR in
                 AUTO_START_NIGHT)  echo "AUTO_START_NIGHT=0" >> "$CONF" ;;
@@ -50,6 +51,7 @@ else
                 USE_TVSCRAPER)     echo "USE_TVSCRAPER=0" >> "$CONF" ;;
                 TVSCRAPER_MODE)    echo "TVSCRAPER_MODE=\"immediate\"" >> "$CONF" ;;
                 TVSCRAPER_DB)      echo "TVSCRAPER_DB=\"/var/cache/vdr/plugins/tvscraper/tvscraper.sqlite\"" >> "$CONF" ;;
+                SHRINK_MAX_RES)    echo "SHRINK_MAX_RES=0" >> "$CONF" ;;
                 *) echo "$VAR=\"\"" >> "$CONF" ;;
             esac
         fi

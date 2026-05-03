@@ -39,7 +39,9 @@ shrink_video() {
 }
 
 apply_vdr_marks() {
+    # TODO: Diese Funktion ist aktuell nur ein Platzhalter.
     echo "Werbeschnitt (via Marks) in Vorbereitung für $1" >> "/var/log/vdr-rectools.log"
+    echo "[$(date +%T)] FEHLER: Die Funktion 'Werbeschnitt anwenden' ist noch nicht implementiert." >> "/var/log/vdr-rectools.log"
 }
 
 extract_images() {

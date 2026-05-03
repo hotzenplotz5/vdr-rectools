@@ -12,7 +12,7 @@
 * **🛠️ Smart Repair:** Repariert defekte Aufnahmen in einem zweistufigen Verfahren: Zuerst ein schneller Header-Fix, bei Bedarf gefolgt von einem kompletten Re-Encoding.
 * **💬 Auto-Subtitles:** Sucht beim Import automatisch nach passenden Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
 * **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
-* **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein.
+* **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Smart Downscaling).
 * **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 
@@ -90,6 +90,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **CRF_H265_DEFAULT** | CRF-Wert für H.265 (niedriger=besser) | `23` |
 | **PRESET_H265_DEFAULT** | Preset für H.265 (z.B. `medium`, `fast`) | `medium` |
 | **HW_ACCEL** | Hardwarebeschleunigung (`none`, `nvenc`, `vaapi`, `qsv`) | `none` |
+| **SHRINK_MAX_RES** | Maximale Auflösung (Höhe) für Shrink. `0`=deaktiviert | `0` |
 | **CRF_H264_FALLBACK** | CRF-Wert für Fallback-Encoding | `23` |
 | **PRESET_H264_FALLBACK**| Preset für Fallback-Encoding | `fast` |
 | **MIN_COMPRESSION_RATIO_H264** | Max. Dateigröße in % des Originals für H.264-Encodes | `70` |
