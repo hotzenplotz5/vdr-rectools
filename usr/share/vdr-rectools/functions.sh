@@ -79,7 +79,8 @@ recode_stream() {
 }
 smart_repair() {
     local TARGET="$1"
-    sanitize_stream "$TARGET"
+    local SKIP_SANITIZE="$2"
+    [[ "$SKIP_SANITIZE" != "skip" ]] && sanitize_stream "$TARGET"
     local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TARGET" | cut -d. -f1)
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
@@ -173,9 +174,33 @@ process_import() {
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
     local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
+    
+    local EXTRA_PARAMS=""
+    if [[ "$VCODEC" == "h264" ]]; then
+        EXTRA_PARAMS="-bsf:v h264_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+    elif [[ "$VCODEC" == "hevc" ]]; then
+        EXTRA_PARAMS="-bsf:v hevc_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
+    fi
+    
+    ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS $EXTRA_PARAMS -copyts -fflags +genpts -f mpegts "$STAGING_REC/joined.ts" </dev/null >/dev/null 2>&1
     if [ -f "$STAGING_REC/joined.ts" ]; then
-        smart_repair "$STAGING_REC/joined.ts"
+        # Groessenpruefung: TS-Overhead einkalkulieren, aber Fehler bei zu kleinen Dateien abfangen
+        local ORIG_SIZE=$(stat -c%s "$SOURCE_FILE" 2>/dev/null || echo 0)
+        local NEW_SIZE=$(stat -c%s "$STAGING_REC/joined.ts" 2>/dev/null || echo 0)
+        
+        if [[ "$ORIG_SIZE" -gt 0 && "$NEW_SIZE" -gt 0 ]]; then
+            local MIN_EXPECTED=$((ORIG_SIZE * 80 / 100))
+            local MAX_EXPECTED=$((ORIG_SIZE * 125 / 100))
+            
+            if [[ "$NEW_SIZE" -lt "$MIN_EXPECTED" ]]; then
+                echo "[$(date +%T)] FEHLER: Import-Remux fehlgeschlagen (Ausgabedatei zu klein: $((NEW_SIZE/1024/1024))MB vs $((ORIG_SIZE/1024/1024))MB). Originaldatei wird nicht geloescht." >> "$LOG_FILE"
+                return 1
+            elif [[ "$NEW_SIZE" -gt "$MAX_EXPECTED" ]]; then
+                echo "[$(date +%T)] WARNUNG: Import-Remux - Ausgabedatei ist ueber 25% groesser als Eingabedatei ($((NEW_SIZE/1024/1024))MB vs $((ORIG_SIZE/1024/1024))MB)." >> "$LOG_FILE"
+            fi
+        fi
+
+        smart_repair "$STAGING_REC/joined.ts" "skip"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
         echo "T $CLEAN_NAME" > "$STAGING_REC/info"
         echo "D Importiert am $(date +"%d.%m.%Y")" >> "$STAGING_REC/info"
