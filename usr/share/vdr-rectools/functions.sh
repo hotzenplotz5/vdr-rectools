@@ -394,7 +394,7 @@ process_import() {
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
             echo "[$(date +%T)] Suche nach Untertiteln (Sprache: ${SUB_LANG:-de}) für $FILENAME..." >> "$LOG_FILE"
             # Die Ausgabe von subliminal wird nun ins Log geschrieben
-            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
+            subliminal --quiet download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
             local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
             if [[ -f "$DOWNLOADED_SRT" ]]; then
                 mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
