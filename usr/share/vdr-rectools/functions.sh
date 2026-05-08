@@ -12,7 +12,6 @@ CRF_H264_DEFAULT=23
 PRESET_H264_DEFAULT="medium" # Preset for H.264 encoding (e.g., medium, fast, slow)
 CRF_H265_DEFAULT=23 # CRF for H.265 encoding
 PRESET_H265_DEFAULT="medium" # Preset for H.265 encoding
-SHRINK_MAX_RES=0 # Max vertical resolution for shrink, 0 to disable. e.g. 1080 for Full HD
 CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
 PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
 HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
@@ -104,8 +103,7 @@ recode_stream() {
 }
 smart_repair() {
     local TARGET="$1"
-    local SKIP_SANITIZE="$2"
-    [[ "$SKIP_SANITIZE" != "skip" ]] && sanitize_stream "$TARGET"
+    sanitize_stream "$TARGET"
     local duration=$(get_duration "$TARGET")
     if [[ -z "$duration" || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
@@ -152,12 +150,10 @@ check_size() {
 
     if [[ "$ACTION_TYPE" == "Import-Remux" ]]; then
         # For remuxing from MKV to TS, a size increase due to container overhead is normal.
-        # We allow up to 25% increase and check for significant decrease (<80%).
-        if [[ "$ACTUAL_RATIO_PERCENT" -gt 125 ]]; then
-            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 25% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
-        elif [[ "$ACTUAL_RATIO_PERCENT" -lt 80 ]]; then
-            echo "[$(date +%T)] FEHLER: $ACTION_TYPE - Ausgabedatei ist signifikant kleiner als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
-            return 1 # Fehler
+        # We allow up to 10% increase. More than that is suspicious.
+        if [[ "$ACTUAL_RATIO_PERCENT" -gt 110 ]]; then
+            echo "[$(date +%T)] WARNUNG: $ACTION_TYPE - Ausgabedatei ist über 10% größer als Eingabedatei ($((OUTPUT_SIZE/1024/1024))MB vs $((INPUT_SIZE/1024/1024))MB) für $OUTPUT_FILE." >> "$LOG_FILE"
+            return 1 # Verdächtig
         fi
     else # For "Import-Encode" or "Shrink"
         # Check if output is larger than input
@@ -224,26 +220,7 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
-
-                # --- Smart Downscaling ---
-                local VF_PARAMS=""
-                if [[ "${SHRINK_MAX_RES:-0}" -gt 0 ]]; then
-                    local CURRENT_HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$STAGING_REC/joined.ts" 2>/dev/null)
-                    if [[ -n "$CURRENT_HEIGHT" && "$CURRENT_HEIGHT" -gt "$SHRINK_MAX_RES" ]]; then
-                        echo "[$(date +%T)] SHRINK: Downscaling von ${CURRENT_HEIGHT}p auf ${SHRINK_MAX_RES}p wird angewendet." >> "$LOG_FILE"
-                        case "$HW_ACCEL" in
-                            nvenc)
-                                VF_PARAMS="-vf scale_npp=-2:${SHRINK_MAX_RES}" ;;
-                            vaapi)
-                                VF_PARAMS="-vf format=nv12,hwupload,scale_vaapi=-2:${SHRINK_MAX_RES}" ;;
-                            qsv)
-                                VF_PARAMS="-vf vpp_qsv=w=-2:h=${SHRINK_MAX_RES}" ;;
-                            *) # none
-                                VF_PARAMS="-vf scale=-2:${SHRINK_MAX_RES}" ;;
-                        esac
-                    fi
-                fi
-                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $VF_PARAMS -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
                 ;;
             check)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
@@ -262,12 +239,24 @@ process_folder() {
         if [ -f "$STAGING_REC/00001.ts" ]; then
             cp info "$STAGING_REC/" 2>/dev/null
             /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
-            rm -f 000*.ts index marks 2>/dev/null
-            mv "$STAGING_REC/00001.ts" .
-            mv "$STAGING_REC/index" .
-            [[ -f "$STAGING_REC/marks" ]] && mv "$STAGING_REC/marks" .
-            rm -rf "$STAGING_REC"
-            echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
+
+            if [[ ! -f "$STAGING_REC/index" && "$MODE" == "repair" ]]; then
+                echo "[$(date +%T)] VDR Index konnte nicht generiert werden! Erzwinge Deep-Repair (Re-Encode)..." >> "$LOG_FILE"
+                recode_stream "$STAGING_REC/00001.ts"
+                /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
+            fi
+
+            if [ -f "$STAGING_REC/index" ]; then
+                rm -f 000*.ts index marks 2>/dev/null
+                mv "$STAGING_REC/00001.ts" .
+                mv "$STAGING_REC/index" .
+                [[ -f "$STAGING_REC/marks" ]] && mv "$STAGING_REC/marks" .
+                rm -rf "$STAGING_REC"
+                echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
+            else
+                echo "[$(date +%T)] FEHLER: $MODE fehlgeschlagen, Index konnte final nicht erstellt werden." >> "$LOG_FILE"
+                rm -rf "$STAGING_REC"
+            fi
         fi
     fi
 
@@ -372,14 +361,8 @@ process_import() {
         ACTION_TYPE_LOG="Import-Encode (MPEG4)"
     elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
-        local EXTRA_PARAMS=""
-        if [[ "$VCODEC" == "h264" ]]; then
-            EXTRA_PARAMS="-bsf:v h264_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
-        elif [[ "$VCODEC" == "hevc" ]]; then
-            EXTRA_PARAMS="-bsf:v hevc_mp4toannexb,dump_extra=e -avoid_negative_ts make_zero"
-        fi
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS $EXTRA_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
     else
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null >> "$LOG_FILE" 2>&1
@@ -388,11 +371,7 @@ process_import() {
         ACTION_TYPE_LOG="Import-Encode (Fallback)"
     fi
     if [ -f "$STAGING_REC/joined.ts" ]; then
-        if [[ "$VCODEC" =~ ^(h264|hevc)$ ]]; then
-            smart_repair "$STAGING_REC/joined.ts" "skip"
-        else
-            smart_repair "$STAGING_REC/joined.ts"
-        fi
+        smart_repair "$STAGING_REC/joined.ts"
         mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
 
         # QA Check: Dateigröße
@@ -414,7 +393,7 @@ process_import() {
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
             echo "[$(date +%T)] Suche nach Untertiteln (Sprache: ${SUB_LANG:-de}) für $FILENAME..." >> "$LOG_FILE"
             # Die Ausgabe von subliminal wird nun ins Log geschrieben
-            subliminal --quiet download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
+            subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
             local DOWNLOADED_SRT=$(find "$STAGING_REC" -maxdepth 1 -name "*.srt" | head -n 1)
             if [[ -f "$DOWNLOADED_SRT" ]]; then
                 mv "$DOWNLOADED_SRT" "$STAGING_REC/00001.srt"
