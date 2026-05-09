@@ -197,7 +197,7 @@ process_folder() {
 
     if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
-        local STAGING_REC="$REPAIR_STAGING/${MODE}_$FILM_TITLE"
+        local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_$$"
         mkdir -p "$STAGING_REC"
         case "$MODE" in
             repair)
@@ -305,7 +305,7 @@ process_import() {
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
-    local STAGING_REC="$REPAIR_STAGING/import_$CLEAN_NAME"
+    local STAGING_REC="$REPAIR_STAGING/import_${CLEAN_NAME}_$$"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
 
