@@ -317,7 +317,7 @@ process_import() {
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
-    local STAGING_REC="$REPAIR_STAGING/import_${CLEAN_NAME}_$$"
+    local STAGING_REC="$REPAIR_STAGING/import_${CLEAN_NAME}_${RANDOM}_$$"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
 
