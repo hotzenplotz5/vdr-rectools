@@ -23,6 +23,7 @@ MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallb
 MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
+LOCK_FILE="/tmp/vdr-rectools.lock"
 
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
@@ -48,6 +49,17 @@ send_mail() {
     if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" 2>> "$LOG_FILE"; then
         echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
     fi
+}
+
+# --- NEU: Verhindert, dass das Skript mehrfach gleichzeitig läuft ---
+ensure_single_instance() {
+    exec 200>"$LOCK_FILE"
+    if ! flock -n 200; then
+        echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
+        exit 0 # Sauberer Exit ohne Fehler
+    fi
+    # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
+    echo $$ >&200
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
@@ -424,6 +436,8 @@ process_import() {
 }
 
 run_scan() {
+    ensure_single_instance
+
     local MODE="$1"
     local COUNT=0
     find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
