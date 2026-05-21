@@ -25,6 +25,8 @@ MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
 # Lock-File im VDR-Video-Verzeichnis, damit sowohl 'root' als auch 'vdr' (OSD) konfliktfrei Schreibrechte haben
 LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
+USE_TVSCRAPER=0
+TVSCRAPER_MODE="batch"
 
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
@@ -53,6 +55,8 @@ send_mail() {
 
 # --- NEU: Verhindert, dass das Skript mehrfach gleichzeitig läuft ---
 ensure_single_instance() {
+    # Verhindert Absturz des Locks, falls das VDR-Verzeichnis nach einem Neustart noch nicht gemountet ist
+    mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
     # '>>' verhindert, dass die Datei beim Öffnen geleert wird, bevor der Lock greift
     exec 200>>"$LOCK_FILE"
     if ! flock -n 200; then
