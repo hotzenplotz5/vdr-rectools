@@ -484,7 +484,7 @@ process_import() {
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
         ACTION_TYPE_LOG="Import-Encode (MPEG4)"
-    elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
+    elif [[ "$VCODEC" =~ ^(h264|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
