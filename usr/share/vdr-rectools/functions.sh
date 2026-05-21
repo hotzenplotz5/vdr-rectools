@@ -107,7 +107,8 @@ set_state() {
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
 filter_ffmpeg_log() {
-    awk '/Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
+    # tr '\r' '\n' erzwingt echte Zeilenumbrüche, da FFmpeg Fortschritte sonst puffert und die %-Anzeige bei 0 hängen bleibt
+    tr '\r' '\n' | awk 'NF==0{next} /Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
@@ -300,6 +301,8 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
+                local DURATION=$(get_duration "$STAGING_REC/joined.ts")
+                echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
                 ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 local FF_STATUS=${PIPESTATUS[0]}
                 if [[ $FF_STATUS -ne 0 ]]; then
