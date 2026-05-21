@@ -42,6 +42,8 @@ shrink_video() {
     esac
 
     echo "[$(date +%T)] Starte H.265 Kompression ($H265_ENC) für $1" >> "$LOG_FILE"
+    local DURATION=$(get_duration "$1")
+    echo "$DURATION" > "${VIDEO_DIR:-/srv/vdr/video}/.vdr-rectools.duration" 2>/dev/null
     ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}

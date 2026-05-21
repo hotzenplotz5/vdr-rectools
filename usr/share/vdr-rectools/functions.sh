@@ -26,6 +26,7 @@ LOG_FILE="/var/log/vdr-rectools.log"
 # Lock-File im VDR-Video-Verzeichnis, damit sowohl 'root' als auch 'vdr' (OSD) konfliktfrei Schreibrechte haben
 LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
 STATE_FILE="$VIDEO_DIR/.vdr-rectools.state"
+DURATION_FILE="$VIDEO_DIR/.vdr-rectools.duration"
 USE_TVSCRAPER=0
 TVSCRAPER_MODE="batch"
 
@@ -82,11 +83,12 @@ ensure_single_instance() {
     echo "Initialisiere..." > "$STATE_FILE"
 
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" 2>/dev/null' EXIT
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" 2>/dev/null' EXIT
 }
 
 set_state() {
     echo "$1" > "$STATE_FILE" 2>/dev/null || true
+    rm -f "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
@@ -112,6 +114,8 @@ recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
+    local DURATION=$(get_duration "$FILE")
+    echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
     local FFMPEG_HW_OPTS=""
     local H264_ENC="libx264"
     case "$HW_ACCEL" in
@@ -393,6 +397,8 @@ process_import() {
 
     echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
     set_state "Importiere: $PRETTY_TITLE"
+    local DURATION=$(get_duration "$SOURCE_FILE")
+    echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
 
     # --- Intelligente Import-Weiche ---
     local ENCODING_PERFORMED=0
@@ -571,6 +577,30 @@ show_status() {
         [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null)
         echo -e " \033[1;32m🟢 AKTIV\033[0m    - Prozess läuft (PID: $PID, seit: $RUNTIME)"
         echo -e " \033[1;34m🎬 AKTUELL\033[0m  - $CURRENT_ACTION"
+        
+        # Fortschrittsbalken berechnen und anzeigen
+        if [[ -f "$DURATION_FILE" ]]; then
+            local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
+            if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
+                local LAST_TIME=$(tail -n 20 "$LOG_FILE" 2>/dev/null | grep -o 'time=[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}' | tail -n 1 | cut -d= -f2)
+                if [[ -n "$LAST_TIME" ]]; then
+                    local H=$(echo "$LAST_TIME" | cut -d: -f1)
+                    local M=$(echo "$LAST_TIME" | cut -d: -f2)
+                    local S=$(echo "$LAST_TIME" | cut -d: -f3)
+                    # 10# verhindert Oktal-Interpretation bei z.B. 08
+                    local CUR_SEC=$(( 10#$H * 3600 + 10#$M * 60 + 10#$S ))
+                    local PERCENT=$(( CUR_SEC * 100 / TOT_SEC ))
+                    [[ $PERCENT -gt 100 ]] && PERCENT=100
+                    
+                    local FILLED=$(( PERCENT / 5 ))
+                    local EMPTY=$(( 20 - FILLED ))
+                    local BAR=""
+                    for ((i=0; i<FILLED; i++)); do BAR="${BAR}█"; done
+                    for ((i=0; i<EMPTY; i++)); do BAR="${BAR}░"; done
+                    echo -e " \033[1;35m⏳ FORTSCHRITT\033[0m- [$BAR] $PERCENT%"
+                fi
+            fi
+        fi
     else
         echo -e " \033[1;30m⚪ INAKTIV\033[0m  - Wartet auf Arbeit im Hintergrund"
     fi
