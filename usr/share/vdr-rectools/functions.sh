@@ -87,7 +87,7 @@ ensure_single_instance() {
         exit 0 # Sauberer Exit ohne Fehler
     fi
     # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
-    echo $$ > "$LOCK_FILE"
+    echo $BASHPID > "$LOCK_FILE"
 
     # Status initialisieren
     if [[ ! -f "$STATE_FILE" ]]; then
