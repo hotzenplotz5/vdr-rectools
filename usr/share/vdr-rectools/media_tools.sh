@@ -18,7 +18,7 @@ extract_subtitles() {
 
 get_audio_map() {
     # Nimmt Video und Audio, wirft aber Spuren mit "visual_impaired" (Audio-Description) ab
-    echo "-map 0:v -map 0:a -map -0:a:m:disposition:visual_impaired? -c copy"
+    echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired? -c copy"
 }
 
 shrink_video() {
@@ -165,7 +165,8 @@ apply_vdr_marks() {
         
         local FF_STATUS=${PIPESTATUS[0]}
         if [[ $FF_STATUS -eq 0 && -f "$seg_file" ]]; then
-            echo "file '$(basename "$seg_file")'" >> "$concat_file"
+            # Absolute Pfade nutzen, um Abstürze zu verhindern, falls das Arbeitsverzeichnis abweicht
+            echo "file '$seg_file'" >> "$concat_file"
         else
             echo "[$(date +%T)] FEHLER: Extraktion von Segment $i fehlgeschlagen." >> "$LOG_FILE"
             rm -f "${segment_files[@]}" "$concat_file"

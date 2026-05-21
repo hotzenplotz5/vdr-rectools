@@ -213,7 +213,7 @@ process_folder() {
     local MODE="$2"
     [[ ! -d "$REC_DIR" ]] && return 1
     cd "$REC_DIR" || return 1
-    local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[\\/:"*?<>|]/_/g')
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
 
@@ -325,7 +325,8 @@ process_folder() {
             echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
         fi
         # Dateirechte für alle vom Skript generierten Hilfsdateien sicherstellen
-        chown vdr:vdr "$NFO_FILE" "$PLEX_LINK" "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
+        chown vdr:vdr "$NFO_FILE" "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
+        chown -h vdr:vdr "$PLEX_LINK" 2>/dev/null || true # -h ändert den Symlink selbst, statt dem Link-Ziel zu folgen
     fi
 }
 
@@ -345,7 +346,7 @@ process_import() {
     fi
 
     local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
-    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[\\/:"*?<>|]/_/g')
 
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
