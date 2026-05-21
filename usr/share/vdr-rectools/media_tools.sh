@@ -44,6 +44,7 @@ shrink_video() {
             return 1
         fi
         mv "$OUT" "$1"
+        chown vdr:vdr "$1" 2>/dev/null || true
         /usr/bin/vdr --genindex="$(dirname "$1")" >/dev/null 2>&1
     else
         echo "[$(date +%T)] FEHLER: FFmpeg Shrink für $1 abgebrochen (Status $FF_STATUS)." >> "$LOG_FILE"

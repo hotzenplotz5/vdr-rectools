@@ -60,6 +60,8 @@ ensure_single_instance() {
     fi
     # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
     echo $$ > "$LOCK_FILE"
+    # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
+    trap 'truncate -s 0 "$LOCK_FILE"' EXIT
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
@@ -276,6 +278,8 @@ process_folder() {
                 rm -f 000*.ts index 2>/dev/null # Löscht KEINE marks (Lesezeichen/Schnittmarken) mehr!
                 mv "$STAGING_REC/00001.ts" .
                 mv "$STAGING_REC/index" .
+                # Dateirechte für den VDR wiederherstellen, sonst drohen "Permission denied" Fehler im OSD
+                chown vdr:vdr 00001.ts index 2>/dev/null || true
                 rm -rf "$STAGING_REC"
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
@@ -306,6 +310,7 @@ process_folder() {
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
+            chown vdr:vdr "$NFO_FILE" 2>/dev/null || true
         fi
     fi
 }
@@ -429,9 +434,9 @@ process_import() {
 
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         
-        # Lokale Untertitel einbinden, bevor nach neuen gesucht wird
-        local SRT_SOURCE="${SOURCE_FILE%.*}.srt"
-        if [[ -f "$SRT_SOURCE" ]]; then
+        # Lokale Untertitel (inkl. Ländercode wie .de.srt) einbinden, bevor nach neuen gesucht wird
+        local SRT_SOURCE=$(find "$(dirname "$SOURCE_FILE")" -maxdepth 1 -name "${FILENAME%.*}*.srt" | head -n 1)
+        if [[ -n "$SRT_SOURCE" && -f "$SRT_SOURCE" ]]; then
             echo "[$(date +%T)] Lokale Untertitel-Datei gefunden und kopiert." >> "$LOG_FILE"
             cp "$SRT_SOURCE" "$STAGING_REC/00001.srt"
             rm -f "$SRT_SOURCE"
