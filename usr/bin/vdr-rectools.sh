@@ -16,6 +16,19 @@ is_running() {
             return 0 # Läuft
         fi
     fi
+    
+    # Fallback: Prüfe den Lock, falls das PID-File (z.B. durch Fehlstart) gelöscht wurde
+    local V_DIR="/srv/vdr/video"
+    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+    [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+    local L_FILE="$V_DIR/.vdr-rectools.lock"
+    if [ -f "$L_FILE" ]; then
+        local L_PID=$(cat "$L_FILE" 2>/dev/null)
+        if [ -n "$L_PID" ] && ps -p "$L_PID" > /dev/null 2>&1; then
+            return 0 # Läuft
+        fi
+    fi
+    
     return 1 # Läuft nicht
 }
 
@@ -183,25 +196,54 @@ case "$1" in
 
     stop)
         if is_running; then
-            PID=$(cat "$PID_FILE")
+            PID=""
+            [ -f "$PID_FILE" ] && PID=$(cat "$PID_FILE" 2>/dev/null)
+            if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
+                local V_DIR="/srv/vdr/video"
+                [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+                [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+                local L_FILE="$V_DIR/.vdr-rectools.lock"
+                [ -f "$L_FILE" ] && PID=$(cat "$L_FILE" 2>/dev/null)
+            fi
+            
+            if [ -z "$PID" ]; then
+                echo "Fehler: PID konnte nicht ermittelt werden."
+                exit 1
+            fi
+
             echo "Stoppe vdr-rectools (PID: $PID) und alle Kindprozesse..."
             
-            # Rekursive Funktion zum Beenden von Kindprozessen (z.B. hängendes ffmpeg)
-            kill_tree() {
+            # Alle betroffenen PIDs sammeln, BEVOR die Eltern sterben
+            get_descendants() {
                 local parent=$1
-                local sig=$2
                 for child in $(pgrep -P "$parent" 2>/dev/null); do
-                    kill_tree "$child" "$sig"
+                    get_descendants "$child"
+                    echo "$child"
                 done
-                kill "$sig" "$parent" 2>/dev/null
             }
             
-            kill_tree "$PID" "-15"
+            ALL_PIDS=$(get_descendants "$PID")
+            ALL_PIDS="$ALL_PIDS $PID"
+            
+            for p in $ALL_PIDS; do
+                kill -15 "$p" 2>/dev/null
+            done
+            
             sleep 2
             
-            if is_running; then
+            STILL_RUNNING=0
+            for p in $ALL_PIDS; do
+                if ps -p "$p" > /dev/null 2>&1; then
+                    STILL_RUNNING=1
+                    break
+                fi
+            done
+            
+            if [ "$STILL_RUNNING" -eq 1 ]; then
                 echo "Prozess reagiert nicht, sende KILL..."
-                kill_tree "$PID" "-9"
+                for p in $ALL_PIDS; do
+                    kill -9 "$p" 2>/dev/null
+                done
             fi
             rm -f "$PID_FILE"
             echo "Gestoppt."
