@@ -226,7 +226,16 @@ process_folder() {
                 mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
                 ;;
             cut)
-                /usr/bin/vdr-mvgently "$REC_DIR" "$STAGING_REC" >> "$LOG_FILE" 2>&1
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                # Schnittmarken in den Staging-Ordner kopieren
+                [[ -f marks ]] && cp marks "$STAGING_REC/"
+                
+                if apply_vdr_marks "$STAGING_REC/joined.ts"; then
+                    mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
+                    rm -f marks # Alte Marken entfernen, da der Schnitt fest eingebacken wurde
+                else
+                    echo "[$(date +%T)] FEHLER: Werbeschnitt abgebrochen. Originale Aufnahmen bleiben erhalten." >> "$LOG_FILE"
+                fi
                 ;;
             shrink)
                 cat 000*.ts > "$STAGING_REC/joined.ts"

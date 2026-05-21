@@ -54,9 +54,113 @@ shrink_video() {
 }
 
 apply_vdr_marks() {
-    # TODO: Diese Funktion ist aktuell nur ein Platzhalter.
-    echo "Werbeschnitt (via Marks) in Vorbereitung für $1" >> "$LOG_FILE"
-    echo "[$(date +%T)] FEHLER: Die Funktion 'Werbeschnitt anwenden' ist noch nicht implementiert." >> "$LOG_FILE"
+    local TARGET_FILE="$1"
+    local REC_DIR="$(dirname "$TARGET_FILE")"
+    local MARKS_FILE="$REC_DIR/marks"
+    local OUT_FILE="${TARGET_FILE%.ts}_cut.ts"
+    
+    echo "[$(date +%T)] Aktion: Starte automatischen Werbeschnitt für $TARGET_FILE" >> "$LOG_FILE"
+
+    if [[ ! -f "$MARKS_FILE" ]]; then
+        echo "[$(date +%T)] WARNUNG: Keine 'marks'-Datei in $REC_DIR gefunden. Es gibt nichts zu schneiden." >> "$LOG_FILE"
+        return 1
+    fi
+
+    local segments=()
+    local start_mark=""
+    
+    # Lese die Schnittmarken ein (Ungerade = Start, Gerade = Ende)
+    while read -r line; do
+        # Format: hh:mm:ss.ff [comment]
+        local time_val=$(echo "$line" | awk '{print $1}')
+        [[ -z "$time_val" ]] && continue
+        
+        # ffmpeg benötigt hh:mm:ss.ms
+        local hhmmss=$(echo "$time_val" | cut -d'.' -f1)
+        local ff=$(echo "$time_val" | cut -s -d'.' -f2)
+        local ms="000"
+        if [[ -n "$ff" ]]; then
+            ff=$((10#$ff)) # Führende Nullen sicher entfernen
+            ms=$(printf "%03d" $(( ff * 40 )))
+        fi
+        local ffmpeg_time="${hhmmss}.${ms}"
+
+        if [[ -z "$start_mark" ]]; then
+            start_mark="$ffmpeg_time"
+        else
+            local end_mark="$ffmpeg_time"
+            segments+=("$start_mark $end_mark")
+            start_mark=""
+        fi
+    done < "$MARKS_FILE"
+
+    # Falls eine ungerade Anzahl Marken existiert, geht der letzte Schnitt bis zum Ende
+    if [[ -n "$start_mark" ]]; then
+        segments+=("$start_mark end")
+    fi
+
+    if [[ ${#segments[@]} -eq 0 ]]; then
+        echo "[$(date +%T)] FEHLER: Konnte keine gültigen Marken parsen." >> "$LOG_FILE"
+        return 1
+    fi
+
+    # Segmente extrahieren
+    local concat_file="$REC_DIR/concat.txt"
+    > "$concat_file"
+    local i=0
+    local segment_files=()
+
+    echo "[$(date +%T)] INFO: Extrahiere ${#segments[@]} Videosegment(e)..." >> "$LOG_FILE"
+    
+    for seg in "${segments[@]}"; do
+        local s_time=$(echo "$seg" | awk '{print $1}')
+        local e_time=$(echo "$seg" | awk '{print $2}')
+        local seg_file="$REC_DIR/segment_$i.ts"
+        segment_files+=("$seg_file")
+        
+        if [[ "$e_time" == "end" ]]; then
+            ffmpeg -y -i "$TARGET_FILE" -ss "$s_time" -c copy "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        else
+            ffmpeg -y -i "$TARGET_FILE" -ss "$s_time" -to "$e_time" -c copy "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        fi
+        
+        local FF_STATUS=${PIPESTATUS[0]}
+        if [[ $FF_STATUS -eq 0 && -f "$seg_file" ]]; then
+            echo "file '$(basename "$seg_file")'" >> "$concat_file"
+        else
+            echo "[$(date +%T)] FEHLER: Extraktion von Segment $i fehlgeschlagen." >> "$LOG_FILE"
+            rm -f "${segment_files[@]}" "$concat_file"
+            return 1
+        fi
+        ((i++))
+    done
+
+    # Segmente zusammenfügen
+    echo "[$(date +%T)] INFO: Füge Segmente zusammen (Concat)..." >> "$LOG_FILE"
+    ffmpeg -y -f concat -safe 0 -i "$concat_file" -c copy "$OUT_FILE" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    
+    local FF_STATUS=${PIPESTATUS[0]}
+    rm -f "${segment_files[@]}" "$concat_file"
+
+    if [[ $FF_STATUS -eq 0 && -f "$OUT_FILE" ]]; then
+        # Check: Ist die Datei nicht versehentlich extrem geschrumpft? (Erwarten min. 10% der Originalgröße)
+        local IN_SIZE=$(stat -c%s "$TARGET_FILE" 2>/dev/null || echo 0)
+        local OUT_SIZE=$(stat -c%s "$OUT_FILE" 2>/dev/null || echo 0)
+        
+        if [[ "$OUT_SIZE" -lt $(( IN_SIZE / 10 )) ]]; then
+            echo "[$(date +%T)] FEHLER: Geschnittenes Video ist extrem klein (< 10%). Abbruch zum Schutz der Daten." >> "$LOG_FILE"
+            rm -f "$OUT_FILE"
+            return 1
+        fi
+        
+        echo "[$(date +%T)] ERFOLG: Werbeschnitt abgeschlossen." >> "$LOG_FILE"
+        mv "$OUT_FILE" "$TARGET_FILE"
+        return 0
+    else
+        echo "[$(date +%T)] FEHLER: Zusammenfügen der Segmente fehlgeschlagen." >> "$LOG_FILE"
+        rm -f "$OUT_FILE"
+        return 1
+    fi
 }
 
 extract_images() {
