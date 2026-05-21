@@ -1,3 +1,14 @@
+vdr-rectools (2.0.3-1) unstable; urgency=medium
+
+  * FIX: Datenverlust-Lücke bei fehlgeschlagenem Verschieben in Zielordner geschlossen.
+  * FIX: Syntax-Fehler beim E-Mail-Versand und "Zombie"-Staging-Ordner behoben.
+  * FIX: Lockfile-Bug behoben (PID ging verloren) inkl. sauberem Trap-Cleanup.
+  * FIX: Verlust von VDR-Schnittmarken ('marks') bei Repair/Shrink abgewendet.
+  * FIX: NFO-Namensgebung und Dateirechte (chown vdr:vdr) für generierte Dateien korrigiert.
+  * FEAT: Lokale Untertitel-Dateien (*.srt) werden beim Import automatisch erkannt.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 15:15:00 +0000
+
 vdr-rectools (2.0.2-1) unstable; urgency=medium
 
   * NEW: Lock-Mechanismus (flock) eingebaut, um parallele Ausführungen und Race Conditions zu verhindern.
