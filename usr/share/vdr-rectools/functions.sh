@@ -19,6 +19,7 @@ MAIL_NOTIFY=""
 TELEGRAM_BOT_TOKEN=""
 TELEGRAM_CHAT_ID=""
 AUTO_SUB_DOWNLOAD=1
+ASK_BEFORE_ENCODE=1 # Neu: Fragt per Status-Dashboard nach, bevor re-encodiert wird
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
 MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
 MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
@@ -102,7 +103,7 @@ ensure_single_instance() {
     fi
 
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" 2>/dev/null; exit 0' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -388,6 +389,44 @@ process_folder() {
     fi
 }
 
+# --- NEU: Bestätigung für Re-Encodes einholen ---
+confirm_encoding() {
+    local TITLE="$1"
+    local CODEC="$2"
+    local SRC_FILE="$3"
+    
+    if [[ "${ASK_BEFORE_ENCODE:-1}" -eq 0 ]]; then
+        return 0 # Automatisches Durchwinken ohne Nachfrage
+    fi
+    
+    local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+    echo "WAIT|$TITLE|$CODEC" > "$PROMPT_FILE"
+    
+    # E-Mail/Telegram senden
+    local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools status\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
+    send_mail "$MAIL_BODY" "Aktion erforderlich: Re-Encode fuer $TITLE"
+    
+    echo "[$(date +%T)] Warte auf Nutzerbestätigung für Re-Encode von '$TITLE'..." >> "$LOG_FILE"
+    set_state "Warte auf Bestätigung (Re-Encode): $TITLE"
+    
+    while [[ -f "$PROMPT_FILE" ]]; do
+        local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+        if [[ "$STATUS" == "YES" ]]; then
+            rm -f "$PROMPT_FILE"
+            echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' bestätigt." >> "$LOG_FILE"
+            set_state "Importiere: $TITLE"
+            return 0
+        elif [[ "$STATUS" == "NO" ]]; then
+            rm -f "$PROMPT_FILE"
+            echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' abgelehnt. Datei wird übersprungen (.skipped)." >> "$LOG_FILE"
+            mv -f "$SRC_FILE" "${SRC_FILE}.skipped" 2>/dev/null
+            return 1
+        fi
+        sleep 2
+    done
+    return 1 # Fallback, falls Datei (z.B. durch 'stop') gelöscht wird
+}
+
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
@@ -464,6 +503,7 @@ process_import() {
     esac
 
     if [[ "$VCODEC" == "dvvideo" ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -471,6 +511,7 @@ process_import() {
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -478,6 +519,7 @@ process_import() {
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" == "mpeg4" ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -490,6 +532,7 @@ process_import() {
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
     else
+        confirm_encoding "$PRETTY_TITLE" "${VCODEC:-unbekannt}" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
         ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}

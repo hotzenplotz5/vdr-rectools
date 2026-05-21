@@ -85,9 +85,41 @@ show_diagnostics() {
 interactive_status() {
     trap 'tput cnorm; exit' INT # Cursor bei Abbruch wiederherstellen
     tput civis # Cursor ausblenden
+    local V_DIR="/srv/vdr/video"
+    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+    [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+
     while true; do
         clear
         show_status
+        
+        local PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
+        if [[ -f "$PROMPT_FILE" ]]; then
+            local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+            if [[ "$STATUS" == "WAIT" ]]; then
+                local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
+                local P_CODEC=$(cut -d'|' -f3 "$PROMPT_FILE" 2>/dev/null)
+                echo -e "\n \033[1;31m========================================================\033[0m"
+                echo -e " \033[1;33m⚠️  AKTION ERFORDERLICH:\033[0m"
+                echo -e " Der Film '\033[1;37m$P_TITLE\033[0m' (Codec: $P_CODEC) muss re-encodiert werden."
+                echo -e " Dies kann je nach CPU/Hardware mehrere Stunden dauern."
+                echo -e " Möchten Sie den Re-Encode jetzt starten? [\033[1;32mJ\033[0m/\033[1;31mN\033[0m]"
+                echo -e " \033[1;31m========================================================\033[0m"
+                
+                read -n 1 -t 2 key
+                if [[ "$key" =~ (j|J|y|Y) ]]; then
+                    echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                    continue
+                elif [[ "$key" =~ (n|N) ]]; then
+                    echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                    continue
+                elif [[ "$key" =~ (q|Q) ]]; then
+                    break
+                fi
+                continue
+            fi
+        fi
+
         echo -e "\n [ Auto-Refresh alle 2s | [Q] Beenden ]"
         read -t 2 -n 1 key
         [[ "$key" =~ (q|Q) ]] && break
@@ -255,7 +287,7 @@ case "$1" in
         [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
         V_DIR="${VIDEO_DIR:-/srv/vdr/video}"
         truncate -s 0 "$V_DIR/.vdr-rectools.lock" 2>/dev/null || true
-        rm -f "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" 2>/dev/null || true
+        rm -f "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" "$V_DIR/.vdr-rectools.prompt" 2>/dev/null || true
         ;;
 
     help|--help|-h)
