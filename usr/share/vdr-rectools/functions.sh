@@ -424,10 +424,20 @@ process_import() {
         echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
         echo "[$(date +%T)] info-Datei für '$PRETTY_TITLE' wurde mit Metadaten befüllt." >> "$LOG_FILE"
         # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
-        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${CLEAN_NAME}.nfo"
+        local PLEX_NAME=$(echo "$CLEAN_NAME" | sed 's/_/ /g')
+        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PLEX_NAME}.nfo"
 
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
-        if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
+        
+        # Lokale Untertitel einbinden, bevor nach neuen gesucht wird
+        local SRT_SOURCE="${SOURCE_FILE%.*}.srt"
+        if [[ -f "$SRT_SOURCE" ]]; then
+            echo "[$(date +%T)] Lokale Untertitel-Datei gefunden und kopiert." >> "$LOG_FILE"
+            cp "$SRT_SOURCE" "$STAGING_REC/00001.srt"
+            rm -f "$SRT_SOURCE"
+        fi
+
+        if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 && ! -f "$STAGING_REC/00001.srt" ]]; then
             echo "[$(date +%T)] Suche nach Untertiteln (Sprache: ${SUB_LANG:-de}) für $FILENAME..." >> "$LOG_FILE"
             # Die Ausgabe von subliminal wird nun ins Log geschrieben
             subliminal download -l "${SUB_LANG:-de}" -d "$STAGING_REC" "$SOURCE_FILE" >> "$LOG_FILE" 2>&1
@@ -438,11 +448,17 @@ process_import() {
             fi
         fi
         mkdir -p "$(dirname "$FINAL_DEST")"
-        mv "$STAGING_REC" "$FINAL_DEST"
-        chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
-        process_folder "$FINAL_DEST" "normal"
-        touch "$VIDEO_DIR/.update"
-        rm -f "$SOURCE_FILE"
+        if mv "$STAGING_REC" "$FINAL_DEST"; then
+            chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
+            process_folder "$FINAL_DEST" "normal"
+            touch "$VIDEO_DIR/.update"
+            rm -f "$SOURCE_FILE"
+        else
+            echo "[$(date +%T)] FEHLER: Konnte $STAGING_REC nicht nach $FINAL_DEST verschieben." >> "$LOG_FILE"
+            send_mail "Fehler beim Verschieben in den Zielordner für '$PRETTY_TITLE'. Die Originaldatei bleibt erhalten." "Import-Fehler"
+            rm -rf "$STAGING_REC"
+            return 1
+        fi
 
         # --- TVScraper Integration ---
         if [[ "$USE_TVSCRAPER" -eq 1 ]]; then
