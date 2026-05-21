@@ -52,13 +52,14 @@ send_mail() {
 
 # --- NEU: Verhindert, dass das Skript mehrfach gleichzeitig läuft ---
 ensure_single_instance() {
-    exec 200>"$LOCK_FILE"
+    # '>>' verhindert, dass die Datei beim Öffnen geleert wird, bevor der Lock greift
+    exec 200>>"$LOCK_FILE"
     if ! flock -n 200; then
         echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
         exit 0 # Sauberer Exit ohne Fehler
     fi
     # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
-    echo $$ >&200
+    echo $$ > "$LOCK_FILE"
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
@@ -272,10 +273,9 @@ process_folder() {
             fi
 
             if [ -f "$STAGING_REC/index" ]; then
-                rm -f 000*.ts index marks 2>/dev/null
+                rm -f 000*.ts index 2>/dev/null # Löscht KEINE marks (Lesezeichen/Schnittmarken) mehr!
                 mv "$STAGING_REC/00001.ts" .
                 mv "$STAGING_REC/index" .
-                [[ -f "$STAGING_REC/marks" ]] && mv "$STAGING_REC/marks" .
                 rm -rf "$STAGING_REC"
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
@@ -424,7 +424,7 @@ process_import() {
         echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
         echo "[$(date +%T)] info-Datei für '$PRETTY_TITLE' wurde mit Metadaten befüllt." >> "$LOG_FILE"
         # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
-        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PRETTY_TITLE}.nfo"
+        [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${CLEAN_NAME}.nfo"
 
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         if [[ "$AUTO_SUB_DOWNLOAD" -eq 1 ]]; then
