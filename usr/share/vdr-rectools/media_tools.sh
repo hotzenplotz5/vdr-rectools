@@ -119,9 +119,9 @@ apply_vdr_marks() {
         segment_files+=("$seg_file")
         
         if [[ "$e_time" == "end" ]]; then
-            ffmpeg -y -i "$TARGET_FILE" -ss "$s_time" -c copy "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         else
-            ffmpeg -y -i "$TARGET_FILE" -ss "$s_time" -to "$e_time" -c copy "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -to "$e_time" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         fi
         
         local FF_STATUS=${PIPESTATUS[0]}
@@ -137,7 +137,7 @@ apply_vdr_marks() {
 
     # Segmente zusammenfügen
     echo "[$(date +%T)] INFO: Füge Segmente zusammen (Concat)..." >> "$LOG_FILE"
-    ffmpeg -y -f concat -safe 0 -i "$concat_file" -c copy "$OUT_FILE" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    ffmpeg -y -f concat -safe 0 -i "$concat_file" -c copy -fflags +genpts -avoid_negative_ts make_zero "$OUT_FILE" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
     rm -f "${segment_files[@]}" "$concat_file"
