@@ -642,6 +642,26 @@ show_status() {
                     for ((i=0; i<FILLED; i++)); do BAR="${BAR}█"; done
                     for ((i=0; i<EMPTY; i++)); do BAR="${BAR}░"; done
                     echo -e " \033[1;35m⏳ FORTSCHRITT\033[0m- [$BAR] $PERCENT%"
+                    
+                    # --- ETA / Restzeit Berechnung ---
+                    local SPEED=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'speed=[ ]*[0-9.]*x' | tail -n 1 | sed 's/speed=//;s/x//;s/ //g')
+                    if [[ -n "$SPEED" && "$SPEED" != "0" && "$SPEED" != "0.0" ]]; then
+                        local REM_SEC=$(( TOT_SEC - CUR_SEC ))
+                        if [[ $REM_SEC -gt 0 ]]; then
+                            # awk nutzen, da bash keine Fließkommazahlen dividieren kann
+                            local ETA_SEC=$(awk -v rem="$REM_SEC" -v spd="$SPEED" 'BEGIN { if(spd>0) printf "%d", rem/spd; else print 0 }')
+                            if [[ "$ETA_SEC" -gt 0 ]]; then
+                                local ETA_H=$(( ETA_SEC / 3600 ))
+                                local ETA_M=$(( (ETA_SEC % 3600) / 60 ))
+                                local ETA_S=$(( ETA_SEC % 60 ))
+                                if [[ $ETA_H -gt 0 ]]; then
+                                    echo -e " \033[1;36m⏱️  RESTZEIT\033[0m   - $(printf "%02d:%02d:%02d" $ETA_H $ETA_M $ETA_S) (bei ${SPEED}x Speed)"
+                                else
+                                    echo -e " \033[1;36m⏱️  RESTZEIT\033[0m   - $(printf "%02d:%02d" $ETA_M $ETA_S) (bei ${SPEED}x Speed)"
+                                fi
+                            fi
+                        fi
+                    fi
                 fi
             fi
         fi
