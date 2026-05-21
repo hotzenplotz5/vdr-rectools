@@ -125,7 +125,7 @@ smart_repair() {
     local TARGET="$1"
     sanitize_stream "$TARGET"
     local duration=$(get_duration "$TARGET")
-    if [[ -z "$duration" || "$duration" -lt 300 ]]; then
+    if [[ -z "$duration" || ! "$duration" =~ ^[0-9]+$ || "$duration" -lt 300 ]]; then
         echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
     fi
@@ -200,7 +200,9 @@ get_duration() {
 }
 
 check_disk_space() {
+    [[ ! -d "$VIDEO_DIR" ]] && return 1
     local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
+    [[ -z "$FREE_KB" || ! "$FREE_KB" =~ ^[0-9]+$ ]] && return 1
     local FREE_GB=$((FREE_KB / 1024 / 1024))
     [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]] && return 1
     return 0
