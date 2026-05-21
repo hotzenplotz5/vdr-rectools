@@ -90,6 +90,7 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_SUB_DOWNLOAD** | Automatic download of subtitles | `1` |
 | **SUB_LANG** | Language for subtitles (e.g., de, en) | `de` |
 | **AUTO_ENCODE_IMPORT** | Automatic re-encoding on import (1=On, 0=Off) | `1` |
+| **ASK_BEFORE_ENCODE** | Ask via dashboard/mail before starting a re-encode (1=On, 0=Off) | `1` |
 | **CRF_H264_DEFAULT** | CRF value for H.264 (lower=better) | `23` |
 | **PRESET_H264_DEFAULT** | Preset for H.264 (e.g., `medium`, `fast`) | `medium` |
 | **CRF_H265_DEFAULT** | CRF value for H.265 (lower=better) | `23` |
