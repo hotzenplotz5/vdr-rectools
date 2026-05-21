@@ -1,3 +1,12 @@
+vdr-rectools (2.0.2-1) unstable; urgency=medium
+
+  * NEW: Lock-Mechanismus (flock) eingebaut, um parallele Ausführungen und Race Conditions zu verhindern.
+  * NEW: Log-Filter (awk) hinzugefügt, um unkritische FFmpeg-Warnungen ("Unexpected BlockAdditions") zu filtern.
+  * FIX: Temporäre Staging-Verzeichnisse zusätzlich mit $RANDOM abgesichert.
+  * FIX: Exit-Code Evaluierung auf ${PIPESTATUS[0]} umgestellt, damit FFmpeg-Fehler trotz Log-Filter erkannt werden.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 14:53:00 +0000
+
 vdr-rectools (2.0.1-1) unstable; urgency=medium
 
   * FIX: Konfigurationsdatei wird nun korrekt installiert (via vdr-rectools.install).
