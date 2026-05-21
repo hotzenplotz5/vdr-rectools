@@ -16,6 +16,8 @@ CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
 PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
 HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
 MAIL_NOTIFY=""
+TELEGRAM_BOT_TOKEN=""
+TELEGRAM_CHAT_ID=""
 AUTO_SUB_DOWNLOAD=1
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
 MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
@@ -47,6 +49,18 @@ fi
 send_mail() {
     local BODY="$1"
     local SUBJECT="$2"
+
+    # --- Telegram Push ---
+    if [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+        local TG_MESSAGE="🎬 VDR-Rectools: $SUBJECT"$'\n\n'"$BODY"
+        if ! curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="$TG_MESSAGE" > /dev/null 2>&1; then
+            echo "[$(date +%T)] WARNUNG: Telegram-Versand für Betreff '$SUBJECT' fehlgeschlagen." >> "$LOG_FILE"
+        fi
+    fi
+
+    # --- E-Mail ---
     [[ -z "$MAIL_NOTIFY" ]] && return
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
