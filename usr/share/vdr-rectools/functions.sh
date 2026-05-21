@@ -450,7 +450,8 @@ process_import() {
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         
         # Lokale Untertitel (inkl. Ländercode wie .de.srt) einbinden, bevor nach neuen gesucht wird
-        local SRT_SOURCE=$(find "$(dirname "$SOURCE_FILE")" -maxdepth 1 -name "${FILENAME%.*}*.srt" | head -n 1)
+        # grep -F ignoriert Sonderzeichen wie [] im Dateinamen, an denen find -name (Globbing) sonst scheitern würde
+        local SRT_SOURCE=$(find "$(dirname "$SOURCE_FILE")" -maxdepth 1 -type f -name "*.srt" 2>/dev/null | grep -F "/${FILENAME%.*}" | head -n 1)
         if [[ -n "$SRT_SOURCE" && -f "$SRT_SOURCE" ]]; then
             echo "[$(date +%T)] Lokale Untertitel-Datei gefunden und kopiert." >> "$LOG_FILE"
             cp "$SRT_SOURCE" "$STAGING_REC/00001.srt"

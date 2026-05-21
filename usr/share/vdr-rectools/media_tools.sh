@@ -18,7 +18,8 @@ extract_subtitles() {
 
 get_audio_map() {
     # Nimmt Video und Audio, wirft aber Spuren mit "visual_impaired" (Audio-Description) ab
-    echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired? -c copy"
+    # HINWEIS: Bei negativen Maps (-0) führt ein angehängtes '?' zu Fehlverhalten in FFmpeg!
+    echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c copy"
 }
 
 shrink_video() {
