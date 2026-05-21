@@ -661,7 +661,8 @@ show_status() {
     echo -e "\n\033[1;37m 📋 Letzte Log-Aktivitäten:\033[0m"
     echo -e "\033[1;30m--------------------------------------------------------\033[0m"
     if [[ -f "$LOG_FILE" ]]; then
-        tail -n 8 "$LOG_FILE" | while read -r line; do
+        # 'grep -v "frame="' filtert den FFmpeg-Fortschritts-Spam aus der Anzeige heraus
+        tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 8 | while read -r line; do
             if [[ "$line" == *"FEHLER"* || "$line" == *"KRITISCH"* ]]; then
                 echo -e "\033[0;31m$line\033[0m" # Rot
             elif [[ "$line" == *"WARNUNG"* || "$line" == *"verdächtig"* ]]; then
