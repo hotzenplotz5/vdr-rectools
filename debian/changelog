@@ -1,3 +1,18 @@
+vdr-rectools (3.1.0-1) unstable; urgency=medium
+
+  * Release Version 3.1.0 - The "Bulletproof & Dashboard" Update
+  * FEAT: Interaktives, farbiges Live-Dashboard ('status') für die Konsole.
+  * FIX: Umlaut-Zerstörung (ä, ö, ü) bei Filmtiteln durch sed-Filter behoben.
+  * FIX: Asynchroner Werbeschnitt bei 50fps-Sendern (ARD/ZDF HD) korrigiert.
+  * FIX: Crash beim Werbeschnitt durch deutsches Locale (Komma-Bug) behoben.
+  * FIX: Globbing-Bug bei Datei-Importen mit eckigen Klammern behoben.
+  * FIX: OSD-Lockfile Berechtigungen (root vs. vdr User) und Symlink-Rechte korrigiert.
+  * FIX: Fatale Bash-Syntaxfehler bei rohen DVB-Streams (N/A Dauer) abgefangen.
+  * FIX: 0-Byte Dateimüll bei bildbasierten DVB-Untertiteln beseitigt.
+  * FIX: Audio-Description Filter (Zombies) repariert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 17:35:00 +0000
+
 vdr-rectools (3.0.0-1) unstable; urgency=medium
 
   * Release Version 3.0.0 - The "Cut & Clean" Update
