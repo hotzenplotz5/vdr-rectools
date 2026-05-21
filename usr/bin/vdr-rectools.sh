@@ -18,7 +18,8 @@ is_running() {
     if [ -f "$L_FILE" ]; then
         local L_PID=$(cat "$L_FILE" 2>/dev/null)
         if [ -n "$L_PID" ] && kill -0 "$L_PID" 2>/dev/null; then
-            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
+            # Nur noch rudimentär prüfen, um False-Negatives (Dashboard-Sabotage) zu verhindern
+            if ps -p "$L_PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
                 return 0
             fi
         fi
@@ -104,33 +105,33 @@ interactive_status() {
                 echo -e " \033[1;33m⚠️  AKTION ERFORDERLICH:\033[0m"
                 echo -e " Der Film '\033[1;37m$P_TITLE\033[0m' (Codec: $P_CODEC) muss re-encodiert werden."
                 echo -e " Dies kann je nach CPU/Hardware mehrere Stunden dauern."
-                echo -e " Möchten Sie den Re-Encode jetzt starten? [\033[1;32mJ\033[0m/\033[1;31mN\033[0m]"
+                echo -e " Möchten Sie den Re-Encode jetzt starten? [\033[1;32mJ\033[0m/\033[1;31mN\033[0m] (mit Enter bestätigen)"
                 echo -e " \033[1;31m========================================================\033[0m"
                 
                 # Endlosschleife: Wartet auf Tastendruck ohne den Bildschirm neu zu zeichnen
                 while true; do
-                    # Prüfen, ob der Prozess extern gestoppt wurde (z.B. durch vdr-rectools stop)
-                    if ! is_running || [[ ! -f "$PROMPT_FILE" ]]; then
+                    # Nur noch prüfen, ob die Prompt-Datei weg ist
+                    if [[ ! -f "$PROMPT_FILE" ]]; then
                         break
                     fi
                     
-                    # -t 1 verhindert, dass das Skript endlos blockiert (Herzschlag)
-                    read -t 1 -s -n 1 key
+                    # Reguläres read mit Timeout. Ohne -s und -n, um Puffer-Probleme in SSH-Terminals zu umgehen.
+                    read -t 2 key
                     
                     case "$key" in
-                        j|J|y|Y)
+                        *j*|*J*|*y*|*Y*)
                             echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
                             echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
                             sleep 1
                             break
                             ;;
-                        n|N)
+                        *n*|*N*)
                             echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
                             echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
                             sleep 1
                             break
                             ;;
-                        q|Q)
+                        *q*|*Q*)
                             tput cnorm
                             exit 0
                             ;;
@@ -140,9 +141,9 @@ interactive_status() {
             fi
         fi
 
-        echo -e "\n [ Auto-Refresh alle 2s | [Q] Beenden ]"
-        read -t 2 -n 1 key
-        [[ "$key" =~ (q|Q) ]] && break
+        echo -e "\n [ Auto-Refresh alle 2s | [Q]+Enter für Beenden ]"
+        read -t 2 key
+        [[ "$key" == *[qQ]* ]] && break
     done
     tput cnorm # Cursor wieder einblenden
 }

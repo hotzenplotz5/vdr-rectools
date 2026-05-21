@@ -80,7 +80,7 @@ ensure_single_instance() {
     if [[ -f "$LOCK_FILE" ]]; then
         local L_PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -n "$L_PID" ]] && kill -0 "$L_PID" 2>/dev/null; then
-            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
+            if ps -p "$L_PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
                 echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
                 exit 0
             fi
@@ -402,6 +402,7 @@ confirm_encoding() {
     
     local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
     echo "WAIT|$TITLE|$CODEC" > "$PROMPT_FILE"
+    chmod 666 "$PROMPT_FILE" 2>/dev/null || true # Erlaubt Usern, J oder N via Dashboard zu drücken
     
     # E-Mail/Telegram senden
     local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools status\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
@@ -655,7 +656,7 @@ show_status() {
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-            if ps -p "$PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
+            if ps -p "$PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
                 IS_RUNNING=1
             fi
         fi
