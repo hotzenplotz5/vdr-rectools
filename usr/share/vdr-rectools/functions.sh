@@ -73,15 +73,8 @@ filter_ffmpeg_log() {
 sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
-    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE" | head -n 1 | tr -d '\r\n')
-    echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
-    if [[ "$codec" == "h264" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    elif [[ "$codec" == "hevc" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    else
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    fi
+    echo "[$(date +%T)] Sanitize: Header-Fix fuer $FILE" >> "$LOG_FILE"
+    ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         return 0
@@ -125,9 +118,11 @@ smart_repair() {
     local TARGET="$1"
     sanitize_stream "$TARGET"
     local duration=$(get_duration "$TARGET")
-    if [[ -z "$duration" || ! "$duration" =~ ^[0-9]+$ || "$duration" -lt 300 ]]; then
-        echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
+    if [[ -n "$duration" && "$duration" =~ ^[0-9]+$ && "$duration" -lt 300 ]]; then
+        echo "[$(date +%T)] Dauer kritisch kurz ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
+    elif [[ -z "$duration" || ! "$duration" =~ ^[0-9]+$ ]]; then
+        echo "[$(date +%T)] INFO: Dauer konnte nicht ermittelt werden (typisch fuer TS). Ueberspringe Deep-Repair." >> "$LOG_FILE"
     fi
 }
 
@@ -262,16 +257,15 @@ process_folder() {
                 fi
                 ;;
             check)
-                cat 000*.ts > "$STAGING_REC/joined.ts"
                 local CHECK_ERRORS
-                CHECK_ERRORS=$(check_stream "$STAGING_REC/joined.ts")
-                if [[ $? -eq 0 ]]; then
+                echo "[$(date +%T)] Starte Stream-Check via Pipe..." >> "$LOG_FILE"
+                CHECK_ERRORS=$(cat 000*.ts | ffmpeg -v error -i pipe:0 -f null - 2>&1 | filter_ffmpeg_log)
+                if [[ -z "$CHECK_ERRORS" ]]; then
                     send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
                 else
                     local MAIL_BODY="In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden.\n\nFehlerdetails:\n$CHECK_ERRORS"
                     send_mail "$MAIL_BODY" "Prüfung fehlgeschlagen: $CLEAN_NAME"
                 fi
-                rm -rf "$STAGING_REC" # Nach der Prüfung aufräumen
                 return
                 ;;
         esac
