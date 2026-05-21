@@ -18,6 +18,7 @@
 * **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail. Kurze Logs werden direkt in die Mail geschrieben, bei über 50 Zeilen (z. B. `ffmpeg`-Dumps) wird das Log automatisch als `.txt`-Datei angehängt.
 * **📱 Push-Benachrichtigungen:** Sende Statusberichte und Erfolgsmeldungen via Telegram Bot direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
+* **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
 
 ---
 

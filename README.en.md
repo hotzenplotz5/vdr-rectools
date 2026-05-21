@@ -17,6 +17,7 @@
 * **✉️ Intelligent Reporting:** Sends success or failure reports via email.
 * **📱 Push Notifications:** Optional delivery of status reports via Telegram directly to your smartphone.
 * **🧹 Auto-Cleanup:** Finds and deletes empty recording folders in the video directory.
+* **📊 Live Dashboard:** An interactive, colored console dashboard (`vdr-rectools status`) featuring progress bars, real-time logs, and disk space monitoring.
 
 ---
 
