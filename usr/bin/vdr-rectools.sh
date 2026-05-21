@@ -184,18 +184,36 @@ case "$1" in
     stop)
         if is_running; then
             PID=$(cat "$PID_FILE")
-            echo "Stoppe vdr-rectools (PID: $PID)..."
-            kill "$PID"
+            echo "Stoppe vdr-rectools (PID: $PID) und alle Kindprozesse..."
+            
+            # Rekursive Funktion zum Beenden von Kindprozessen (z.B. hängendes ffmpeg)
+            kill_tree() {
+                local parent=$1
+                local sig=$2
+                for child in $(pgrep -P "$parent" 2>/dev/null); do
+                    kill_tree "$child" "$sig"
+                done
+                kill "$sig" "$parent" 2>/dev/null
+            }
+            
+            kill_tree "$PID" "-15"
             sleep 2
+            
             if is_running; then
                 echo "Prozess reagiert nicht, sende KILL..."
-                kill -9 "$PID"
+                kill_tree "$PID" "-9"
             fi
             rm -f "$PID_FILE"
             echo "Gestoppt."
         else
             echo "vdr-rectools läuft nicht."
         fi
+        
+        # Bereinige verwaiste Lock-Dateien zur Sicherheit
+        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+        V_DIR="${VIDEO_DIR:-/srv/vdr/video}"
+        truncate -s 0 "$V_DIR/.vdr-rectools.lock" 2>/dev/null || true
+        rm -f "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" 2>/dev/null || true
         ;;
 
     help|--help|-h)
