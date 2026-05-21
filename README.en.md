@@ -14,6 +14,7 @@
 * **🗜️ H.265 Shrink Mode:** Compresses large recordings into the space-saving HEVC (H.265) codec at the touch of a button.
 * **📺 VDR OSD Integration:** Automatically integrates into the `reccmds.conf` command menu of the VDR (including Smart Downscaling).
 * **✉️ Intelligent Reporting:** Sends success or failure reports via email.
+* **📱 Push Notifications:** Optional delivery of status reports via Telegram directly to your smartphone.
 * **🧹 Auto-Cleanup:** Finds and deletes empty recording folders in the video directory.
 
 ---
@@ -82,6 +83,8 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_TIMER** | General switch for timer-based actions | `0` |
 | **IMPORT_DIR** | Path for video files to import | `/srv/video/Filme` |
 | **MAIL_NOTIFY** | Email address for status reports | (empty) |
+| **TELEGRAM_BOT_TOKEN** | API Token for your Telegram Bot | (empty) |
+| **TELEGRAM_CHAT_ID** | Your personal Telegram Chat ID | (empty) |
 | **AUTO_SUB_DOWNLOAD** | Automatic download of subtitles | `1` |
 | **SUB_LANG** | Language for subtitles (e.g., de, en) | `de` |
 | **AUTO_ENCODE_IMPORT** | Automatic re-encoding on import (1=On, 0=Off) | `1` |
@@ -135,6 +138,11 @@ If `MAIL_NOTIFY` is set, the script sends an email after each run with:
 * A summary of imported films and repaired recordings.
 * Warnings if disk space is low (`MIN_FREE_GB`).
 * Detailed error messages if an import or remuxing failed.
+
+### Telegram Notifications
+In addition to emails, the script can send push messages to a Telegram bot.
+Just enter your `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the configuration.
+The script will instantly notify your smartphone upon successful imports or errors.
 
 ---
 

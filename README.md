@@ -14,6 +14,7 @@
 * **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
 * **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Smart Downscaling).
 * **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail.
+* **📱 Push-Benachrichtigungen:** Optionaler Versand von Statusberichten via Telegram direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 
 ---
@@ -82,6 +83,8 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_TIMER** | Genereller Schalter für Timer-Aktionen | `0` |
 | **IMPORT_DIR** | Pfad für MKV-Filme zum Import | `/srv/video/Filme` |
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
+| **TELEGRAM_BOT_TOKEN** | API-Token für deinen Telegram-Bot | (leer) |
+| **TELEGRAM_CHAT_ID** | Deine persönliche Telegram Chat-ID | (leer) |
 | **AUTO_SUB_DOWNLOAD** | Automatischer Download von Untertiteln | `1` |
 | **SUB_LANG** | Sprache für Untertitel (z.B. de, en) | `de` |
 | **AUTO_ENCODE_IMPORT** | Automatisches Re-Encoding beim Import (1=An, 0=Aus) | `1` |
@@ -135,6 +138,11 @@ Bei gesetzter `MAIL_NOTIFY` Adresse versendet das Skript nach jedem Lauf eine E-
 * Zusammenfassung der importierten Filme und reparierten Aufnahmen.
 * Warnungen bei zu wenig Festplattenplatz (`MIN_FREE_GB`).
 * Detaillierten Fehlermeldungen, falls ein Import oder Re-Muxing fehlgeschlagen ist.
+
+### Telegram-Benachrichtigungen
+Neben E-Mails kann das Skript auch Push-Nachrichten an einen Telegram-Bot senden. 
+Trage dazu einfach den `TELEGRAM_BOT_TOKEN` und deine `TELEGRAM_CHAT_ID` in der Konfiguration ein.
+Das Skript meldet sich dann bei erfolgreichen Importen oder Fehlern direkt auf deinem Smartphone.
 
 ---
 

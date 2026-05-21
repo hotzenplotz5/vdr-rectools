@@ -15,6 +15,7 @@
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen sofortigen Metadaten-Scrape im VDR (tvscraper-Plugin).
 * **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Workaround für yaVDR-Ansible-Umgebungen).
 * **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail. Kurze Logs werden direkt in die Mail geschrieben, bei über 50 Zeilen (z. B. `ffmpeg`-Dumps) wird das Log automatisch als `.txt`-Datei angehängt.
+* **📱 Push-Benachrichtigungen:** Sende Statusberichte und Erfolgsmeldungen via Telegram Bot direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 
 ---
