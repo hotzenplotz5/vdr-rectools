@@ -1,3 +1,15 @@
+vdr-rectools (3.0.0-1) unstable; urgency=medium
+
+  * Release Version 3.0.0 - The "Cut & Clean" Update
+  * FEAT: Vollautomatischer, verlustfreier Werbeschnitt (apply_vdr_marks) integriert.
+  * FEAT: In-Place-Schnitt: Im Gegensatz zum VDR-Standard (der eine %-Kopie anlegt), 
+          überschreibt das Skript die Originaldatei direkt und spart sofort Speicherplatz.
+  * FEAT: FFmpeg Concat-Demuxer für schnelles Extrahieren ohne Re-Encoding (-c copy).
+  * FIX: Alte 'marks'-Datei wird nach erfolgreichem Schnitt automatisch gelöscht.
+  * QA: Sicherheits-Schwellenwert (10%) schützt vor fehlerhaft extrem geschrumpften Dateien.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 16:00:00 +0000
+
 vdr-rectools (2.0.3-1) unstable; urgency=medium
 
   * FIX: Datenverlust-Lücke bei fehlgeschlagenem Verschieben in Zielordner geschlossen.
