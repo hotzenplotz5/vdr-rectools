@@ -76,20 +76,19 @@ ensure_single_instance() {
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
     local P_FILE="/var/run/vdr-rectools.pid"
 
-    # Erstelle Lockfile mit 666 Rechten, damit root und vdr abwechselnd locken können
-    if [[ ! -f "$LOCK_FILE" ]]; then
-        touch "$LOCK_FILE" 2>/dev/null || true
-        chmod 666 "$LOCK_FILE" 2>/dev/null || true
+    # Custom PID-basiertes Locking (verhindert unzerstörbare Locks durch FD-Leaks)
+    if [[ -f "$LOCK_FILE" ]]; then
+        local L_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$L_PID" ]] && kill -0 "$L_PID" 2>/dev/null; then
+            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
+                echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
+                exit 0
+            fi
+        fi
     fi
-
-    # '>>' verhindert, dass die Datei beim Öffnen geleert wird, bevor der Lock greift
-    exec 200>>"$LOCK_FILE" 2>/dev/null || { echo "[$(date +%T)] FEHLER: Kann Lockfile nicht oeffnen." >> "$LOG_FILE"; exit 1; }
-    if ! flock -n 200; then
-        echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
-        exit 0 # Sauberer Exit ohne Fehler
-    fi
-    # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
-    echo $BASHPID > "$LOCK_FILE"
+    
+    echo $BASHPID > "$LOCK_FILE" 2>/dev/null || true
+    chmod 666 "$LOCK_FILE" 2>/dev/null || true
     echo $BASHPID > "$P_FILE" 2>/dev/null || true
 
     # Status initialisieren
@@ -655,19 +654,10 @@ show_status() {
     local IS_RUNNING=0
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
-        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
-            if command -v fuser >/dev/null 2>&1; then
-                PID=$(fuser "$LOCK_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -n 1)
-            fi
-        fi
-        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
-            PID=$(pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" | head -n 1)
-        fi
-        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
-            PID=$(pgrep -f "(ffmpeg|ffprobe).*/srv/vdr/tmp/staging" | head -n 1)
-        fi
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-            IS_RUNNING=1
+            if ps -p "$PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
+                IS_RUNNING=1
+            fi
         fi
     fi
 

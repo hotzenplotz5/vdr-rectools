@@ -10,35 +10,19 @@ PID_FILE="/var/run/vdr-rectools.pid"
 
 # Stellt sicher, dass das Skript nicht bereits läuft
 is_running() {
-    if [ -f "$PID_FILE" ]; then
-        local PID=$(cat "$PID_FILE")
-        if ps -p "$PID" > /dev/null; then
-            return 0 # Läuft
-        fi
-    fi
-    
-    # Fallback: Prüfe den Lock, falls das PID-File (z.B. durch Fehlstart) gelöscht wurde
     local V_DIR="/srv/vdr/video"
     [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
     local L_FILE="$V_DIR/.vdr-rectools.lock"
+    
     if [ -f "$L_FILE" ]; then
         local L_PID=$(cat "$L_FILE" 2>/dev/null)
-        if [ -n "$L_PID" ] && ps -p "$L_PID" > /dev/null 2>&1; then
-            return 0 # Läuft
-        fi
-        
-        # Fallback 2: Wer hält den File-Lock? (z.B. wenn die Lock-Datei durch 'stop' genullt wurde)
-        if command -v fuser >/dev/null 2>&1; then
-            if fuser "$L_FILE" >/dev/null 2>&1; then
+        if [ -n "$L_PID" ] && kill -0 "$L_PID" 2>/dev/null; then
+            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|run_scan"; then
                 return 0
             fi
         fi
     fi
-    
-    # Fallback 3: Über pgrep (Skript oder verwaistes FFmpeg)
-    if pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" >/dev/null 2>&1; then return 0; fi
-    if pgrep -f "ffmpeg.*/srv/vdr/tmp/staging" >/dev/null 2>&1; then return 0; fi
     
     return 1 # Läuft nicht
 }
@@ -266,16 +250,13 @@ case "$1" in
         
         # 1. Alle potenziellen PIDs sammeln
         ALL_PIDS=""
-        [ -f "$PID_FILE" ] && ALL_PIDS="$ALL_PIDS $(cat "$PID_FILE" 2>/dev/null)"
         [ -f "$L_FILE" ] && ALL_PIDS="$ALL_PIDS $(cat "$L_FILE" 2>/dev/null)"
         
-        SCRIPT_PIDS=$(pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" 2>/dev/null)
-        ALL_PIDS="$ALL_PIDS $SCRIPT_PIDS"
-        
-        if command -v fuser >/dev/null 2>&1; then
-            FUSER_PIDS=$(fuser "$L_FILE" 2>/dev/null | grep -o '[0-9]\+')
-            ALL_PIDS="$ALL_PIDS $FUSER_PIDS"
-        fi
+        for p in $(pgrep -f "vdr-rectools|run_scan" 2>/dev/null); do
+            if [ "$p" != "$$" ] && [ "$p" != "$PPID" ]; then
+                ALL_PIDS="$ALL_PIDS $p"
+            fi
+        done
         
         ALL_PIDS=$(echo "$ALL_PIDS" | tr ' ' '\n' | awk 'NF' | sort -u)
         
@@ -317,7 +298,7 @@ case "$1" in
         
         # 4. Aufräumen
         rm -f "$PID_FILE" "$P_PROMPT" "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" 2>/dev/null || true
-        truncate -s 0 "$V_DIR/.vdr-rectools.lock" 2>/dev/null || true
+        truncate -s 0 "$L_FILE" 2>/dev/null || true
         
         # 5. Log-Feedback für den User
         echo "[$(date +%T)] INFO: vdr-rectools wurde manuell gestoppt (Abbruch)." >> "$L_LOG"
