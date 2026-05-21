@@ -289,6 +289,8 @@ process_folder() {
                 mv "$STAGING_REC/index" .
                 # Dateirechte für den VDR wiederherstellen, sonst drohen "Permission denied" Fehler im OSD
                 chown vdr:vdr 00001.ts index 2>/dev/null || true
+                # VDR-Cache zwingend leeren! Sonst zeigt das OSD falsche Längen nach dem Schnitt/Shrink an
+                touch "$VIDEO_DIR/.update" 2>/dev/null || true
                 rm -rf "$STAGING_REC"
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
@@ -310,8 +312,9 @@ process_folder() {
         [[ ! -L "$PLEX_LINK" ]] && ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             ln -sf "00001.srt" "${PLEX_LINK%.ts}.srt"
-        elif [[ ! -f "${PLEX_LINK%.ts}.srt" ]]; then
+        elif [[ ! -f "${PLEX_LINK%.ts}.srt" && ! -f ".subtitles_checked" ]]; then
             extract_subtitles "$NEW_VDR_FILE"
+            touch ".subtitles_checked" # Verhindert ewige I/O-Schleifen in künftigen Scans
         fi
         extract_images "$NEW_VDR_FILE"
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"

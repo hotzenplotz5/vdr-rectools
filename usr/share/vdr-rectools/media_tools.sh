@@ -4,8 +4,11 @@
 # ==============================================================================
 
 extract_subtitles() {
-    ffmpeg -y -i "$1" -an -vn -c:s srt "${1%.ts}.srt" </dev/null >/dev/null 2>&1
-    chown vdr:vdr "${1%.ts}.srt" 2>/dev/null || true
+    # Prüfen, ob überhaupt ein Untertitel-Stream existiert, um nutzlose FFmpeg-Aufrufe zu vermeiden
+    if ffprobe -v error -select_streams s -show_entries stream=codec_type -of csv=p=0 "$1" 2>/dev/null | grep -q "subtitle"; then
+        ffmpeg -y -i "$1" -an -vn -c:s srt "${1%.ts}.srt" </dev/null >/dev/null 2>&1
+        chown vdr:vdr "${1%.ts}.srt" 2>/dev/null || true
+    fi
 }
 
 get_audio_map() {
