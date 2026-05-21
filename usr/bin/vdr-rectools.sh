@@ -125,21 +125,32 @@ interactive_status() {
                 
                 # Endlosschleife: Wartet auf Tastendruck ohne den Bildschirm neu zu zeichnen
                 while true; do
-                    read -s -n 1 key
-                    if [[ "$key" == [jJyY] ]]; then
-                        echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                        echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
-                        sleep 1
+                    # Prüfen, ob der Prozess extern gestoppt wurde (z.B. durch vdr-rectools stop)
+                    if ! is_running || [[ ! -f "$PROMPT_FILE" ]]; then
                         break
-                    elif [[ "$key" == [nN] ]]; then
-                        echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                        echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
-                        sleep 1
-                        break
-                    elif [[ "$key" == [qQ] ]]; then
-                        tput cnorm
-                        exit 0
                     fi
+                    
+                    # -t 1 verhindert, dass das Skript endlos blockiert (Herzschlag)
+                    read -t 1 -s -n 1 key
+                    
+                    case "$key" in
+                        j|J|y|Y)
+                            echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                            echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
+                            sleep 1
+                            break
+                            ;;
+                        n|N)
+                            echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                            echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
+                            sleep 1
+                            break
+                            ;;
+                        q|Q)
+                            tput cnorm
+                            exit 0
+                            ;;
+                    esac
                 done
                 continue
             fi
