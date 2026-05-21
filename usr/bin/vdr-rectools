@@ -20,8 +20,8 @@ is_running() {
 }
 
 # 2. Funktionen laden
-# Wir brauchen die Funktionen nur, wenn wir eine Aktion ausführen
-if [[ "$1" != "status" && "$1" != "stop" ]]; then
+# Laden der Funktionen (wird nun auch für 'status' benötigt, um show_status aufzurufen)
+if [[ "$1" != "stop" ]]; then
     if [ -f /usr/share/vdr-rectools/functions.sh ]; then
         source /usr/share/vdr-rectools/functions.sh
     else
@@ -74,13 +74,8 @@ interactive_status() {
     tput civis # Cursor ausblenden
     while true; do
         clear
-        local PID=$(cat "$PID_FILE")
-        local RUNTIME=$(ps -p "$PID" -o etime= | tr -d ' ')
-        echo "vdr-rectools läuft (PID: $PID, Laufzeit: $RUNTIME)"
-        echo "--- Letzte 15 Log-Einträge ---"
-        tail -n 15 /var/log/vdr-rectools.log
-        echo
-        echo -e "\n[L] Live-Log aktualisieren | [Q] Beenden"
+        show_status
+        echo -e "\n [ Auto-Refresh alle 2s | [Q] Beenden ]"
         read -t 2 -n 1 key
         [[ "$key" =~ (q|Q) ]] && break
     done
@@ -178,11 +173,7 @@ case "$1" in
         ;;
 
     status)
-        if is_running; then
-            interactive_status
-        else
-            echo "vdr-rectools läuft nicht."
-        fi
+        interactive_status
         ;;
 
     diag)

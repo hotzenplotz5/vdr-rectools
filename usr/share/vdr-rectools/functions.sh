@@ -514,3 +514,69 @@ run_scan() {
         process_folder "$DIR" "$MODE"
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
 }
+
+show_status() {
+    echo -e "\n\033[1;36m========================================================\033[0m"
+    echo -e "\033[1;37m 🎬 VDR-Rectools - System Status\033[0m"
+    echo -e "\033[1;36m========================================================\033[0m\n"
+
+    # 1. Prozess-Status (Herzschlag)
+    local PID=""
+    local IS_RUNNING=0
+    if [[ -f "$LOCK_FILE" ]]; then
+        PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            IS_RUNNING=1
+        fi
+    fi
+
+    if [[ $IS_RUNNING -eq 1 ]]; then
+        local RUNTIME=$(ps -p "$PID" -o etime= 2>/dev/null | tr -d ' ')
+        echo -e " \033[1;32m🟢 AKTIV\033[0m    - Prozess läuft (PID: $PID, seit: $RUNTIME)"
+    else
+        echo -e " \033[1;30m⚪ INAKTIV\033[0m  - Wartet auf Arbeit im Hintergrund"
+    fi
+
+    # 2. Festplatten-Status
+    if [[ -d "$VIDEO_DIR" ]]; then
+        local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
+        local FREE_GB=$((FREE_KB / 1024 / 1024))
+        if [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]]; then
+            echo -e " \033[1;31m💾 SPEICHER\033[0m - KRITISCH! Nur noch ${FREE_GB} GB frei in $VIDEO_DIR"
+        else
+            echo -e " \033[1;32m💾 SPEICHER\033[0m - OK (${FREE_GB} GB frei in $VIDEO_DIR)"
+        fi
+    else
+        echo -e " \033[1;31m💾 SPEICHER\033[0m - FEHLER ($VIDEO_DIR nicht erreichbar!)"
+    fi
+
+    # 3. Import-Warteschlange
+    if [[ -d "$IMPORT_DIR" ]]; then
+        local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) 2>/dev/null | wc -l)
+        if [[ $QUEUE_COUNT -gt 0 ]]; then
+            echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten auf Verarbeitung"
+        else
+            echo -e " \033[1;32m📥 IMPORT\033[0m   - Leer (Alles erledigt)"
+        fi
+    fi
+
+    # 4. Live-Log mit farblichem Highlighting
+    echo -e "\n\033[1;37m 📋 Letzte Log-Aktivitäten:\033[0m"
+    echo -e "\033[1;30m--------------------------------------------------------\033[0m"
+    if [[ -f "$LOG_FILE" ]]; then
+        tail -n 8 "$LOG_FILE" | while read -r line; do
+            if [[ "$line" == *"FEHLER"* || "$line" == *"KRITISCH"* ]]; then
+                echo -e "\033[0;31m$line\033[0m" # Rot
+            elif [[ "$line" == *"WARNUNG"* || "$line" == *"verdächtig"* ]]; then
+                echo -e "\033[0;33m$line\033[0m" # Gelb
+            elif [[ "$line" == *"erfolgreich"* || "$line" == *"ERFOLG"* ]]; then
+                echo -e "\033[0;32m$line\033[0m" # Grün
+            else
+                echo -e "\033[0;37m$line\033[0m" # Weiß
+            fi
+        done
+    else
+        echo -e "\033[0;37m Noch keine Log-Einträge vorhanden.\033[0m"
+    fi
+    echo -e "\033[1;36m========================================================\033[0m\n"
+}
