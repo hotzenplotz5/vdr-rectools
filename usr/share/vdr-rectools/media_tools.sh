@@ -54,6 +54,8 @@ shrink_video() {
         mv "$OUT" "$1"
         chown vdr:vdr "$1" 2>/dev/null || true
         /usr/bin/vdr --genindex="$(dirname "$1")" >/dev/null 2>&1
+        # VDR-Cache leeren, auch wenn Shrink manuell via OSD als Standalone-Befehl aufgerufen wird
+        touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
     else
         echo "[$(date +%T)] FEHLER: FFmpeg Shrink für $1 abgebrochen (Status $FF_STATUS)." >> "$LOG_FILE"
         rm -f "$OUT"
@@ -86,6 +88,9 @@ apply_vdr_marks() {
         if [[ -n "$den" && "$den" -gt 0 ]]; then
             fps_val=$(( num / den ))
         fi
+    # Fallback für Streams, die Framerates als reine Ganzzahlen (z.B. '50') statt als Bruch ('50/1') melden
+    elif [[ "$fps" =~ ^[0-9]+$ && "$fps" -gt 0 ]]; then
+        fps_val="$fps"
     fi
     [[ "$fps_val" -eq 0 ]] && fps_val=25
     local ms_per_frame=$(( 1000 / fps_val ))
