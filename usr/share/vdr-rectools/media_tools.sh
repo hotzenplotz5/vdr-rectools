@@ -7,7 +7,12 @@ extract_subtitles() {
     # Prüfen, ob überhaupt ein Untertitel-Stream existiert, um nutzlose FFmpeg-Aufrufe zu vermeiden
     if ffprobe -v error -select_streams s -show_entries stream=codec_type -of csv=p=0 "$1" 2>/dev/null | grep -q "subtitle"; then
         ffmpeg -y -i "$1" -an -vn -c:s srt "${1%.ts}.srt" </dev/null >/dev/null 2>&1
-        chown vdr:vdr "${1%.ts}.srt" 2>/dev/null || true
+        # Bild-basierte DVB-Untertitel lassen sich nicht in SRT wandeln und erzeugen 0-Byte Dateien. Diese sofort bereinigen.
+        if [[ ! -s "${1%.ts}.srt" ]]; then
+            rm -f "${1%.ts}.srt"
+        else
+            chown vdr:vdr "${1%.ts}.srt" 2>/dev/null || true
+        fi
     fi
 }
 
@@ -76,7 +81,11 @@ apply_vdr_marks() {
     local fps=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "$TARGET_FILE" 2>/dev/null | head -n 1)
     local fps_val=25
     if [[ "$fps" =~ ^[0-9]+/[0-9]+$ ]]; then
-        fps_val=$(( $(echo "$fps" | cut -d'/' -f1) / $(echo "$fps" | cut -d'/' -f2) ))
+        local num=$(echo "$fps" | cut -d'/' -f1)
+        local den=$(echo "$fps" | cut -d'/' -f2)
+        if [[ -n "$den" && "$den" -gt 0 ]]; then
+            fps_val=$(( num / den ))
+        fi
     fi
     [[ "$fps_val" -eq 0 ]] && fps_val=25
     local ms_per_frame=$(( 1000 / fps_val ))

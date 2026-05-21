@@ -23,7 +23,8 @@ MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallb
 MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
-LOCK_FILE="/tmp/vdr-rectools.lock"
+# Lock-File im VDR-Video-Verzeichnis, damit sowohl 'root' als auch 'vdr' (OSD) konfliktfrei Schreibrechte haben
+LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
 
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
