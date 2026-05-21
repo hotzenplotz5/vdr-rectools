@@ -468,7 +468,8 @@ process_import() {
             fi
         fi
         mkdir -p "$(dirname "$FINAL_DEST")"
-        if mv "$STAGING_REC" "$FINAL_DEST"; then
+        # -T verhindert das fatale Verschachteln von Ordnern, falls das Zielverzeichnis durch einen exakt zeitgleichen Import schon existiert
+        if mv -T "$STAGING_REC" "$FINAL_DEST"; then
             chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
             process_folder "$FINAL_DEST" "normal"
             touch "$VIDEO_DIR/.update"

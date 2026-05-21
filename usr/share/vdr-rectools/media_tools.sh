@@ -72,6 +72,15 @@ apply_vdr_marks() {
     local segments=()
     local start_mark=""
     
+    # Ermittle die echte Framerate des Videos, um VDR-Frames exakt in Millisekunden umzurechnen (wichtig für 50fps Sender wie ARD/ZDF)
+    local fps=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "$TARGET_FILE" 2>/dev/null | head -n 1)
+    local fps_val=25
+    if [[ "$fps" =~ ^[0-9]+/[0-9]+$ ]]; then
+        fps_val=$(( $(echo "$fps" | cut -d'/' -f1) / $(echo "$fps" | cut -d'/' -f2) ))
+    fi
+    [[ "$fps_val" -eq 0 ]] && fps_val=25
+    local ms_per_frame=$(( 1000 / fps_val ))
+    
     # Lese die Schnittmarken ein (Ungerade = Start, Gerade = Ende)
     while read -r line; do
         # Format: hh:mm:ss.ff [comment]
@@ -84,7 +93,7 @@ apply_vdr_marks() {
         local ms="000"
         if [[ -n "$ff" ]]; then
             ff=$((10#$ff)) # Führende Nullen sicher entfernen
-            ms=$(printf "%03d" $(( ff * 40 )))
+            ms=$(printf "%03d" $(( ff * ms_per_frame )))
         fi
         local ffmpeg_time="${hhmmss}.${ms}"
 
