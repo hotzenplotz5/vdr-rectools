@@ -25,6 +25,7 @@ MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
 # Lock-File im VDR-Video-Verzeichnis, damit sowohl 'root' als auch 'vdr' (OSD) konfliktfrei Schreibrechte haben
 LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
+STATE_FILE="$VIDEO_DIR/.vdr-rectools.state"
 USE_TVSCRAPER=0
 TVSCRAPER_MODE="batch"
 
@@ -57,21 +58,40 @@ send_mail() {
 ensure_single_instance() {
     # Verhindert Absturz des Locks, falls das VDR-Verzeichnis nach einem Neustart noch nicht gemountet ist
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
+
+    # Erstelle Lockfile mit 666 Rechten, damit root und vdr abwechselnd locken können
+    if [[ ! -f "$LOCK_FILE" ]]; then
+        touch "$LOCK_FILE" 2>/dev/null || true
+        chmod 666 "$LOCK_FILE" 2>/dev/null || true
+    fi
+
     # '>>' verhindert, dass die Datei beim Öffnen geleert wird, bevor der Lock greift
-    exec 200>>"$LOCK_FILE"
+    exec 200>>"$LOCK_FILE" 2>/dev/null || { echo "[$(date +%T)] FEHLER: Kann Lockfile nicht oeffnen." >> "$LOG_FILE"; exit 1; }
     if ! flock -n 200; then
         echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
         exit 0 # Sauberer Exit ohne Fehler
     fi
     # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
     echo $$ > "$LOCK_FILE"
+
+    # Status initialisieren
+    if [[ ! -f "$STATE_FILE" ]]; then
+        touch "$STATE_FILE" 2>/dev/null || true
+        chmod 666 "$STATE_FILE" 2>/dev/null || true
+    fi
+    echo "Initialisiere..." > "$STATE_FILE"
+
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE"' EXIT
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" 2>/dev/null' EXIT
+}
+
+set_state() {
+    echo "$1" > "$STATE_FILE" 2>/dev/null || true
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
 filter_ffmpeg_log() {
-    awk '/Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print}'
+    awk '/Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
@@ -219,6 +239,17 @@ process_folder() {
 
     if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
+
+        # Status für das Dashboard übersetzen
+        local MODE_DE="$MODE"
+        case "$MODE" in
+            repair) MODE_DE="Repariere" ;;
+            cut) MODE_DE="Schneide Werbung" ;;
+            shrink) MODE_DE="Schrumpfe (H.265)" ;;
+            check) MODE_DE="Prüfe Integrität" ;;
+        esac
+        set_state "$MODE_DE: $CLEAN_NAME"
+
         local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_${RANDOM}_$$"
         mkdir -p "$STAGING_REC"
         case "$MODE" in
@@ -361,6 +392,7 @@ process_import() {
     mkdir -p "$STAGING_REC"
 
     echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
+    set_state "Importiere: $PRETTY_TITLE"
 
     # --- Intelligente Import-Weiche ---
     local ENCODING_PERFORMED=0
@@ -506,13 +538,16 @@ run_scan() {
 
     local MODE="$1"
     local COUNT=0
+    set_state "Scanne Import-Verzeichnis..."
     find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done
+    set_state "Scanne VDR-Verzeichnis..."
     while read -r DIR; do
         process_folder "$DIR" "$MODE"
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+    set_state "Scan abgeschlossen."
 }
 
 show_status() {
@@ -532,7 +567,10 @@ show_status() {
 
     if [[ $IS_RUNNING -eq 1 ]]; then
         local RUNTIME=$(ps -p "$PID" -o etime= 2>/dev/null | tr -d ' ')
+        local CURRENT_ACTION="Arbeitet..."
+        [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null)
         echo -e " \033[1;32m🟢 AKTIV\033[0m    - Prozess läuft (PID: $PID, seit: $RUNTIME)"
+        echo -e " \033[1;34m🎬 AKTUELL\033[0m  - $CURRENT_ACTION"
     else
         echo -e " \033[1;30m⚪ INAKTIV\033[0m  - Wartet auf Arbeit im Hintergrund"
     fi
