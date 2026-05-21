@@ -408,6 +408,15 @@ process_import() {
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
+
+    # --- Dubletten-Check ---
+    local MOVIE_FOLDER="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
+    if find "$MOVIE_FOLDER" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | grep -q "."; then
+        echo "[$(date +%T)] WARNUNG: '$PRETTY_TITLE' existiert bereits im VDR. Import wird übersprungen." >> "$LOG_FILE"
+        mv -f "$SOURCE_FILE" "${SOURCE_FILE}.duplicate" 2>/dev/null
+        [[ -f "$NFO_SOURCE" ]] && mv -f "$NFO_SOURCE" "${NFO_SOURCE}.duplicate" 2>/dev/null
+        return 0
+    fi
     local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null | head -n 1 | tr -d '\r\n')
 
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
