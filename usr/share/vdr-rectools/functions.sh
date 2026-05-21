@@ -74,6 +74,7 @@ send_mail() {
 ensure_single_instance() {
     # Verhindert Absturz des Locks, falls das VDR-Verzeichnis nach einem Neustart noch nicht gemountet ist
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
+    local P_FILE="/var/run/vdr-rectools.pid"
 
     # Erstelle Lockfile mit 666 Rechten, damit root und vdr abwechselnd locken können
     if [[ ! -f "$LOCK_FILE" ]]; then
@@ -89,6 +90,7 @@ ensure_single_instance() {
     fi
     # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
     echo $BASHPID > "$LOCK_FILE"
+    echo $BASHPID > "$P_FILE" 2>/dev/null || true
 
     # Status initialisieren
     if [[ ! -f "$STATE_FILE" ]]; then
@@ -103,7 +105,7 @@ ensure_single_instance() {
     fi
 
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" 2>/dev/null; exit 0' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -653,6 +655,9 @@ show_status() {
     local IS_RUNNING=0
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
+            PID=$(fuser "$LOCK_FILE" 2>/dev/null | awk '{print $1}' | grep -o '[0-9]*' | head -n 1)
+        fi
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
             IS_RUNNING=1
         fi

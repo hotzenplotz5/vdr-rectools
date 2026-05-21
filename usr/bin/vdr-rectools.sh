@@ -27,6 +27,11 @@ is_running() {
         if [ -n "$L_PID" ] && ps -p "$L_PID" > /dev/null 2>&1; then
             return 0 # Läuft
         fi
+        
+        # Fallback 2: Wer hält den File-Lock? (z.B. wenn die Lock-Datei durch 'stop' genullt wurde)
+        if fuser "$L_FILE" >/dev/null 2>&1; then
+            return 0
+        fi
     fi
     
     return 1 # Läuft nicht
@@ -136,9 +141,7 @@ case "$1" in
         fi
         echo "Starte vdr-rectools im Hintergrund..."
         (
-            echo $BASHPID > "$PID_FILE"
             run_scan "normal"
-            rm -f "$PID_FILE"
         ) &
         ;;
 
@@ -149,9 +152,7 @@ case "$1" in
         fi
         echo "Starte Import im Hintergrund..."
         (
-            echo $BASHPID > "$PID_FILE"
             run_scan "import"
-            rm -f "$PID_FILE"
         ) &
         ;;
 
@@ -162,9 +163,7 @@ case "$1" in
         fi
         echo "Starte Reparatur-Lauf im Hintergrund..."
         (
-            echo $BASHPID > "$PID_FILE"
             run_scan "repair"
-            rm -f "$PID_FILE"
         ) &
         ;;
         
@@ -209,9 +208,7 @@ case "$1" in
                 exit 1
             fi
             echo "[$(date +%T)] Nächtlicher Lauf gestartet..." >> "$LOG_FILE"
-            echo $BASHPID > "$PID_FILE"
             run_scan "normal"
-            rm -f "$PID_FILE"
         else
             echo "[$(date +%T)] AUTO_START_NIGHT ist deaktiviert, keine Aktion." >> "$LOG_FILE"
         fi
@@ -227,22 +224,20 @@ case "$1" in
         ;;
 
     stop)
-        if is_running; then
-            PID=""
-            [ -f "$PID_FILE" ] && PID=$(cat "$PID_FILE" 2>/dev/null)
+        PID=""
+        [ -f "$PID_FILE" ] && PID=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
+            local V_DIR="/srv/vdr/video"
+            [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+            [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+            local L_FILE="$V_DIR/.vdr-rectools.lock"
+            [ -f "$L_FILE" ] && PID=$(cat "$L_FILE" 2>/dev/null)
             if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
-                local V_DIR="/srv/vdr/video"
-                [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
-                [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
-                local L_FILE="$V_DIR/.vdr-rectools.lock"
-                [ -f "$L_FILE" ] && PID=$(cat "$L_FILE" 2>/dev/null)
+                PID=$(fuser "$L_FILE" 2>/dev/null | awk '{print $1}' | grep -o '[0-9]*' | head -n 1)
             fi
-            
-            if [ -z "$PID" ]; then
-                echo "Fehler: PID konnte nicht ermittelt werden."
-                exit 1
-            fi
-
+        fi
+        
+        if [ -n "$PID" ] && ps -p "$PID" > /dev/null 2>&1; then
             echo "Stoppe vdr-rectools (PID: $PID) und alle Kindprozesse..."
             
             # Alle betroffenen PIDs sammeln, BEVOR die Eltern sterben
