@@ -44,7 +44,7 @@ shrink_video() {
     echo "[$(date +%T)] Starte H.265 Kompression ($H265_ENC) für $1" >> "$LOG_FILE"
     local DURATION=$(get_duration "$1")
     echo "$DURATION" > "${VIDEO_DIR:-/srv/vdr/video}/.vdr-rectools.duration" 2>/dev/null
-    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
     if [[ $FF_STATUS -eq 0 && -f "$OUT" ]]; then
@@ -148,7 +148,7 @@ apply_vdr_marks() {
         segment_files+=("$seg_file")
         
         if [[ "$e_time" == "end" ]]; then
-            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -map 0:v? -map 0:a? -map 0:s? -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         else
             # Dauer exakt berechnen, da -to bei DVB-Timestamps (PTS) in Kombination mit -copyts sofort abbricht
             # LC_ALL=C zwingt awk, einen Punkt statt eines Kommas zu nutzen (sonst crasht FFmpeg in DE-Umgebungen!)
@@ -163,13 +163,14 @@ apply_vdr_marks() {
                     printf "%.3f", diff / 1000;
                 }
             ')
-            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -t "$t_time" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -t "$t_time" -map 0:v? -map 0:a? -map 0:s? -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         fi
         
         local FF_STATUS=${PIPESTATUS[0]}
         if [[ $FF_STATUS -eq 0 && -f "$seg_file" ]]; then
             # Absolute Pfade nutzen, um Abstürze zu verhindern, falls das Arbeitsverzeichnis abweicht
-            echo "file '$seg_file'" >> "$concat_file"
+            local escaped_seg_file="${seg_file//\'/\'\\\'\'}"
+            echo "file '$escaped_seg_file'" >> "$concat_file"
         else
             echo "[$(date +%T)] FEHLER: Extraktion von Segment $i fehlgeschlagen." >> "$LOG_FILE"
             rm -f "${segment_files[@]}" "$concat_file"
@@ -180,7 +181,7 @@ apply_vdr_marks() {
 
     # Segmente zusammenfügen
     echo "[$(date +%T)] INFO: Füge Segmente zusammen (Concat)..." >> "$LOG_FILE"
-    ffmpeg -y -f concat -safe 0 -i "$concat_file" -c copy -fflags +genpts -avoid_negative_ts make_zero "$OUT_FILE" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    ffmpeg -y -f concat -safe 0 -i "$concat_file" -map 0:v? -map 0:a? -map 0:s? -c copy -fflags +genpts -avoid_negative_ts make_zero "$OUT_FILE" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
     rm -f "${segment_files[@]}" "$concat_file"

@@ -149,10 +149,11 @@ recode_stream() {
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
     # Wir nutzen hier die Fallback-Parameter, da es ein Reparatur-Versuch ist.
-    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
         -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
+        -c:s copy \
         -f mpegts "$tmp_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE" # Log ffmpeg output for deep repair
 
     local FF_STATUS=${PIPESTATUS[0]}
@@ -308,7 +309,7 @@ process_folder() {
                 fi
                 local DURATION=$(get_duration "$STAGING_REC/joined.ts")
                 echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
-                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 local FF_STATUS=${PIPESTATUS[0]}
                 if [[ $FF_STATUS -ne 0 ]]; then
                     echo "[$(date +%T)] FEHLER: Shrink-Encoding fehlgeschlagen (Status $FF_STATUS)." >> "$LOG_FILE"
@@ -464,21 +465,21 @@ process_import() {
 
     if [[ "$VCODEC" == "dvvideo" ]]; then
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" == "mpeg4" ]]; then
         echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
@@ -490,7 +491,7 @@ process_import() {
         FF_STATUS=${PIPESTATUS[0]}
     else
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264_FALLBACK:-70}" # Example: expect max 70% of original size
