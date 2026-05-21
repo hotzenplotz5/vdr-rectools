@@ -12,6 +12,7 @@
 * **🛠️ Smart Repair:** Repairs faulty recordings in a two-stage process: first, a quick header fix, followed by a full re-encode if necessary.
 * **💬 Auto-Subtitles:** Automatically searches for matching subtitles during import and saves them as an `.srt` file with the recording.
 * **🗜️ H.265 Shrink Mode:** Compresses large recordings into the space-saving HEVC (H.265) codec at the touch of a button.
+* **✂️ Commercial Cut (In-Place):** Fully automated, lossless cutting (`-c copy`) based on VDR cut marks. The original file is overwritten directly to save disk space immediately.
 * **📺 VDR OSD Integration:** Automatically integrates into the `reccmds.conf` command menu of the VDR (including Smart Downscaling).
 * **✉️ Intelligent Reporting:** Sends success or failure reports via email.
 * **📱 Push Notifications:** Optional delivery of status reports via Telegram directly to your smartphone.
