@@ -62,6 +62,11 @@ ensure_single_instance() {
     echo $$ >&200
 }
 
+# Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
+filter_ffmpeg_log() {
+    awk '/Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print}'
+}
+
 # --- NEU: STUFE 1 (Schneller Fix) ---
 sanitize_stream() {
     local FILE="$1"
@@ -104,9 +109,10 @@ recode_stream() {
         -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
-        -f mpegts "$tmp_file" </dev/null >> "$LOG_FILE" 2>&1 # Log ffmpeg output for deep repair
+        -f mpegts "$tmp_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE" # Log ffmpeg output for deep repair
 
-    if [[ $? -eq 0 && -f "$tmp_file" ]]; then
+    local FF_STATUS=${PIPESTATUS[0]}
+    if [[ $FF_STATUS -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
         return 0
@@ -131,7 +137,7 @@ check_stream() {
     # Führt ffmpeg aus und fängt alle Ausgaben (stdout und stderr) ab.
     # -v error zeigt nur kritische Fehler an.
     local FFERRORS
-    FFERRORS=$(ffmpeg -v error -i "$FILE" -f null - 2>&1)
+    FFERRORS=$(ffmpeg -v error -i "$FILE" -f null - 2>&1 | filter_ffmpeg_log)
     
     if [[ -n "$FFERRORS" ]]; then
         echo "[$(date +%T)] FEHLER gefunden in $FILE:" >> "$LOG_FILE"
@@ -209,7 +215,7 @@ process_folder() {
 
     if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
-        local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_$$"
+        local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_${RANDOM}_$$"
         mkdir -p "$STAGING_REC"
         case "$MODE" in
             repair)
@@ -232,7 +238,7 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
-                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null >> "$LOG_FILE" 2>&1
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 ;;
             check)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
