@@ -322,8 +322,9 @@ process_folder() {
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
-            chown vdr:vdr "$NFO_FILE" 2>/dev/null || true
         fi
+        # Dateirechte für alle vom Skript generierten Hilfsdateien sicherstellen
+        chown vdr:vdr "$NFO_FILE" "$PLEX_LINK" "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
     fi
 }
 

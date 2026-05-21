@@ -124,7 +124,19 @@ apply_vdr_marks() {
         if [[ "$e_time" == "end" ]]; then
             ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         else
-            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -to "$e_time" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            # Dauer exakt berechnen, da -to bei DVB-Timestamps (PTS) in Kombination mit -copyts sofort abbricht
+            local t_time=$(awk -v s="$s_time" -v e="$e_time" '
+                function to_ms(t) {
+                    split(t, a, ":"); split(a[3], b, ".");
+                    return (a[1]*3600000) + (a[2]*60000) + (b[1]*1000) + b[2];
+                }
+                BEGIN {
+                    diff = to_ms(e) - to_ms(s);
+                    if(diff < 0) diff = 0;
+                    printf "%.3f", diff / 1000;
+                }
+            ')
+            ffmpeg -y -ss "$s_time" -i "$TARGET_FILE" -t "$t_time" -c copy -copyts "$seg_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         fi
         
         local FF_STATUS=${PIPESTATUS[0]}
