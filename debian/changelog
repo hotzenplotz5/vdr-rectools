@@ -2,6 +2,10 @@ vdr-rectools (3.1.0-1) unstable; urgency=medium
 
   * Release Version 3.1.0 - The "Bulletproof & Dashboard" Update
   * FEAT: Interaktives, farbiges Live-Dashboard ('status') für die Konsole.
+  * FEAT: Live-Fortschrittsbalken (Prozentanzeige) für alle FFmpeg-Jobs im Dashboard.
+  * FEAT: Telegram Push-Benachrichtigungen via Bot-API integriert.
+  * FEAT: Detail-Tracking (State-File) für exakte Statusanzeigen hinzugefügt.
+  * CHORE: 'curl' als zwingende Abhängigkeit in debian/control aufgenommen.
   * FIX: Umlaut-Zerstörung (ä, ö, ü) bei Filmtiteln durch sed-Filter behoben.
   * FIX: Asynchroner Werbeschnitt bei 50fps-Sendern (ARD/ZDF HD) korrigiert.
   * FIX: Crash beim Werbeschnitt durch deutsches Locale (Komma-Bug) behoben.
@@ -10,6 +14,7 @@ vdr-rectools (3.1.0-1) unstable; urgency=medium
   * FIX: Fatale Bash-Syntaxfehler bei rohen DVB-Streams (N/A Dauer) abgefangen.
   * FIX: 0-Byte Dateimüll bei bildbasierten DVB-Untertiteln beseitigt.
   * FIX: Audio-Description Filter (Zombies) repariert.
+  * FIX: Log-Hänger (awk Pufferung) während FFmpeg-Remuxing behoben.
 
  -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 17:35:00 +0000
 
