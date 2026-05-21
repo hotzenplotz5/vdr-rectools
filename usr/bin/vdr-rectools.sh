@@ -100,6 +100,12 @@ interactive_status() {
         
         local PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
         if [[ -f "$PROMPT_FILE" ]]; then
+            # Sicherheitscheck: Falls der Hintergrundprozess abgestürzt ist, verwaisten Prompt löschen
+            if ! is_running; then
+                rm -f "$PROMPT_FILE" 2>/dev/null
+                continue
+            fi
+            
             local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
             if [[ "$STATUS" == "WAIT" ]]; then
                 local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
@@ -112,13 +118,17 @@ interactive_status() {
                 echo -e " \033[1;31m========================================================\033[0m"
                 
                 read -n 1 -t 2 key
-                if [[ "$key" =~ (j|J|y|Y) ]]; then
+                if [[ "$key" == [jJyY] ]]; then
                     echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                    echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
+                    sleep 1
                     continue
-                elif [[ "$key" =~ (n|N) ]]; then
+                elif [[ "$key" == [nN] ]]; then
                     echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                    echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
+                    sleep 1
                     continue
-                elif [[ "$key" =~ (q|Q) ]]; then
+                elif [[ "$key" == [qQ] ]]; then
                     break
                 fi
                 continue
