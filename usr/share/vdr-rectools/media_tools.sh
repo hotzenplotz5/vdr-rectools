@@ -220,8 +220,8 @@ extract_images() {
     # 2. Versuch: Falls poster.jpg fehlt oder zu klein ist (< 10kb), Snapshot erstellen
     if [ ! -f "$DEST_DIR/poster.jpg" ] || [ $(stat -c%s "$DEST_DIR/poster.jpg" 2>/dev/null || echo 0) -lt 10000 ]; then
         # -update 1 sorgt dafür, dass ein einzelnes Bild geschrieben wird
-            echo "[$(date +%T)] Erstelle Poster-Snapshot bei $SEEK_POINT..." >> "$LOG_FILE"
-        ffmpeg -y -i "$VIDEO_FILE" -ss "$SEEK_POINT" -frames:v 1 -update 1 -q:v 2 "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
+        echo "[$(date +%T)] Erstelle Poster-Snapshot bei $SEEK_POINT..." >> "$LOG_FILE"
+        ffmpeg -y -ss "$SEEK_POINT" -i "$VIDEO_FILE" -frames:v 1 -update 1 -q:v 2 "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
     fi
 
     # Fanart kopieren, falls poster.jpg erfolgreich war

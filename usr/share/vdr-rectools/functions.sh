@@ -102,7 +102,7 @@ ensure_single_instance() {
     fi
 
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" 2>/dev/null' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
