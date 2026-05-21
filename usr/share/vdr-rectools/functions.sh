@@ -45,7 +45,6 @@ send_mail() {
     [[ -z "$MAIL_NOTIFY" ]] && return
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
-    echo "$WRAPPED_BODY" | \
     if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" 2>> "$LOG_FILE"; then
         echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
     fi
@@ -281,6 +280,12 @@ process_folder() {
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
                 echo "[$(date +%T)] FEHLER: $MODE fehlgeschlagen, Index konnte final nicht erstellt werden." >> "$LOG_FILE"
+                rm -rf "$STAGING_REC"
+            fi
+        else
+            # Wenn 00001.ts nach den Vorgängen nicht mehr existiert, gab es einen Abbruch.
+            if [ -d "$STAGING_REC" ]; then
+                echo "[$(date +%T)] INFO: $MODE fehlgeschlagen. Räume temporären Staging-Ordner auf." >> "$LOG_FILE"
                 rm -rf "$STAGING_REC"
             fi
         fi
