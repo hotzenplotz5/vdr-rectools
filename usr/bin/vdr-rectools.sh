@@ -53,6 +53,7 @@ BEFEHLE:
     repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
     status          Zeigt den Status laufender Prozesse an.
     diag            Zeigt System-Diagnoseinformationen an.
+    confirm         Bestätigt oder verwirft einen ausstehenden Re-Encode.
     stop            Beendet laufende Hintergrundprozesse sauber.
     cron            Simuliert den nächtlichen Timer-Aufruf.
     help, --help    Zeigt diese Hilfe an.
@@ -88,58 +89,6 @@ interactive_status() {
     while true; do
         clear
         show_status
-        
-        local PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
-        if [[ -f "$PROMPT_FILE" ]]; then
-            # Sicherheitscheck: Falls der Hintergrundprozess abgestürzt ist, verwaisten Prompt löschen
-            if ! is_running; then
-                rm -f "$PROMPT_FILE" 2>/dev/null
-                continue
-            fi
-            
-            local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
-            if [[ "$STATUS" == "WAIT" ]]; then
-                local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
-                local P_CODEC=$(cut -d'|' -f3 "$PROMPT_FILE" 2>/dev/null)
-                echo -e "\n \033[1;31m========================================================\033[0m"
-                echo -e " \033[1;33m⚠️  AKTION ERFORDERLICH:\033[0m"
-                echo -e " Der Film '\033[1;37m$P_TITLE\033[0m' (Codec: $P_CODEC) muss re-encodiert werden."
-                echo -e " Dies kann je nach CPU/Hardware mehrere Stunden dauern."
-                echo -e " Möchten Sie den Re-Encode jetzt starten? [\033[1;32mJ\033[0m/\033[1;31mN\033[0m] (mit Enter bestätigen)"
-                echo -e " \033[1;31m========================================================\033[0m"
-                
-                # Endlosschleife: Wartet auf Tastendruck ohne den Bildschirm neu zu zeichnen
-                while true; do
-                    # Nur noch prüfen, ob die Prompt-Datei weg ist
-                    if [[ ! -f "$PROMPT_FILE" ]]; then
-                        break
-                    fi
-                    
-                    # Reguläres read mit Timeout. Ohne -s und -n, um Puffer-Probleme in SSH-Terminals zu umgehen.
-                    read -t 2 key
-                    
-                    case "$key" in
-                        *j*|*J*|*y*|*Y*)
-                            echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                            echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
-                            sleep 1
-                            break
-                            ;;
-                        *n*|*N*)
-                            echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                            echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
-                            sleep 1
-                            break
-                            ;;
-                        *q*|*Q*)
-                            tput cnorm
-                            exit 0
-                            ;;
-                    esac
-                done
-                continue
-            fi
-        fi
 
         echo -e "\n [ Auto-Refresh alle 2s | [Q]+Enter für Beenden ]"
         read -t 2 key
@@ -227,6 +176,50 @@ case "$1" in
             run_scan "normal"
         else
             echo "[$(date +%T)] AUTO_START_NIGHT ist deaktiviert, keine Aktion." >> "$LOG_FILE"
+        fi
+        ;;
+
+    confirm)
+        local V_DIR="/srv/vdr/video"
+        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+        [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+        local PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
+        
+        if [[ ! -f "$PROMPT_FILE" ]]; then
+            echo "Es gibt aktuell keine ausstehenden Re-Encodes, die bestätigt werden müssen."
+            exit 0
+        fi
+        
+        local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+        if [[ "$STATUS" == "WAIT" ]]; then
+            local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
+            local P_CODEC=$(cut -d'|' -f3 "$PROMPT_FILE" 2>/dev/null)
+            echo -e "\n\033[1;31m========================================================\033[0m"
+            echo -e "\033[1;33m ⚠️  AKTION ERFORDERLICH:\033[0m"
+            echo -e " Der Film '\033[1;37m$P_TITLE\033[0m' (Codec: $P_CODEC) muss re-encodiert werden."
+            echo -e " Dies kann je nach CPU/Hardware mehrere Stunden dauern."
+            echo -e "\033[1;31m========================================================\033[0m"
+            
+            while true; do
+                read -p " Möchten Sie den Re-Encode jetzt starten? [J/N]: " choice
+                case "$choice" in
+                    j|J|y|Y|ja|Ja|yes|Yes)
+                        echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                        echo -e "\n\033[1;32mBestätigt! Starte Re-Encode...\033[0m"
+                        break
+                        ;;
+                    n|N|nein|Nein|no|No)
+                        echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                        echo -e "\n\033[1;31mAbgelehnt! Datei wird mit '.skipped' markiert und übersprungen.\033[0m"
+                        break
+                        ;;
+                    *)
+                        echo " Ungültige Eingabe. Bitte 'J' für Ja oder 'N' für Nein eingeben."
+                        ;;
+                esac
+            done
+        else
+            echo "Der Status wird bereits verarbeitet."
         fi
         ;;
 

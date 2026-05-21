@@ -405,7 +405,7 @@ confirm_encoding() {
     chmod 666 "$PROMPT_FILE" 2>/dev/null || true # Erlaubt Usern, J oder N via Dashboard zu drücken
     
     # E-Mail/Telegram senden
-    local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools status\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
+    local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools confirm\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
     send_mail "$MAIL_BODY" "Aktion erforderlich: Re-Encode fuer $TITLE"
     
     echo "[$(date +%T)] Warte auf Nutzerbestätigung für Re-Encode von '$TITLE'..." >> "$LOG_FILE"
@@ -668,6 +668,13 @@ show_status() {
         [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null)
         echo -e " \033[1;32m🟢 AKTIV\033[0m    - Prozess läuft (PID: $PID, seit: $RUNTIME)"
         echo -e " \033[1;34m🎬 AKTUELL\033[0m  - $CURRENT_ACTION"
+        
+        local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+        if [[ -f "$PROMPT_FILE" ]]; then
+            local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
+            echo -e " \033[1;33m⚠️  WARTE AUF BESTÄTIGUNG:\033[0m Re-Encode für '$P_TITLE'"
+            echo -e " 👉 Bitte in der Konsole ausführen: \033[1;32mvdr-rectools confirm\033[0m"
+        fi
         
         # Fortschrittsbalken berechnen und anzeigen
         if [[ -f "$DURATION_FILE" ]]; then
