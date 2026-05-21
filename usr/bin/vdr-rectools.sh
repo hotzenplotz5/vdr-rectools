@@ -117,20 +117,24 @@ interactive_status() {
                 echo -e " Möchten Sie den Re-Encode jetzt starten? [\033[1;32mJ\033[0m/\033[1;31mN\033[0m]"
                 echo -e " \033[1;31m========================================================\033[0m"
                 
-                read -n 1 -t 2 key
-                if [[ "$key" == [jJyY] ]]; then
-                    echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                    echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
-                    sleep 1
-                    continue
-                elif [[ "$key" == [nN] ]]; then
-                    echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
-                    echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
-                    sleep 1
-                    continue
-                elif [[ "$key" == [qQ] ]]; then
-                    break
-                fi
+                # Endlosschleife: Wartet auf Tastendruck ohne den Bildschirm neu zu zeichnen
+                while true; do
+                    read -s -n 1 key
+                    if [[ "$key" == [jJyY] ]]; then
+                        echo "YES|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                        echo -e "\n \033[1;32mBestätigt! Starte Re-Encode...\033[0m"
+                        sleep 1
+                        break
+                    elif [[ "$key" == [nN] ]]; then
+                        echo "NO|$P_TITLE|$P_CODEC" > "$PROMPT_FILE"
+                        echo -e "\n \033[1;31mAbgelehnt! Datei wird übersprungen.\033[0m"
+                        sleep 1
+                        break
+                    elif [[ "$key" == [qQ] ]]; then
+                        tput cnorm
+                        exit 0
+                    fi
+                done
                 continue
             fi
         fi
