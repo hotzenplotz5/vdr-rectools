@@ -656,7 +656,15 @@ show_status() {
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
-            PID=$(fuser "$LOCK_FILE" 2>/dev/null | awk '{print $1}' | grep -o '[0-9]*' | head -n 1)
+            if command -v fuser >/dev/null 2>&1; then
+                PID=$(fuser "$LOCK_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -n 1)
+            fi
+        fi
+        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
+            PID=$(pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" | head -n 1)
+        fi
+        if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
+            PID=$(pgrep -f "(ffmpeg|ffprobe).*/srv/vdr/tmp/staging" | head -n 1)
         fi
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
             IS_RUNNING=1

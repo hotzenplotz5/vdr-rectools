@@ -29,10 +29,16 @@ is_running() {
         fi
         
         # Fallback 2: Wer hält den File-Lock? (z.B. wenn die Lock-Datei durch 'stop' genullt wurde)
-        if fuser "$L_FILE" >/dev/null 2>&1; then
-            return 0
+        if command -v fuser >/dev/null 2>&1; then
+            if fuser "$L_FILE" >/dev/null 2>&1; then
+                return 0
+            fi
         fi
     fi
+    
+    # Fallback 3: Über pgrep (Skript oder verwaistes FFmpeg)
+    if pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" >/dev/null 2>&1; then return 0; fi
+    if pgrep -f "ffmpeg.*/srv/vdr/tmp/staging" >/dev/null 2>&1; then return 0; fi
     
     return 1 # Läuft nicht
 }
@@ -240,9 +246,6 @@ case "$1" in
     stop)
         echo "Stoppe vdr-rectools und alle Kindprozesse..."
         
-        PID=""
-        [ -f "$PID_FILE" ] && PID=$(cat "$PID_FILE" 2>/dev/null)
-        
         local V_DIR="/srv/vdr/video"
         [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
@@ -250,15 +253,23 @@ case "$1" in
         local P_PROMPT="$V_DIR/.vdr-rectools.prompt"
         local L_LOG="${LOG_FILE:-/var/log/vdr-rectools.log}"
         
-        if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
-            [ -f "$L_FILE" ] && PID=$(cat "$L_FILE" 2>/dev/null)
-            if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
-                PID=$(fuser "$L_FILE" 2>/dev/null | awk '{print $1}' | grep -o '[0-9]*' | head -n 1)
-            fi
+        # 1. Alle potenziellen PIDs sammeln
+        ALL_PIDS=""
+        [ -f "$PID_FILE" ] && ALL_PIDS="$ALL_PIDS $(cat "$PID_FILE" 2>/dev/null)"
+        [ -f "$L_FILE" ] && ALL_PIDS="$ALL_PIDS $(cat "$L_FILE" 2>/dev/null)"
+        
+        SCRIPT_PIDS=$(pgrep -f "vdr-rectools.*(start|import|repair|cron|repair_single|cut_single|shrink_single)" 2>/dev/null)
+        ALL_PIDS="$ALL_PIDS $SCRIPT_PIDS"
+        
+        if command -v fuser >/dev/null 2>&1; then
+            FUSER_PIDS=$(fuser "$L_FILE" 2>/dev/null | grep -o '[0-9]\+')
+            ALL_PIDS="$ALL_PIDS $FUSER_PIDS"
         fi
         
-        # 1. Regulärer Kill-Tree
-        if [ -n "$PID" ] && ps -p "$PID" > /dev/null 2>&1; then
+        ALL_PIDS=$(echo "$ALL_PIDS" | tr ' ' '\n' | awk 'NF' | sort -u)
+        
+        # 2. Kill-Tree aufbauen
+        if [ -n "$ALL_PIDS" ]; then
             get_descendants() {
                 local parent=$1
                 for child in $(pgrep -P "$parent" 2>/dev/null); do
@@ -266,33 +277,38 @@ case "$1" in
                     echo "$child"
                 done
             }
-            ALL_PIDS=$(get_descendants "$PID")
-            ALL_PIDS="$ALL_PIDS $PID"
-            
-            for p in $ALL_PIDS; do
-                kill -15 "$p" 2>/dev/null
-            done
-            sleep 2
+            FULL_TREE=""
             for p in $ALL_PIDS; do
                 if ps -p "$p" > /dev/null 2>&1; then
-                    kill -9 "$p" 2>/dev/null
+                    FULL_TREE="$FULL_TREE $p $(get_descendants "$p")"
                 fi
             done
+            FULL_TREE=$(echo "$FULL_TREE" | tr ' ' '\n' | awk 'NF' | sort -u)
+            
+            if [ -n "$FULL_TREE" ]; then
+                for p in $FULL_TREE; do
+                    kill -15 "$p" 2>/dev/null
+                done
+                sleep 2
+                for p in $FULL_TREE; do
+                    if ps -p "$p" > /dev/null 2>&1; then
+                        kill -9 "$p" 2>/dev/null
+                    fi
+                done
+            fi
         fi
         
-        # 2. Ultimate Fallback: Fuser Kill (Tötet alles, was den Lock noch festhält)
-        if fuser "$L_FILE" >/dev/null 2>&1; then
-            echo "Erzwinge Stopp für hängende Locks (Fuser)..."
-            fuser -k -15 "$L_FILE" >/dev/null 2>&1
-            sleep 2
-            fuser -k -9 "$L_FILE" >/dev/null 2>&1
+        # 3. Hardcore-Fallback: Verwaiste FFmpeg-Prozesse explizit abschießen
+        if pgrep -f "(ffmpeg|ffprobe).*/srv/vdr/tmp/staging" >/dev/null 2>&1; then
+            echo "Erzwinge Stopp für verwaiste FFmpeg-Prozesse..."
+            pkill -9 -f "(ffmpeg|ffprobe).*/srv/vdr/tmp/staging" 2>/dev/null || true
         fi
         
-        # 3. Aufräumen
+        # 4. Aufräumen
         rm -f "$PID_FILE" "$P_PROMPT" "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" 2>/dev/null || true
         truncate -s 0 "$V_DIR/.vdr-rectools.lock" 2>/dev/null || true
         
-        # 4. Log-Feedback für den User
+        # 5. Log-Feedback für den User
         echo "[$(date +%T)] INFO: vdr-rectools wurde manuell gestoppt (Abbruch)." >> "$L_LOG"
         
         echo "Erfolgreich gestoppt."
