@@ -96,19 +96,24 @@ ensure_single_instance() {
     fi
     echo "Initialisiere..." > "$STATE_FILE"
 
+    if [[ ! -f "$DURATION_FILE" ]]; then
+        touch "$DURATION_FILE" 2>/dev/null || true
+        chmod 666 "$DURATION_FILE" 2>/dev/null || true
+    fi
+
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
     trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" 2>/dev/null' EXIT
 }
 
 set_state() {
     echo "$1" > "$STATE_FILE" 2>/dev/null || true
-    rm -f "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen
+    > "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen (behält Rechte)
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
 filter_ffmpeg_log() {
-    # tr '\r' '\n' erzwingt echte Zeilenumbrüche, da FFmpeg Fortschritte sonst puffert und die %-Anzeige bei 0 hängen bleibt
-    tr '\r' '\n' | awk 'NF==0{next} /Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
+    # awk mit RS='[\r\n]+' verhindert, dass awk oder tr den Stream block-puffern. FFmpeg-Fortschritt ist sofort im Log.
+    awk -v RS='[\r\n]+' 'NF==0{next} /Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
@@ -611,7 +616,7 @@ show_status() {
         if [[ -f "$DURATION_FILE" ]]; then
             local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
             if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
-                local LAST_TIME=$(tail -n 20 "$LOG_FILE" 2>/dev/null | grep -o 'time=[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}' | tail -n 1 | cut -d= -f2)
+                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'time=[0-9][0-9]:[0-9][0-9]:[0-9][0-9]' | tail -n 1 | cut -d= -f2)
                 if [[ -n "$LAST_TIME" ]]; then
                     local H=$(echo "$LAST_TIME" | cut -d: -f1)
                     local M=$(echo "$LAST_TIME" | cut -d: -f2)
