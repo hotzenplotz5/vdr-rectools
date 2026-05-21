@@ -234,23 +234,27 @@ case "$1" in
         ;;
 
     stop)
+        echo "Stoppe vdr-rectools und alle Kindprozesse..."
+        
         PID=""
         [ -f "$PID_FILE" ] && PID=$(cat "$PID_FILE" 2>/dev/null)
+        
+        local V_DIR="/srv/vdr/video"
+        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+        [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
+        local L_FILE="$V_DIR/.vdr-rectools.lock"
+        local P_PROMPT="$V_DIR/.vdr-rectools.prompt"
+        local L_LOG="${LOG_FILE:-/var/log/vdr-rectools.log}"
+        
         if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
-            local V_DIR="/srv/vdr/video"
-            [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
-            [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
-            local L_FILE="$V_DIR/.vdr-rectools.lock"
             [ -f "$L_FILE" ] && PID=$(cat "$L_FILE" 2>/dev/null)
             if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
                 PID=$(fuser "$L_FILE" 2>/dev/null | awk '{print $1}' | grep -o '[0-9]*' | head -n 1)
             fi
         fi
         
+        # 1. Regulärer Kill-Tree
         if [ -n "$PID" ] && ps -p "$PID" > /dev/null 2>&1; then
-            echo "Stoppe vdr-rectools (PID: $PID) und alle Kindprozesse..."
-            
-            # Alle betroffenen PIDs sammeln, BEVOR die Eltern sterben
             get_descendants() {
                 local parent=$1
                 for child in $(pgrep -P "$parent" 2>/dev/null); do
@@ -258,41 +262,36 @@ case "$1" in
                     echo "$child"
                 done
             }
-            
             ALL_PIDS=$(get_descendants "$PID")
             ALL_PIDS="$ALL_PIDS $PID"
             
             for p in $ALL_PIDS; do
                 kill -15 "$p" 2>/dev/null
             done
-            
             sleep 2
-            
-            STILL_RUNNING=0
             for p in $ALL_PIDS; do
                 if ps -p "$p" > /dev/null 2>&1; then
-                    STILL_RUNNING=1
-                    break
+                    kill -9 "$p" 2>/dev/null
                 fi
             done
-            
-            if [ "$STILL_RUNNING" -eq 1 ]; then
-                echo "Prozess reagiert nicht, sende KILL..."
-                for p in $ALL_PIDS; do
-                    kill -9 "$p" 2>/dev/null
-                done
-            fi
-            rm -f "$PID_FILE"
-            echo "Gestoppt."
-        else
-            echo "vdr-rectools läuft nicht."
         fi
         
-        # Bereinige verwaiste Lock-Dateien zur Sicherheit
-        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
-        V_DIR="${VIDEO_DIR:-/srv/vdr/video}"
+        # 2. Ultimate Fallback: Fuser Kill (Tötet alles, was den Lock noch festhält)
+        if fuser "$L_FILE" >/dev/null 2>&1; then
+            echo "Erzwinge Stopp für hängende Locks (Fuser)..."
+            fuser -k -15 "$L_FILE" >/dev/null 2>&1
+            sleep 2
+            fuser -k -9 "$L_FILE" >/dev/null 2>&1
+        fi
+        
+        # 3. Aufräumen
+        rm -f "$PID_FILE" "$P_PROMPT" "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" 2>/dev/null || true
         truncate -s 0 "$V_DIR/.vdr-rectools.lock" 2>/dev/null || true
-        rm -f "$V_DIR/.vdr-rectools.state" "$V_DIR/.vdr-rectools.duration" "$V_DIR/.vdr-rectools.prompt" 2>/dev/null || true
+        
+        # 4. Log-Feedback für den User
+        echo "[$(date +%T)] INFO: vdr-rectools wurde manuell gestoppt (Abbruch)." >> "$L_LOG"
+        
+        echo "Erfolgreich gestoppt."
         ;;
 
     help|--help|-h)
