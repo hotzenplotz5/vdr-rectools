@@ -54,7 +54,8 @@ send_mail() {
 
     # --- Telegram Push ---
     if [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
-        local TG_MESSAGE="🎬 VDR-Rectools: $SUBJECT"$'\n\n'"$BODY"
+        local TG_BODY=$(echo -e "$BODY") # \n in echte Zeilenumbrüche umwandeln
+        local TG_MESSAGE="🎬 VDR-Rectools: $SUBJECT"$'\n\n'"$TG_BODY"
         if ! curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             --data-urlencode text="$TG_MESSAGE" > /dev/null 2>&1; then
