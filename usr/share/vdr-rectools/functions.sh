@@ -712,15 +712,22 @@ run_scan() {
     cleanup_orphans
     local MODE="$1"
     local COUNT=0
-    set_state "Scanne Import-Verzeichnis..."
-    find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
-        [[ $COUNT -ge "$MAX_FILES" ]] && break
-        process_import "$FILE" "$MODE" && ((COUNT++))
-    done
-    set_state "Scanne VDR-Verzeichnis..."
-    while read -r DIR; do
-        process_folder "$DIR" "$MODE"
-    done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+    
+    if [[ "$MODE" == "normal" || "$MODE" == "import" ]]; then
+        set_state "Scanne Import-Verzeichnis..."
+        find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
+            [[ $COUNT -ge "$MAX_FILES" ]] && break
+            process_import "$FILE" "$MODE" && ((COUNT++))
+        done
+    fi
+    
+    # Den aufwendigen Komplett-Scan des VDR-Verzeichnisses überspringen, wenn nur "import" aufgerufen wurde
+    if [[ "$MODE" != "import" ]]; then
+        set_state "Scanne VDR-Verzeichnis..."
+        while read -r DIR; do
+            process_folder "$DIR" "$MODE"
+        done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+    fi
     set_state "Scan abgeschlossen."
 }
 
