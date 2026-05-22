@@ -104,6 +104,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **MIN_COMPRESSION_RATIO_H265** | Max. Dateigröße in % des Originals für H.265-Encodes | `50` |
 | **MIN_COMPRESSION_RATIO_H264_FALLBACK** | Max. Dateigröße in % des Originals für H.264-Fallback | `70` |
 | **MIN_FREE_GB** | Mindestfreispeicher auf der Festplatte | `20` |
+| **MAX_FILESIZE_GB** | Überspringt Importe ab dieser Dateigröße in GB (`0`=Aus) | `0` |
 | **MAX_FILES** | Maximale Anzahl Dateien pro Durchlauf | `10` |
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |
 | **PAUSE_CHECK** | Pause zwischen Datei-Checks (Sekunden) | `2` |
