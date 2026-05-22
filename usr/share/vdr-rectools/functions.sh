@@ -831,8 +831,14 @@ show_status() {
     # 3. Import-Warteschlange
     if [[ -d "$IMPORT_DIR" ]]; then
         local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) 2>/dev/null | wc -l)
-        if [[ $QUEUE_COUNT -gt 0 ]]; then
+        local SKIPPED_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f -name "*.skipped" 2>/dev/null | wc -l)
+        
+        if [[ $QUEUE_COUNT -gt 0 && $SKIPPED_COUNT -gt 0 ]]; then
+            echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten, \033[1;31m$SKIPPED_COUNT abgelehnt (.skipped)\033[0m"
+        elif [[ $QUEUE_COUNT -gt 0 ]]; then
             echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten auf Verarbeitung"
+        elif [[ $SKIPPED_COUNT -gt 0 ]]; then
+            echo -e " \033[1;31m📥 IMPORT\033[0m   - \033[1;31m$SKIPPED_COUNT Datei(en) abgelehnt (.skipped)\033[0m (Nutze 'confirm' Kommando)"
         else
             echo -e " \033[1;32m📥 IMPORT\033[0m   - Leer (Alles erledigt)"
         fi
