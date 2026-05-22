@@ -267,7 +267,12 @@ check_size() {
 # Hilfsfunktion: Dauer eines Videos ermitteln
 get_duration() {
     local FILE="$1"
-    ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE" | cut -d. -f1
+    local dur
+    dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE" 2>/dev/null | cut -d. -f1)
+    if [[ -z "$dur" || "$dur" == "N/A" ]]; then
+        dur=$(ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 "$FILE" 2>/dev/null | cut -d. -f1 | head -n 1)
+    fi
+    echo "$dur"
 }
 
 check_disk_space() {
@@ -448,6 +453,9 @@ confirm_encoding() {
             rm -f "$PROMPT_FILE"
             echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' bestätigt." >> "$LOG_FILE"
             set_state "Importiere: $TITLE"
+                # Fortschrittsbalken-Bug Fix: set_state hat das DURATION_FILE genullt. Wir stellen es wieder her.
+                local DUR=$(get_duration "$SRC_FILE")
+                echo "$DUR" > "$DURATION_FILE" 2>/dev/null
             return 0
         elif [[ "$STATUS" == "NO" ]]; then
             rm -f "$PROMPT_FILE"
@@ -751,7 +759,7 @@ show_status() {
         if [[ -f "$DURATION_FILE" ]]; then
             local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
             if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
-                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'time=[0-9][0-9]:[0-9][0-9]:[0-9][0-9]' | tail -n 1 | cut -d= -f2)
+                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -oE 'time=[ ]*[0-9]+:[0-9]{2}:[0-9]{2}' | tail -n 1 | cut -d= -f2 | tr -d ' ')
                 if [[ -n "$LAST_TIME" ]]; then
                     local H=$(echo "$LAST_TIME" | cut -d: -f1)
                     local M=$(echo "$LAST_TIME" | cut -d: -f2)
