@@ -479,8 +479,9 @@ process_import() {
 
     if [[ -f "$NFO_SOURCE" ]]; then
         echo "[$(date +%T)] Metadaten-Datei gefunden: $NFO_SOURCE" >> "$LOG_FILE"
-        META_TITLE=$(grep '<title>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<title>//' -e 's/<\/title>.*//' | tr -d '\r\n')
-        META_DESC=$(grep '<plot>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<plot>//' -e 's/<\/plot>.*//' | tr -d '\r\n')
+        # awk liest über mehrzeilige XML-Tags hinweg, was z.B. für TinyMediaManager NFOs zwingend nötig ist
+        META_TITLE=$(awk -v RS='</title>' '/<title>/{gsub(/.*<title>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
+        META_DESC=$(awk -v RS='</plot>' '/<plot>/{gsub(/.*<plot>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r' | awk 'NF{gsub(/^[ \t]+/,""); gsub(/[ \t]+$/,""); print}' | paste -sd '|' -)
     fi
 
     local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
