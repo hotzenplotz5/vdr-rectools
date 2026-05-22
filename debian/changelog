@@ -1,3 +1,49 @@
+vdr-rectools (3.2.0-1) unstable; urgency=medium
+
+  * Release Version 3.2.0 - The "Smart Lock & Confirm" Update
+  * FEAT: Neues, stabiles Kommando 'confirm' für Re-Encode Bestätigungen.
+  * FEAT: Interaktives Restore-Menü für übersprungene Dateien (.skipped).
+  * FIX: Zombie-Lock Bug (FD-Leak) behoben. 'flock' durch Smart PID Lock ersetzt.
+  * FIX: Terminal-Blockade/Puffer-Bug bei interaktiven Eingaben behoben.
+  * FIX: 'stop'-Kommando ist nun extrem robust (ohne 'fuser' Abhängigkeit).
+  * FIX: Bash-Syntax-Fehler ('local' outside function) bereinigt.
+  * FIX: Dashboard-Sabotage (abgeschnittene Prozessnamen) korrigiert.
+  * FIX: Fehlende Schreibrechte für die Bestätigungs-Datei (chmod 666) behoben.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Fri, 22 May 2026 04:16:55 +0000
+
+vdr-rectools (3.1.0-1) unstable; urgency=medium
+
+  * Release Version 3.1.0 - The "Bulletproof & Dashboard" Update
+  * FEAT: Interaktives, farbiges Live-Dashboard ('status') für die Konsole.
+  * FEAT: Live-Fortschrittsbalken (Prozentanzeige) für alle FFmpeg-Jobs im Dashboard.
+  * FEAT: Telegram Push-Benachrichtigungen via Bot-API integriert.
+  * FEAT: Detail-Tracking (State-File) für exakte Statusanzeigen hinzugefügt.
+  * CHORE: 'curl' als zwingende Abhängigkeit in debian/control aufgenommen.
+  * FIX: Umlaut-Zerstörung (ä, ö, ü) bei Filmtiteln durch sed-Filter behoben.
+  * FIX: Asynchroner Werbeschnitt bei 50fps-Sendern (ARD/ZDF HD) korrigiert.
+  * FIX: Crash beim Werbeschnitt durch deutsches Locale (Komma-Bug) behoben.
+  * FIX: Globbing-Bug bei Datei-Importen mit eckigen Klammern behoben.
+  * FIX: OSD-Lockfile Berechtigungen (root vs. vdr User) und Symlink-Rechte korrigiert.
+  * FIX: Fatale Bash-Syntaxfehler bei rohen DVB-Streams (N/A Dauer) abgefangen.
+  * FIX: 0-Byte Dateimüll bei bildbasierten DVB-Untertiteln beseitigt.
+  * FIX: Audio-Description Filter (Zombies) repariert.
+  * FIX: Log-Hänger (awk Pufferung) während FFmpeg-Remuxing behoben.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 17:35:00 +0000
+
+vdr-rectools (3.0.0-1) unstable; urgency=medium
+
+  * Release Version 3.0.0 - The "Cut & Clean" Update
+  * FEAT: Vollautomatischer, verlustfreier Werbeschnitt (apply_vdr_marks) integriert.
+  * FEAT: In-Place-Schnitt: Im Gegensatz zum VDR-Standard (der eine %-Kopie anlegt), 
+          überschreibt das Skript die Originaldatei direkt und spart sofort Speicherplatz.
+  * FEAT: FFmpeg Concat-Demuxer für schnelles Extrahieren ohne Re-Encoding (-c copy).
+  * FIX: Alte 'marks'-Datei wird nach erfolgreichem Schnitt automatisch gelöscht.
+  * QA: Sicherheits-Schwellenwert (10%) schützt vor fehlerhaft extrem geschrumpften Dateien.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Thu, 21 May 2026 16:00:00 +0000
+
 vdr-rectools (2.0.3-1) unstable; urgency=medium
 
   * FIX: Datenverlust-Lücke bei fehlgeschlagenem Verschieben in Zielordner geschlossen.

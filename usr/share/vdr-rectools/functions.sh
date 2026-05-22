@@ -16,14 +16,22 @@ CRF_H264_FALLBACK=23 # CRF for H.264 fallback encoding
 PRESET_H264_FALLBACK="fast" # Preset for H.264 fallback encoding
 HW_ACCEL="none" # Hardwarebeschleunigung: none, nvenc, vaapi, qsv
 MAIL_NOTIFY=""
+TELEGRAM_BOT_TOKEN=""
+TELEGRAM_CHAT_ID=""
 AUTO_SUB_DOWNLOAD=1
+ASK_BEFORE_ENCODE=1 # Neu: Fragt per Status-Dashboard nach, bevor re-encodiert wird
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
 MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
 MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
 MIN_FREE_GB=50
 MAX_FILES=5
 LOG_FILE="/var/log/vdr-rectools.log"
-LOCK_FILE="/tmp/vdr-rectools.lock"
+# Lock-File im VDR-Video-Verzeichnis, damit sowohl 'root' als auch 'vdr' (OSD) konfliktfrei Schreibrechte haben
+LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
+STATE_FILE="$VIDEO_DIR/.vdr-rectools.state"
+DURATION_FILE="$VIDEO_DIR/.vdr-rectools.duration"
+USE_TVSCRAPER=0
+TVSCRAPER_MODE="batch"
 
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
@@ -42,6 +50,18 @@ fi
 send_mail() {
     local BODY="$1"
     local SUBJECT="$2"
+
+    # --- Telegram Push ---
+    if [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+        local TG_MESSAGE="🎬 VDR-Rectools: $SUBJECT"$'\n\n'"$BODY"
+        if ! curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="$TG_MESSAGE" > /dev/null 2>&1; then
+            echo "[$(date +%T)] WARNUNG: Telegram-Versand für Betreff '$SUBJECT' fehlgeschlagen." >> "$LOG_FILE"
+        fi
+    fi
+
+    # --- E-Mail ---
     [[ -z "$MAIL_NOTIFY" ]] && return
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
@@ -52,36 +72,67 @@ send_mail() {
 
 # --- NEU: Verhindert, dass das Skript mehrfach gleichzeitig läuft ---
 ensure_single_instance() {
-    # '>>' verhindert, dass die Datei beim Öffnen geleert wird, bevor der Lock greift
-    exec 200>>"$LOCK_FILE"
-    if ! flock -n 200; then
-        echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
-        exit 0 # Sauberer Exit ohne Fehler
+    # Verhindert Absturz des Locks, falls das VDR-Verzeichnis nach einem Neustart noch nicht gemountet ist
+    mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
+    local P_FILE="/var/run/vdr-rectools.pid"
+
+    # Custom PID-basiertes Locking (verhindert unzerstörbare Locks durch FD-Leaks)
+    if [[ -f "$LOCK_FILE" ]]; then
+        local L_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$L_PID" ]] && kill -0 "$L_PID" 2>/dev/null; then
+            if ps -p "$L_PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+                echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
+                exit 0
+            fi
+        fi
     fi
-    # Schreibe PID ins Lockfile (nützlich für spätere Status-Abfragen)
-    echo $$ > "$LOCK_FILE"
+    
+    echo $BASHPID > "$LOCK_FILE" 2>/dev/null || true
+    chmod 666 "$LOCK_FILE" 2>/dev/null || true
+    echo $BASHPID > "$P_FILE" 2>/dev/null || true
+
+    # VDR Shutdown-Hook automatisch anlegen (verhindert Herunterfahren während der Arbeit)
+    local HOOK_DIR="${VDR_HOOK_DIR:-/etc/vdr/shutdown-hooks}"
+    local HOOK_FILE="$HOOK_DIR/S90.vdr-rectools"
+    if [[ -d "$HOOK_DIR" && ! -f "$HOOK_FILE" ]]; then
+        echo "#!/bin/sh" > "$HOOK_FILE"
+        echo "/usr/bin/vdr-rectools check_running" >> "$HOOK_FILE"
+        chmod +x "$HOOK_FILE" 2>/dev/null || true
+    fi
+
+    # Status initialisieren
+    if [[ ! -f "$STATE_FILE" ]]; then
+        touch "$STATE_FILE" 2>/dev/null || true
+        chmod 666 "$STATE_FILE" 2>/dev/null || true
+    fi
+    echo "Initialisiere..." > "$STATE_FILE"
+
+    if [[ ! -f "$DURATION_FILE" ]]; then
+        touch "$DURATION_FILE" 2>/dev/null || true
+        chmod 666 "$DURATION_FILE" 2>/dev/null || true
+    fi
+
     # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE"' EXIT
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" 2>/dev/null; exit 0' EXIT INT TERM
+}
+
+set_state() {
+    echo "$1" > "$STATE_FILE" 2>/dev/null || true
+    > "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen (behält Rechte)
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
 filter_ffmpeg_log() {
-    awk '/Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print}'
+    # awk mit RS='[\r\n]+' verhindert, dass awk oder tr den Stream block-puffern. FFmpeg-Fortschritt ist sofort im Log.
+    awk -v RS='[\r\n]+' 'NF==0{next} /Unexpected BlockAdditions/{skip=1; next} /Last message repeated/{if(skip) next} {skip=0; print; fflush()}'
 }
 
 # --- NEU: STUFE 1 (Schneller Fix) ---
 sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
-    local codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$FILE" | head -n 1 | tr -d '\r\n')
-    echo "[$(date +%T)] Sanitize ($codec): Header-Fix fuer $FILE" >> "$LOG_FILE"
-    if [[ "$codec" == "h264" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v h264_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    elif [[ "$codec" == "hevc" ]]; then
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -bsf:v hevc_mp4toannexb,dump_extra=e -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    else
-        ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    fi
+    echo "[$(date +%T)] Sanitize: Header-Fix fuer $FILE" >> "$LOG_FILE"
+    ffmpeg -y -i "$FILE" -c copy -map 0 -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     if [[ $? -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         return 0
@@ -94,6 +145,8 @@ recode_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.recode.ts"
     echo "[$(date +%T)] Deep-Repair: Full Recode (Force Sync) gestartet fuer $FILE" >> "$LOG_FILE"
+    local DURATION=$(get_duration "$FILE")
+    echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
     local FFMPEG_HW_OPTS=""
     local H264_ENC="libx264"
     case "$HW_ACCEL" in
@@ -107,13 +160,27 @@ recode_stream() {
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
     # Wir nutzen hier die Fallback-Parameter, da es ein Reparatur-Versuch ist.
-    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
         -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
+        -c:s copy \
         -f mpegts "$tmp_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE" # Log ffmpeg output for deep repair
 
     local FF_STATUS=${PIPESTATUS[0]}
+    
+    # Automatischer Fallback auf Software-Decoding/Encoding, falls Hardware-Beschleunigung fehlschlägt
+    if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+        echo "[$(date +%T)] WARNUNG: Hardware-beschleunigtes Deep-Repair fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
+        ffmpeg -y -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+            -c:v libx264 -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
+            -vsync cfr -r 25 \
+            -c:a aac -b:a 192k \
+            -c:s copy \
+            -f mpegts "$tmp_file" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        FF_STATUS=${PIPESTATUS[0]}
+    fi
+
     if [[ $FF_STATUS -eq 0 && -f "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
@@ -125,9 +192,11 @@ smart_repair() {
     local TARGET="$1"
     sanitize_stream "$TARGET"
     local duration=$(get_duration "$TARGET")
-    if [[ -z "$duration" || "$duration" -lt 300 ]]; then
-        echo "[$(date +%T)] Dauer unplausibel ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
+    if [[ -n "$duration" && "$duration" =~ ^[0-9]+$ && "$duration" -lt 300 ]]; then
+        echo "[$(date +%T)] Dauer kritisch kurz ($duration s). Starte Deep-Repair..." >> "$LOG_FILE"
         recode_stream "$TARGET"
+    elif [[ -z "$duration" || ! "$duration" =~ ^[0-9]+$ ]]; then
+        echo "[$(date +%T)] INFO: Dauer konnte nicht ermittelt werden (typisch fuer TS). Ueberspringe Deep-Repair." >> "$LOG_FILE"
     fi
 }
 
@@ -200,7 +269,9 @@ get_duration() {
 }
 
 check_disk_space() {
+    [[ ! -d "$VIDEO_DIR" ]] && return 1
     local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
+    [[ -z "$FREE_KB" || ! "$FREE_KB" =~ ^[0-9]+$ ]] && return 1
     local FREE_GB=$((FREE_KB / 1024 / 1024))
     [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]] && return 1
     return 0
@@ -211,12 +282,23 @@ process_folder() {
     local MODE="$2"
     [[ ! -d "$REC_DIR" ]] && return 1
     cd "$REC_DIR" || return 1
-    local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[\\/:"*?<>|]/_/g')
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
     local CLEAN_NAME=$(echo "$FILM_TITLE" | sed 's/_/ /g')
 
     if [[ "$MODE" == "repair" || "$MODE" == "cut" || "$MODE" == "shrink" || "$MODE" == "check" ]]; then
         echo "[$(date +%T)] Starte $MODE fuer: $CLEAN_NAME" >> "$LOG_FILE"
+
+        # Status für das Dashboard übersetzen
+        local MODE_DE="$MODE"
+        case "$MODE" in
+            repair) MODE_DE="Repariere" ;;
+            cut) MODE_DE="Schneide Werbung" ;;
+            shrink) MODE_DE="Schrumpfe (H.265)" ;;
+            check) MODE_DE="Prüfe Integrität" ;;
+        esac
+        set_state "$MODE_DE: $CLEAN_NAME"
+
         local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_${RANDOM}_$$"
         mkdir -p "$STAGING_REC"
         case "$MODE" in
@@ -226,7 +308,16 @@ process_folder() {
                 mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
                 ;;
             cut)
-                /usr/bin/vdr-mvgently "$REC_DIR" "$STAGING_REC" >> "$LOG_FILE" 2>&1
+                cat 000*.ts > "$STAGING_REC/joined.ts"
+                # Schnittmarken in den Staging-Ordner kopieren
+                [[ -f marks ]] && cp marks "$STAGING_REC/"
+                
+                if apply_vdr_marks "$STAGING_REC/joined.ts"; then
+                    mv "$STAGING_REC/joined.ts" "$STAGING_REC/00001.ts"
+                    rm -f marks # Alte Marken entfernen, da der Schnitt fest eingebacken wurde
+                else
+                    echo "[$(date +%T)] FEHLER: Werbeschnitt abgebrochen. Originale Aufnahmen bleiben erhalten." >> "$LOG_FILE"
+                fi
                 ;;
             shrink)
                 cat 000*.ts > "$STAGING_REC/joined.ts"
@@ -240,8 +331,17 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
-                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                local DURATION=$(get_duration "$STAGING_REC/joined.ts")
+                echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
+                ffmpeg -y $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 local FF_STATUS=${PIPESTATUS[0]}
+                
+                if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+                    echo "[$(date +%T)] WARNUNG: Hardware-beschleunigtes Shrinken fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
+                    ffmpeg -y -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                    FF_STATUS=${PIPESTATUS[0]}
+                fi
+                
                 if [[ $FF_STATUS -ne 0 ]]; then
                     echo "[$(date +%T)] FEHLER: Shrink-Encoding fehlgeschlagen (Status $FF_STATUS)." >> "$LOG_FILE"
                     rm -f "$STAGING_REC/00001.ts" # Verhindert den Austausch
@@ -251,16 +351,15 @@ process_folder() {
                 fi
                 ;;
             check)
-                cat 000*.ts > "$STAGING_REC/joined.ts"
                 local CHECK_ERRORS
-                CHECK_ERRORS=$(check_stream "$STAGING_REC/joined.ts")
-                if [[ $? -eq 0 ]]; then
+                echo "[$(date +%T)] Starte Stream-Check via Pipe..." >> "$LOG_FILE"
+                CHECK_ERRORS=$(cat 000*.ts | ffmpeg -v error -i pipe:0 -f null - 2>&1 | filter_ffmpeg_log)
+                if [[ -z "$CHECK_ERRORS" ]]; then
                     send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
                 else
                     local MAIL_BODY="In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden.\n\nFehlerdetails:\n$CHECK_ERRORS"
                     send_mail "$MAIL_BODY" "Prüfung fehlgeschlagen: $CLEAN_NAME"
                 fi
-                rm -rf "$STAGING_REC" # Nach der Prüfung aufräumen
                 return
                 ;;
         esac
@@ -280,6 +379,8 @@ process_folder() {
                 mv "$STAGING_REC/index" .
                 # Dateirechte für den VDR wiederherstellen, sonst drohen "Permission denied" Fehler im OSD
                 chown vdr:vdr 00001.ts index 2>/dev/null || true
+                # VDR-Cache zwingend leeren! Sonst zeigt das OSD falsche Längen nach dem Schnitt/Shrink an
+                touch "$VIDEO_DIR/.update" 2>/dev/null || true
                 rm -rf "$STAGING_REC"
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
@@ -301,8 +402,9 @@ process_folder() {
         [[ ! -L "$PLEX_LINK" ]] && ln -sf "$NEW_VDR_FILE" "$PLEX_LINK"
         if [[ -f "00001.srt" && ! -f "${PLEX_LINK%.ts}.srt" ]]; then
             ln -sf "00001.srt" "${PLEX_LINK%.ts}.srt"
-        elif [[ ! -f "${PLEX_LINK%.ts}.srt" ]]; then
+        elif [[ ! -f "${PLEX_LINK%.ts}.srt" && ! -f ".subtitles_checked" ]]; then
             extract_subtitles "$NEW_VDR_FILE"
+            touch ".subtitles_checked" # Verhindert ewige I/O-Schleifen in künftigen Scans
         fi
         extract_images "$NEW_VDR_FILE"
         local NFO_FILE="${PLEX_LINK%.ts}.nfo"
@@ -310,9 +412,50 @@ process_folder() {
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
-            chown vdr:vdr "$NFO_FILE" 2>/dev/null || true
         fi
+        # Dateirechte für alle vom Skript generierten Hilfsdateien sicherstellen
+        chown vdr:vdr "$NFO_FILE" "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
+        chown -h vdr:vdr "$PLEX_LINK" 2>/dev/null || true # -h ändert den Symlink selbst, statt dem Link-Ziel zu folgen
     fi
+}
+
+# --- NEU: Bestätigung für Re-Encodes einholen ---
+confirm_encoding() {
+    local TITLE="$1"
+    local CODEC="$2"
+    local SRC_FILE="$3"
+    
+    if [[ "${ASK_BEFORE_ENCODE:-1}" -eq 0 ]]; then
+        return 0 # Automatisches Durchwinken ohne Nachfrage
+    fi
+    
+    local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+    echo "WAIT|$TITLE|$CODEC" > "$PROMPT_FILE"
+    chmod 666 "$PROMPT_FILE" 2>/dev/null || true # Erlaubt Usern, J oder N via Dashboard zu drücken
+    
+    # E-Mail/Telegram senden
+    local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools confirm\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
+    send_mail "$MAIL_BODY" "Aktion erforderlich: Re-Encode fuer $TITLE"
+    
+    echo "[$(date +%T)] Warte auf Nutzerbestätigung für Re-Encode von '$TITLE'..." >> "$LOG_FILE"
+    set_state "Warte auf Bestätigung (Re-Encode): $TITLE"
+    
+    while [[ -f "$PROMPT_FILE" ]]; do
+        local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+        if [[ "$STATUS" == "YES" ]]; then
+            rm -f "$PROMPT_FILE"
+            echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' bestätigt." >> "$LOG_FILE"
+            set_state "Importiere: $TITLE"
+            return 0
+        elif [[ "$STATUS" == "NO" ]]; then
+            rm -f "$PROMPT_FILE"
+            echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' abgelehnt. Datei wird übersprungen (.skipped)." >> "$LOG_FILE"
+            mv -f "$SRC_FILE" "${SRC_FILE}.skipped" 2>/dev/null
+            return 1
+        fi
+        sleep 2
+    done
+    return 1 # Fallback, falls Datei (z.B. durch 'stop') gelöscht wird
 }
 
 process_import() {
@@ -331,11 +474,20 @@ process_import() {
     fi
 
     local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
-    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[\\/:"*?<>|]/_/g')
 
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
     local TARGET_SUBDIR=""
     [[ "$REL_PATH" != "." ]] && TARGET_SUBDIR="$REL_PATH/"
+
+    # --- Dubletten-Check ---
+    local MOVIE_FOLDER="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
+    if find "$MOVIE_FOLDER" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | grep -q "."; then
+        echo "[$(date +%T)] WARNUNG: '$PRETTY_TITLE' existiert bereits im VDR. Import wird übersprungen." >> "$LOG_FILE"
+        mv -f "$SOURCE_FILE" "${SOURCE_FILE}.duplicate" 2>/dev/null
+        [[ -f "$NFO_SOURCE" ]] && mv -f "$NFO_SOURCE" "${NFO_SOURCE}.duplicate" 2>/dev/null
+        return 0
+    fi
     local VCODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" 2>/dev/null | head -n 1 | tr -d '\r\n')
 
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
@@ -346,6 +498,9 @@ process_import() {
     mkdir -p "$STAGING_REC"
 
     echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
+    set_state "Importiere: $PRETTY_TITLE"
+    local DURATION=$(get_duration "$SOURCE_FILE")
+    echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
 
     # --- Intelligente Import-Weiche ---
     local ENCODING_PERFORMED=0
@@ -379,35 +534,68 @@ process_import() {
     esac
 
     if [[ "$VCODEC" == "dvvideo" ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
+        
+        if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+            echo "[$(date +%T)] WARNUNG: Hardware-Encoding fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
+            ffmpeg -y -i "$SOURCE_FILE" -map 0:v? -map 0:a? -vf yadif -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            FF_STATUS=${PIPESTATUS[0]}
+        fi
+        
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
+        
+        if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+            echo "[$(date +%T)] WARNUNG: Hardware-Encoding fehlgeschlagen (evtl. fehlende Decoder-Unterstützung für $VCODEC). Fallback auf Software (CPU)..." >> "$LOG_FILE"
+            ffmpeg -y -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            FF_STATUS=${PIPESTATUS[0]}
+        fi
+        
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" == "mpeg4" ]]; then
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
+        
+        if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+            echo "[$(date +%T)] WARNUNG: Hardware-Encoding fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
+            ffmpeg -y -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v libx264 -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            FF_STATUS=${PIPESTATUS[0]}
+        fi
+        
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}"
         ACTION_TYPE_LOG="Import-Encode (MPEG4)"
-    elif [[ "$VCODEC" =~ ^(h264|hevc|mpeg2video)$ ]]; then
+    elif [[ "$VCODEC" =~ ^(h264|mpeg2video)$ ]]; then
         echo "[$(date +%T)] Aktion: VDR-kompatibler Stream ($VCODEC). Starte schnelles Remuxing..." >> "$LOG_FILE"
         local AUDIO_PARAMS=$(get_audio_map "$SOURCE_FILE")
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        # Kein FFMPEG_HW_OPTS hier, da wir den Stream nicht dekodieren, sondern nur kopieren (-c copy)!
+        ffmpeg -y -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
     else
+        confirm_encoding "$PRETTY_TITLE" "${VCODEC:-unbekannt}" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
-        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+        ffmpeg -y $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
+        
+        if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
+            echo "[$(date +%T)] WARNUNG: Hardware-Encoding fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
+            ffmpeg -y -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v libx264 -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" -c:a aac -b:a 192k -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+            FF_STATUS=${PIPESTATUS[0]}
+        fi
+        
         ENCODING_PERFORMED=1
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264_FALLBACK:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (Fallback)"
@@ -435,7 +623,8 @@ process_import() {
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         
         # Lokale Untertitel (inkl. Ländercode wie .de.srt) einbinden, bevor nach neuen gesucht wird
-        local SRT_SOURCE=$(find "$(dirname "$SOURCE_FILE")" -maxdepth 1 -name "${FILENAME%.*}*.srt" | head -n 1)
+        # grep -F ignoriert Sonderzeichen wie [] im Dateinamen, an denen find -name (Globbing) sonst scheitern würde
+        local SRT_SOURCE=$(find "$(dirname "$SOURCE_FILE")" -maxdepth 1 -type f -name "*.srt" 2>/dev/null | grep -F "/${FILENAME%.*}" | head -n 1)
         if [[ -n "$SRT_SOURCE" && -f "$SRT_SOURCE" ]]; then
             echo "[$(date +%T)] Lokale Untertitel-Datei gefunden und kopiert." >> "$LOG_FILE"
             cp "$SRT_SOURCE" "$STAGING_REC/00001.srt"
@@ -453,7 +642,8 @@ process_import() {
             fi
         fi
         mkdir -p "$(dirname "$FINAL_DEST")"
-        if mv "$STAGING_REC" "$FINAL_DEST"; then
+        # -T verhindert das fatale Verschachteln von Ordnern, falls das Zielverzeichnis durch einen exakt zeitgleichen Import schon existiert
+        if mv -T "$STAGING_REC" "$FINAL_DEST"; then
             chown -R vdr:vdr "$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
             process_folder "$FINAL_DEST" "normal"
             touch "$VIDEO_DIR/.update"
@@ -484,16 +674,154 @@ process_import() {
     fi
 }
 
+# --- Orphan-Sweeper: Räumt alte Crash-Ordner auf ---
+cleanup_orphans() {
+    if [[ -d "$REPAIR_STAGING" ]]; then
+        # Finde Ordner, die älter als 2 Tage (+2) sind
+        find "$REPAIR_STAGING" -mindepth 1 -maxdepth 1 -type d -mtime +2 2>/dev/null | while read -r orphan; do
+            echo "[$(date +%T)] WARNUNG: Orphan-Sweeper löscht veralteten Crash-Ordner: $orphan" >> "$LOG_FILE"
+            rm -rf "$orphan"
+        done
+    fi
+}
+
 run_scan() {
     ensure_single_instance
 
+    cleanup_orphans
     local MODE="$1"
     local COUNT=0
+    set_state "Scanne Import-Verzeichnis..."
     find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
         [[ $COUNT -ge "$MAX_FILES" ]] && break
         process_import "$FILE" "$MODE" && ((COUNT++))
     done
+    set_state "Scanne VDR-Verzeichnis..."
     while read -r DIR; do
         process_folder "$DIR" "$MODE"
     done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+    set_state "Scan abgeschlossen."
+}
+
+show_status() {
+    echo -e "\n\033[1;36m========================================================\033[0m"
+    echo -e "\033[1;37m 🎬 VDR-Rectools - System Status\033[0m"
+    echo -e "\033[1;36m========================================================\033[0m\n"
+
+    # 1. Prozess-Status (Herzschlag)
+    local PID=""
+    local IS_RUNNING=0
+    if [[ -f "$LOCK_FILE" ]]; then
+        PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            if ps -p "$PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+                IS_RUNNING=1
+            fi
+        fi
+    fi
+
+    if [[ $IS_RUNNING -eq 1 ]]; then
+        local RUNTIME=$(ps -p "$PID" -o etime= 2>/dev/null | tr -d ' ')
+        local CURRENT_ACTION="Arbeitet..."
+        [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null)
+        echo -e " \033[1;32m🟢 AKTIV\033[0m    - Prozess läuft (PID: $PID, seit: $RUNTIME)"
+        echo -e " \033[1;34m🎬 AKTUELL\033[0m  - $CURRENT_ACTION"
+        
+        local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+        if [[ -f "$PROMPT_FILE" ]]; then
+            local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
+            echo -e " \033[1;33m⚠️  WARTE AUF BESTÄTIGUNG:\033[0m Re-Encode für '$P_TITLE'"
+            echo -e " 👉 Bitte in der Konsole ausführen: \033[1;32mvdr-rectools confirm\033[0m"
+        fi
+        
+        # Fortschrittsbalken berechnen und anzeigen
+        if [[ -f "$DURATION_FILE" ]]; then
+            local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
+            if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
+                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'time=[0-9][0-9]:[0-9][0-9]:[0-9][0-9]' | tail -n 1 | cut -d= -f2)
+                if [[ -n "$LAST_TIME" ]]; then
+                    local H=$(echo "$LAST_TIME" | cut -d: -f1)
+                    local M=$(echo "$LAST_TIME" | cut -d: -f2)
+                    local S=$(echo "$LAST_TIME" | cut -d: -f3)
+                    # 10# verhindert Oktal-Interpretation bei z.B. 08
+                    local CUR_SEC=$(( 10#$H * 3600 + 10#$M * 60 + 10#$S ))
+                    local PERCENT=$(( CUR_SEC * 100 / TOT_SEC ))
+                    [[ $PERCENT -gt 100 ]] && PERCENT=100
+                    
+                    local FILLED=$(( PERCENT / 5 ))
+                    local EMPTY=$(( 20 - FILLED ))
+                    local BAR=""
+                    for ((i=0; i<FILLED; i++)); do BAR="${BAR}█"; done
+                    for ((i=0; i<EMPTY; i++)); do BAR="${BAR}░"; done
+                    echo -e " \033[1;35m⏳ FORTSCHRITT\033[0m- [$BAR] $PERCENT%"
+                    
+                    # --- ETA / Restzeit Berechnung ---
+                    local SPEED=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'speed=[ ]*[0-9.]*x' | tail -n 1 | sed 's/speed=//;s/x//;s/ //g')
+                    if [[ -n "$SPEED" && "$SPEED" != "0" && "$SPEED" != "0.0" ]]; then
+                        local REM_SEC=$(( TOT_SEC - CUR_SEC ))
+                        if [[ $REM_SEC -gt 0 ]]; then
+                            # awk nutzen, da bash keine Fließkommazahlen dividieren kann
+                            local ETA_SEC=$(awk -v rem="$REM_SEC" -v spd="$SPEED" 'BEGIN { if(spd>0) printf "%d", rem/spd; else print 0 }')
+                            if [[ "$ETA_SEC" -gt 0 ]]; then
+                                local ETA_H=$(( ETA_SEC / 3600 ))
+                                local ETA_M=$(( (ETA_SEC % 3600) / 60 ))
+                                local ETA_S=$(( ETA_SEC % 60 ))
+                                if [[ $ETA_H -gt 0 ]]; then
+                                    echo -e " \033[1;36m⏱️  RESTZEIT\033[0m   - $(printf "%02d:%02d:%02d" $ETA_H $ETA_M $ETA_S) (bei ${SPEED}x Speed)"
+                                else
+                                    echo -e " \033[1;36m⏱️  RESTZEIT\033[0m   - $(printf "%02d:%02d" $ETA_M $ETA_S) (bei ${SPEED}x Speed)"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    else
+        echo -e " \033[1;30m⚪ INAKTIV\033[0m  - Wartet auf Arbeit im Hintergrund"
+    fi
+
+    # 2. Festplatten-Status
+    if [[ -d "$VIDEO_DIR" ]]; then
+        local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
+        local FREE_GB=$((FREE_KB / 1024 / 1024))
+        if [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]]; then
+            echo -e " \033[1;31m💾 SPEICHER\033[0m - KRITISCH! Nur noch ${FREE_GB} GB frei in $VIDEO_DIR"
+        else
+            echo -e " \033[1;32m💾 SPEICHER\033[0m - OK (${FREE_GB} GB frei in $VIDEO_DIR)"
+        fi
+    else
+        echo -e " \033[1;31m💾 SPEICHER\033[0m - FEHLER ($VIDEO_DIR nicht erreichbar!)"
+    fi
+
+    # 3. Import-Warteschlange
+    if [[ -d "$IMPORT_DIR" ]]; then
+        local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) 2>/dev/null | wc -l)
+        if [[ $QUEUE_COUNT -gt 0 ]]; then
+            echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten auf Verarbeitung"
+        else
+            echo -e " \033[1;32m📥 IMPORT\033[0m   - Leer (Alles erledigt)"
+        fi
+    fi
+
+    # 4. Live-Log mit farblichem Highlighting
+    echo -e "\n\033[1;37m 📋 Letzte Log-Aktivitäten:\033[0m"
+    echo -e "\033[1;30m--------------------------------------------------------\033[0m"
+    if [[ -f "$LOG_FILE" ]]; then
+        # 'grep -v "frame="' filtert den FFmpeg-Fortschritts-Spam aus der Anzeige heraus
+        tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 8 | while read -r line; do
+            if [[ "$line" == *"FEHLER"* || "$line" == *"KRITISCH"* ]]; then
+                echo -e "\033[0;31m$line\033[0m" # Rot
+            elif [[ "$line" == *"WARNUNG"* || "$line" == *"verdächtig"* ]]; then
+                echo -e "\033[0;33m$line\033[0m" # Gelb
+            elif [[ "$line" == *"erfolgreich"* || "$line" == *"ERFOLG"* ]]; then
+                echo -e "\033[0;32m$line\033[0m" # Grün
+            else
+                echo -e "\033[0;37m$line\033[0m" # Weiß
+            fi
+        done
+    else
+        echo -e "\033[0;37m Noch keine Log-Einträge vorhanden.\033[0m"
+    fi
+    echo -e "\033[1;36m========================================================\033[0m\n"
 }

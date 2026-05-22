@@ -12,9 +12,12 @@
 * **🛠️ Smart Repair:** Repairs faulty recordings in a two-stage process: first, a quick header fix, followed by a full re-encode if necessary.
 * **💬 Auto-Subtitles:** Automatically searches for matching subtitles during import and saves them as an `.srt` file with the recording.
 * **🗜️ H.265 Shrink Mode:** Compresses large recordings into the space-saving HEVC (H.265) codec at the touch of a button.
+* **✂️ Commercial Cut (In-Place):** Fully automated, lossless cutting (`-c copy`) based on VDR cut marks. The original file is overwritten directly to save disk space immediately.
 * **📺 VDR OSD Integration:** Automatically integrates into the `reccmds.conf` command menu of the VDR (including Smart Downscaling).
 * **✉️ Intelligent Reporting:** Sends success or failure reports via email.
+* **📱 Push Notifications:** Optional delivery of status reports via Telegram directly to your smartphone.
 * **🧹 Auto-Cleanup:** Finds and deletes empty recording folders in the video directory.
+* **📊 Live Dashboard:** An interactive, colored console dashboard (`vdr-rectools status`) featuring progress bars, real-time logs, and disk space monitoring.
 
 ---
 
@@ -81,10 +84,14 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_START_NIGHT** | Enables the nightly automatic scan (1=On, 0=Off) | `0` |
 | **AUTO_TIMER** | General switch for timer-based actions | `0` |
 | **IMPORT_DIR** | Path for video files to import | `/srv/video/Filme` |
+| **VDR_HOOK_DIR** | Path to the VDR shutdown-hooks directory | `/etc/vdr/shutdown-hooks` |
 | **MAIL_NOTIFY** | Email address for status reports | (empty) |
+| **TELEGRAM_BOT_TOKEN** | API Token for your Telegram Bot | (empty) |
+| **TELEGRAM_CHAT_ID** | Your personal Telegram Chat ID | (empty) |
 | **AUTO_SUB_DOWNLOAD** | Automatic download of subtitles | `1` |
 | **SUB_LANG** | Language for subtitles (e.g., de, en) | `de` |
 | **AUTO_ENCODE_IMPORT** | Automatic re-encoding on import (1=On, 0=Off) | `1` |
+| **ASK_BEFORE_ENCODE** | Ask via dashboard/mail before starting a re-encode (1=On, 0=Off) | `1` |
 | **CRF_H264_DEFAULT** | CRF value for H.264 (lower=better) | `23` |
 | **PRESET_H264_DEFAULT** | Preset for H.264 (e.g., `medium`, `fast`) | `medium` |
 | **CRF_H265_DEFAULT** | CRF value for H.265 (lower=better) | `23` |
@@ -111,6 +118,8 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools import` - Starts only the import process.
 * `vdr-rectools repair` - Starts a repair run for all recordings.
 * `vdr-rectools status` - Shows PID, runtime, and the last log lines.
+* `vdr-rectools diag` - Shows system diagnostic information (hardware accelerators, encoders).
+* `vdr-rectools confirm` - Confirms or rejects a pending re-encode (incl. restore option).
 * `vdr-rectools stop` - Stops running background processes cleanly.
 * `vdr-rectools cron` - Simulates the timer call (checks `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <path>` - Repairs a single recording (path to the .rec folder).
@@ -135,6 +144,11 @@ If `MAIL_NOTIFY` is set, the script sends an email after each run with:
 * A summary of imported films and repaired recordings.
 * Warnings if disk space is low (`MIN_FREE_GB`).
 * Detailed error messages if an import or remuxing failed.
+
+### Telegram Notifications
+In addition to emails, the script can send push messages to a Telegram bot.
+Just enter your `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the configuration.
+The script will instantly notify your smartphone upon successful imports or errors.
 
 ---
 

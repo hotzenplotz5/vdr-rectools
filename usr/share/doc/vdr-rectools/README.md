@@ -12,10 +12,13 @@
 * **💬 Auto-Subtitles:** Sucht beim Importvorgang über OpenSubtitles/Subliminal automatisch nach passenden (deutschen) Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
 * **🛠️ Sichere Reparatur:** Repariert kaputte Timestamps oder defekte Header via `ffmpeg`. Inklusive Sicherheits-Checks: Die Originaldatei wird nur überschrieben, wenn die neue Datei mindestens 98 % der Ursprungsgröße besitzt und der MD5-Hash nach dem Verschieben exakt übereinstimmt.
 * **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
+* **✂️ Werbeschnitt (In-Place):** Schneidet Aufnahmen vollautomatisch und verlustfrei (`-c copy`) anhand der VDR-Schnittmarken. Die Originaldatei wird direkt überschrieben, um sofort Speicherplatz freizugeben.
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen sofortigen Metadaten-Scrape im VDR (tvscraper-Plugin).
 * **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Workaround für yaVDR-Ansible-Umgebungen).
 * **✉️ Intelligentes Reporting:** Sendet Erfolgs- oder Fehlermeldungen per E-Mail. Kurze Logs werden direkt in die Mail geschrieben, bei über 50 Zeilen (z. B. `ffmpeg`-Dumps) wird das Log automatisch als `.txt`-Datei angehängt.
+* **📱 Push-Benachrichtigungen:** Sende Statusberichte und Erfolgsmeldungen via Telegram Bot direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
+* **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
 
 ---
 
