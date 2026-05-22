@@ -418,11 +418,16 @@ process_folder() {
         if [[ ! -f "$NFO_FILE" && -f "info" ]]; then
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
-            echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
+            
+            # Plex/Kodi-Sabotage verhindern: NFO nur generieren, wenn echter Text (z.B. EPG) vorhanden ist
+            if [[ ! "$NFO_DESC" =~ ^Importiert\ am\  ]]; then
+                echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
+            fi
         fi
         # Dateirechte für alle vom Skript generierten Hilfsdateien sicherstellen
-        chown vdr:vdr "$NFO_FILE" "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
-        chown -h vdr:vdr "$PLEX_LINK" 2>/dev/null || true # -h ändert den Symlink selbst, statt dem Link-Ziel zu folgen
+        [[ -f "$NFO_FILE" ]] && chown vdr:vdr "$NFO_FILE" 2>/dev/null || true
+        chown vdr:vdr "${PLEX_LINK%.ts}.srt" ".subtitles_checked" 2>/dev/null || true
+        chown -h vdr:vdr "$PLEX_LINK" 2>/dev/null || true
     fi
 }
 
@@ -479,8 +484,9 @@ process_import() {
 
     if [[ -f "$NFO_SOURCE" ]]; then
         echo "[$(date +%T)] Metadaten-Datei gefunden: $NFO_SOURCE" >> "$LOG_FILE"
-        META_TITLE=$(grep '<title>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<title>//' -e 's/<\/title>.*//' | tr -d '\r\n')
-        META_DESC=$(grep '<plot>' "$NFO_SOURCE" | head -n 1 | sed -e 's/^[ \t]*<plot>//' -e 's/<\/plot>.*//' | tr -d '\r\n')
+        # awk liest über mehrzeilige XML-Tags hinweg, was z.B. für TinyMediaManager NFOs zwingend nötig ist
+        META_TITLE=$(awk -v RS='</title>' '/<title>/{gsub(/.*<title>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
+        META_DESC=$(awk -v RS='</plot>' '/<plot>/{gsub(/.*<plot>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r' | awk 'NF{gsub(/^[ \t]+/,""); gsub(/[ \t]+$/,""); print}' | paste -sd '|' -)
     fi
 
     local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"

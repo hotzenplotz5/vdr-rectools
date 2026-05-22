@@ -51,11 +51,12 @@ Das Skript ist für Debian/Ubuntu-basierte Systeme (wie yaVDR) optimiert. Folgen
 
 ## 🚀 Installation
 
-### Variante A: Installation über das fertige `.deb` Paket (Empfohlen)
-Lade dir das aktuellste Release von der GitHub Releases Seite herunter und installiere es bequem via APT.
+### Variante A: Installation über das yaVDR PPA / fertiges `.deb` Paket (Empfohlen)
+Für Nutzer von yaVDR wird das Paket in der Regel über die offiziellen yaVDR-PPAs bereitgestellt (z.B. durch seahawk1986).
+Alternativ kannst du dir das aktuellste Release von der GitHub Releases Seite herunterladen.
 
 ```bash
-# Ersetze * durch die aktuelle Versionsnummer
+# Installation des manuell heruntergeladenen Pakets:
 sudo apt install ./vdr-rectools_*.deb
 ```
 
@@ -109,6 +110,8 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |
 | **PAUSE_CHECK** | Pause zwischen Datei-Checks (Sekunden) | `2` |
 | **SNAPSHOT_TIME** | Zeitstempel für generierte Vorschaubilder | `00:05:00` |
+| **USE_TVSCRAPER** | Triggert tvscraper nach dem Import (1=An, 0=Aus) | `0` |
+| **TVSCRAPER_MODE** | TVScraper Ausführungs-Modus (`immediate`, `batch`) | `batch` |
 
 ---
 
