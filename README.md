@@ -110,6 +110,8 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **PAUSE_WORK** | Pause zwischen Arbeitsschritten (Sekunden) | `30` |
 | **PAUSE_CHECK** | Pause zwischen Datei-Checks (Sekunden) | `2` |
 | **SNAPSHOT_TIME** | Zeitstempel für generierte Vorschaubilder | `00:05:00` |
+| **USE_TVSCRAPER** | Triggert tvscraper nach dem Import (1=An, 0=Aus) | `0` |
+| **TVSCRAPER_MODE** | TVScraper Ausführungs-Modus (`immediate`, `batch`) | `batch` |
 
 ---
 
