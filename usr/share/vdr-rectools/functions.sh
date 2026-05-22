@@ -689,8 +689,8 @@ process_import() {
 # --- Orphan-Sweeper: Räumt alte Crash-Ordner auf ---
 cleanup_orphans() {
     if [[ -d "$REPAIR_STAGING" ]]; then
-        # Finde Ordner, die älter als 2 Tage (+2) sind
-        find "$REPAIR_STAGING" -mindepth 1 -maxdepth 1 -type d -mtime +2 2>/dev/null | while read -r orphan; do
+        # Finde Ordner, die älter als 24 Stunden (+1440 Minuten) sind
+        find "$REPAIR_STAGING" -mindepth 1 -maxdepth 1 -type d -mmin +1440 2>/dev/null | while read -r orphan; do
             echo "[$(date +%T)] WARNUNG: Orphan-Sweeper löscht veralteten Crash-Ordner: $orphan" >> "$LOG_FILE"
             rm -rf "$orphan"
         done
