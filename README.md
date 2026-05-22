@@ -84,6 +84,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_START_NIGHT** | Erlaubt den nächtlichen Automatik-Scan (1=An, 0=Aus) | `0` |
 | **AUTO_TIMER** | Genereller Schalter für Timer-Aktionen | `0` |
 | **IMPORT_DIR** | Pfad für MKV-Filme zum Import | `/srv/video/Filme` |
+| **VDR_HOOK_DIR** | Pfad zum VDR Shutdown-Hooks Verzeichnis | `/etc/vdr/shutdown-hooks` |
 | **MAIL_NOTIFY** | E-Mail-Adresse für Statusberichte | (leer) |
 | **TELEGRAM_BOT_TOKEN** | API-Token für deinen Telegram-Bot | (leer) |
 | **TELEGRAM_CHAT_ID** | Deine persönliche Telegram Chat-ID | (leer) |
@@ -117,6 +118,8 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools import` - Startet gezielt nur den MKV-Import-Prozess.
 * `vdr-rectools repair` - Startet einen Reparatur-Lauf für alle Aufnahmen.
 * `vdr-rectools status` - Zeigt PID, Laufzeit und die letzten Log-Zeilen an.
+* `vdr-rectools diag` - Zeigt System-Diagnoseinformationen (Hardwarebeschleuniger, Encoder) an.
+* `vdr-rectools confirm` - Bestätigt oder verwirft einen ausstehenden Re-Encode (inkl. Wiederherstellung).
 * `vdr-rectools stop` - Beendet laufende Hintergrundprozesse sauber.
 * `vdr-rectools cron` - Simuliert den Timer-Aufruf (prüft `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <Pfad>` - Repariert gezielt eine einzelne Aufnahme (Pfad zum .rec Ordner).

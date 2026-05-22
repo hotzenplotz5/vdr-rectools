@@ -30,7 +30,7 @@ is_running() {
 
 # 2. Funktionen laden
 # Laden der Funktionen (wird nun auch für 'status' benötigt, um show_status aufzurufen)
-if [[ "$1" != "stop" ]]; then
+if [[ "$1" != "stop" && "$1" != "check_running" ]]; then
     if [ -f /usr/share/vdr-rectools/functions.sh ]; then
         source /usr/share/vdr-rectools/functions.sh
     else
@@ -346,6 +346,16 @@ case "$1" in
         echo "[$(date +%T)] INFO: vdr-rectools wurde manuell gestoppt (Abbruch)." >> "$L_LOG"
         
         echo "Erfolgreich gestoppt."
+        ;;
+
+    check_running)
+        if is_running; then
+            # VDR Shutdown-Hook Antwort: Bricht Shutdown ab und versucht es in 15 Min erneut
+            echo "TRY_AGAIN=15"
+            echo "vdr-rectools (Import/Encode) laeuft"
+            exit 1
+        fi
+        exit 0
         ;;
 
     help|--help|-h)

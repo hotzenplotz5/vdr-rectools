@@ -1,3 +1,17 @@
+vdr-rectools (3.2.0-1) unstable; urgency=medium
+
+  * Release Version 3.2.0 - The "Smart Lock & Confirm" Update
+  * FEAT: Neues, stabiles Kommando 'confirm' für Re-Encode Bestätigungen.
+  * FEAT: Interaktives Restore-Menü für übersprungene Dateien (.skipped).
+  * FIX: Zombie-Lock Bug (FD-Leak) behoben. 'flock' durch Smart PID Lock ersetzt.
+  * FIX: Terminal-Blockade/Puffer-Bug bei interaktiven Eingaben behoben.
+  * FIX: 'stop'-Kommando ist nun extrem robust (ohne 'fuser' Abhängigkeit).
+  * FIX: Bash-Syntax-Fehler ('local' outside function) bereinigt.
+  * FIX: Dashboard-Sabotage (abgeschnittene Prozessnamen) korrigiert.
+  * FIX: Fehlende Schreibrechte für die Bestätigungs-Datei (chmod 666) behoben.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Fri, 22 May 2026 04:16:55 +0000
+
 vdr-rectools (3.1.0-1) unstable; urgency=medium
 
   * Release Version 3.1.0 - The "Bulletproof & Dashboard" Update

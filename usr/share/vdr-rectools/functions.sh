@@ -91,6 +91,15 @@ ensure_single_instance() {
     chmod 666 "$LOCK_FILE" 2>/dev/null || true
     echo $BASHPID > "$P_FILE" 2>/dev/null || true
 
+    # VDR Shutdown-Hook automatisch anlegen (verhindert Herunterfahren während der Arbeit)
+    local HOOK_DIR="${VDR_HOOK_DIR:-/etc/vdr/shutdown-hooks}"
+    local HOOK_FILE="$HOOK_DIR/S90.vdr-rectools"
+    if [[ -d "$HOOK_DIR" && ! -f "$HOOK_FILE" ]]; then
+        echo "#!/bin/sh" > "$HOOK_FILE"
+        echo "/usr/bin/vdr-rectools check_running" >> "$HOOK_FILE"
+        chmod +x "$HOOK_FILE" 2>/dev/null || true
+    fi
+
     # Status initialisieren
     if [[ ! -f "$STATE_FILE" ]]; then
         touch "$STATE_FILE" 2>/dev/null || true

@@ -84,6 +84,7 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUTO_START_NIGHT** | Enables the nightly automatic scan (1=On, 0=Off) | `0` |
 | **AUTO_TIMER** | General switch for timer-based actions | `0` |
 | **IMPORT_DIR** | Path for video files to import | `/srv/video/Filme` |
+| **VDR_HOOK_DIR** | Path to the VDR shutdown-hooks directory | `/etc/vdr/shutdown-hooks` |
 | **MAIL_NOTIFY** | Email address for status reports | (empty) |
 | **TELEGRAM_BOT_TOKEN** | API Token for your Telegram Bot | (empty) |
 | **TELEGRAM_CHAT_ID** | Your personal Telegram Chat ID | (empty) |
@@ -117,6 +118,8 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools import` - Starts only the import process.
 * `vdr-rectools repair` - Starts a repair run for all recordings.
 * `vdr-rectools status` - Shows PID, runtime, and the last log lines.
+* `vdr-rectools diag` - Shows system diagnostic information (hardware accelerators, encoders).
+* `vdr-rectools confirm` - Confirms or rejects a pending re-encode (incl. restore option).
 * `vdr-rectools stop` - Stops running background processes cleanly.
 * `vdr-rectools cron` - Simulates the timer call (checks `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <path>` - Repairs a single recording (path to the .rec folder).
