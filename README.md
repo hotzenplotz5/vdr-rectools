@@ -122,8 +122,10 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools import` - Startet gezielt nur den MKV-Import-Prozess.
 * `vdr-rectools repair` - Startet einen Reparatur-Lauf für alle Aufnahmen.
 * `vdr-rectools status` - Zeigt PID, Laufzeit und die letzten Log-Zeilen an.
+* `vdr-rectools osd-status` - Zeigt einen OSD-optimierten Status (für das VDR-Menü) an.
 * `vdr-rectools diag` - Zeigt System-Diagnoseinformationen (Hardwarebeschleuniger, Encoder) an.
 * `vdr-rectools confirm` - Bestätigt oder verwirft einen ausstehenden Re-Encode (inkl. Wiederherstellung).
+* `vdr-rectools osd-confirm <yes|no>` - Bestätigt oder verwirft einen ausstehenden Re-Encode via OSD.
 * `vdr-rectools stop` - Beendet laufende Hintergrundprozesse sauber.
 * `vdr-rectools cron` - Simuliert den Timer-Aufruf (prüft `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <Pfad>` - Repariert gezielt eine einzelne Aufnahme (Pfad zum .rec Ordner).
@@ -162,6 +164,22 @@ Die Befehle werden automatisch in das VDR-Menü (Befehle-Taste innerhalb einer A
 * **Werbung schneiden (Rectools):** Schneidet Aufnahme basierend auf VDR-Marken.
 * **Platz sparen H.265 (Rectools):** Konvertiert die Aufnahme nach HEVC.
 * **Plex/Kodi Sync (Rectools):** Triggert die Synchronisation für externe Player.
+
+### Globales OSD-Menü (`commands.conf`)
+Du kannst ein eigenes Untermenü in der globalen `commands.conf` (z.B. `/var/lib/vdr/commands.conf` oder `/etc/vdr/commands.conf`) anlegen, um den Status direkt am Fernseher zu prüfen und globale Importe zu starten:
+
+```text
+VDR-Rectools {
+    Status anzeigen : /usr/bin/vdr-rectools osd-status
+    Import starten (im Hintergrund) : /usr/bin/vdr-rectools import > /dev/null 2>&1 &
+    ---
+    Re-Encode ausstehend? {
+        JA, Re-Encode jetzt starten : /usr/bin/vdr-rectools osd-confirm yes
+        NEIN, ueberspringen & ignorieren : /usr/bin/vdr-rectools osd-confirm no
+    }
+}
+```
+*(Nach einer Änderung der `commands.conf` muss meistens der VDR-Dienst neugestartet werden).*
 
 ---
 

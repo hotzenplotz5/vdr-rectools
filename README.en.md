@@ -120,8 +120,10 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools import` - Starts only the import process.
 * `vdr-rectools repair` - Starts a repair run for all recordings.
 * `vdr-rectools status` - Shows PID, runtime, and the last log lines.
+* `vdr-rectools osd-status` - Shows an OSD-optimized status (for VDR menus).
 * `vdr-rectools diag` - Shows system diagnostic information (hardware accelerators, encoders).
 * `vdr-rectools confirm` - Confirms or rejects a pending re-encode (incl. restore option).
+* `vdr-rectools osd-confirm <yes|no>` - Confirms or rejects a pending re-encode via OSD.
 * `vdr-rectools stop` - Stops running background processes cleanly.
 * `vdr-rectools cron` - Simulates the timer call (checks `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <path>` - Repairs a single recording (path to the .rec folder).
@@ -160,6 +162,22 @@ The commands are automatically integrated into the VDR menu (Commands key within
 * **Cut commercials (Rectools):** Cuts the recording based on VDR marks.
 * **Save space H.265 (Rectools):** Converts the recording to HEVC.
 * **Plex/Kodi Sync (Rectools):** Triggers synchronization for external players.
+
+### Global OSD Menu (`commands.conf`)
+You can add a dedicated menu to your main VDR `commands.conf` (e.g. `/var/lib/vdr/commands.conf` or `/etc/vdr/commands.conf`) to monitor the status and start global imports directly from your TV:
+
+```text
+VDR-Rectools {
+    Show Status : /usr/bin/vdr-rectools osd-status
+    Start Import (Background) : /usr/bin/vdr-rectools import > /dev/null 2>&1 &
+    ---
+    Pending Re-Encode? {
+        YES, start Re-Encode now : /usr/bin/vdr-rectools osd-confirm yes
+        NO, skip & ignore : /usr/bin/vdr-rectools osd-confirm no
+    }
+}
+```
+*(After modifying the `commands.conf`, you usually need to restart the VDR service).*
 
 ---
 

@@ -63,6 +63,11 @@ send_mail() {
         fi
     fi
 
+    # --- VDR OSD Notification (Popup auf dem TV) ---
+    # Bereinige den Betreff für das OSD (keine zu langen Texte oder Sonderzeichen)
+    local OSD_MSG=$(echo "$SUBJECT" | tr -d '"\r\n' | cut -c 1-80)
+    /usr/bin/svdrpsend MESG "Rectools: $OSD_MSG" > /dev/null 2>&1 || true
+
     # --- E-Mail ---
     [[ -z "$MAIL_NOTIFY" ]] && return
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
@@ -473,6 +478,35 @@ confirm_encoding() {
     return 1 # Fallback, falls Datei (z.B. durch 'stop') gelöscht wird
 }
 
+# --- NEU: Bestätigung via VDR OSD (Fernbedienung) ---
+handle_osd_confirm() {
+    local ANSWER="$1"
+    local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+    
+    if [[ ! -f "$PROMPT_FILE" ]]; then
+        echo "-> Aktuell kein ausstehender Re-Encode."
+        return 1
+    fi
+    
+    local STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+    local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null)
+    
+    if [[ "$STATUS" != "WAIT" ]]; then
+        echo "-> Diese Anfrage wurde bereits bearbeitet."
+        return 1
+    fi
+    
+    if [[ "$ANSWER" == "yes" ]]; then
+        sed -i 's/^WAIT/YES/' "$PROMPT_FILE"
+        echo "-> Re-Encode fuer '$P_TITLE' GESTARTET."
+        /usr/bin/svdrpsend MESG "Rectools: Re-Encode gestartet" >/dev/null 2>&1 || true
+    elif [[ "$ANSWER" == "no" ]]; then
+        sed -i 's/^WAIT/NO/' "$PROMPT_FILE"
+        echo "-> Re-Encode fuer '$P_TITLE' ABGELEHNT."
+        /usr/bin/svdrpsend MESG "Rectools: Import uebersprungen" >/dev/null 2>&1 || true
+    fi
+}
+
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
@@ -831,8 +865,14 @@ show_status() {
     # 3. Import-Warteschlange
     if [[ -d "$IMPORT_DIR" ]]; then
         local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) 2>/dev/null | wc -l)
-        if [[ $QUEUE_COUNT -gt 0 ]]; then
+        local SKIPPED_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f -name "*.skipped" 2>/dev/null | wc -l)
+        
+        if [[ $QUEUE_COUNT -gt 0 && $SKIPPED_COUNT -gt 0 ]]; then
+            echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten, \033[1;31m$SKIPPED_COUNT abgelehnt (.skipped)\033[0m"
+        elif [[ $QUEUE_COUNT -gt 0 ]]; then
             echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten auf Verarbeitung"
+        elif [[ $SKIPPED_COUNT -gt 0 ]]; then
+            echo -e " \033[1;31m📥 IMPORT\033[0m   - \033[1;31m$SKIPPED_COUNT Datei(en) abgelehnt (.skipped)\033[0m (Nutze 'confirm' Kommando)"
         else
             echo -e " \033[1;32m📥 IMPORT\033[0m   - Leer (Alles erledigt)"
         fi
@@ -858,4 +898,84 @@ show_status() {
         echo -e "\033[0;37m Noch keine Log-Einträge vorhanden.\033[0m"
     fi
     echo -e "\033[1;36m========================================================\033[0m\n"
+}
+
+# --- NEU: OSD-optimierter Status (Ohne Farben/Umlaute für den TV) ---
+show_osd_status() {
+    echo "====================================================="
+    echo " VDR-Rectools - OSD Status"
+    echo "====================================================="
+
+    local PID=""
+    local IS_RUNNING=0
+    if [[ -f "$LOCK_FILE" ]]; then
+        PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            if ps -p "$PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+                IS_RUNNING=1
+            fi
+        fi
+    fi
+
+    if [[ $IS_RUNNING -eq 1 ]]; then
+        local RUNTIME=$(ps -p "$PID" -o etime= 2>/dev/null | tr -d ' ')
+        local CURRENT_ACTION="Arbeitet..."
+        [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null | tr 'äöüÄÖÜß' 'aeoeueAeOeUess')
+        echo " STATUS  : AKTIV (PID: $PID, seit $RUNTIME)"
+        echo " AKTUELL : $CURRENT_ACTION"
+        
+        local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+        if [[ -f "$PROMPT_FILE" ]]; then
+            local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null | tr 'äöüÄÖÜß' 'aeoeueAeOeUess')
+            echo " "
+            echo " *** AKTION ERFORDERLICH ***"
+            echo " Re-Encode bestaetigen fuer:"
+            echo " $P_TITLE"
+            echo " -> Bitte das Menue 'Re-Encode ausstehend' nutzen!"
+        fi
+        
+        if [[ -f "$DURATION_FILE" ]]; then
+            local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
+            if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
+                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -oE 'time=[ ]*[0-9]+:[0-9]{2}:[0-9]{2}' | tail -n 1 | cut -d= -f2 | tr -d ' ')
+                if [[ -n "$LAST_TIME" ]]; then
+                    local H=$(echo "$LAST_TIME" | cut -d: -f1); local M=$(echo "$LAST_TIME" | cut -d: -f2); local S=$(echo "$LAST_TIME" | cut -d: -f3)
+                    local CUR_SEC=$(( 10#$H * 3600 + 10#$M * 60 + 10#$S ))
+                    local PERCENT=$(( CUR_SEC * 100 / TOT_SEC ))
+                    [[ $PERCENT -gt 100 ]] && PERCENT=100
+                    
+                    local FILLED=$(( PERCENT / 5 ))
+                    local EMPTY=$(( 20 - FILLED ))
+                    local BAR=""
+                    for ((i=0; i<FILLED; i++)); do BAR="${BAR}#"; done
+                    for ((i=0; i<EMPTY; i++)); do BAR="${BAR}-"; done
+                    echo " FORTSCHR. [$BAR] $PERCENT%"
+                    
+                    local SPEED=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'speed=[ ]*[0-9.]*x' | tail -n 1 | sed 's/speed=//;s/x//;s/ //g')
+                    if [[ -n "$SPEED" && "$SPEED" != "0" && "$SPEED" != "0.0" ]]; then
+                        local REM_SEC=$(( TOT_SEC - CUR_SEC ))
+                        if [[ $REM_SEC -gt 0 ]]; then
+                            local ETA_SEC=$(awk -v rem="$REM_SEC" -v spd="$SPEED" 'BEGIN { if(spd>0) printf "%d", rem/spd; else print 0 }')
+                            if [[ "$ETA_SEC" -gt 0 ]]; then
+                                local ETA_M=$(( (ETA_SEC % 3600) / 60 )); local ETA_S=$(( ETA_SEC % 60 ))
+                                echo " RESTZEIT  $(printf "%02d:%02d" $ETA_M $ETA_S) Min. (bei ${SPEED}x Speed)"
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    else
+        echo " STATUS  : INAKTIV (Wartet auf Arbeit)"
+    fi
+    
+    echo "====================================================="
+    echo " Letzte Aktivitaeten:"
+    if [[ -f "$LOG_FILE" ]]; then
+        # Filtert Ladebalken raus, übersetzt Umlaute und kürzt die Zeile für den TV
+        tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 6 | tr 'äöüÄÖÜß' 'aeoeueAeOeUess' | cut -c 1-52
+    else
+        echo " Noch keine Log-Eintraege vorhanden."
+    fi
+    echo "====================================================="
 }
