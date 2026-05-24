@@ -1,3 +1,13 @@
+vdr-rectools (3.3.0-1) unstable; urgency=medium
+
+  * Release Version 3.3.0 - The "OSD Integration" Update
+  * FEAT: Neues globales OSD-Menü über commands.conf (Status & Import-Start direkt am TV).
+  * FEAT: Neuer Befehl 'osd-status' für optimierte, farbfreie Statusanzeige im VDR.
+  * FEAT: Neuer Befehl 'osd-confirm' erlaubt das Bestätigen von Re-Encodes per Fernbedienung.
+  * FEAT: Automatische Installation des VDR-Menüs via command-hooks.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sun, 24 May 2026 20:32:50 +0000
+
 vdr-rectools (3.2.0-1) unstable; urgency=medium
 
   * Release Version 3.2.0 - The "Smart Lock & Confirm" Update

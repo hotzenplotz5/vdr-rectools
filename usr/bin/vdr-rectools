@@ -52,8 +52,10 @@ BEFEHLE:
     repair          Startet einen Reparatur-Lauf für alle Aufnahmen.
     repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
     status          Zeigt den Status laufender Prozesse an.
+    osd-status      Zeigt einen OSD-optimierten Status (für das VDR-Menü) an.
     diag            Zeigt System-Diagnoseinformationen an.
     confirm         Bestätigt oder verwirft einen ausstehenden Re-Encode.
+    osd-confirm     <yes|no> Bestätigt oder verwirft einen ausstehenden Re-Encode via OSD.
     stop            Beendet laufende Hintergrundprozesse sauber.
     cron            Simuliert den nächtlichen Timer-Aufruf.
     help, --help    Zeigt diese Hilfe an.
@@ -273,6 +275,14 @@ case "$1" in
 
     status)
         interactive_status
+        ;;
+
+    osd-status)
+        show_osd_status
+        ;;
+
+    osd-confirm)
+        handle_osd_confirm "$2"
         ;;
 
     diag)
