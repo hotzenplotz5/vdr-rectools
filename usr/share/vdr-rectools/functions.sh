@@ -1114,7 +1114,8 @@ export_html_status() {
         }')
     fi
 
-    cat <<EOF > "$HTML.tmp"
+    local TMP_HTML="/tmp/vdr-rectools-dashboard.tmp"
+    cat <<EOF > "$TMP_HTML"
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -1154,6 +1155,6 @@ export_html_status() {
 </body>
 </html>
 EOF
-    mv -f "$HTML.tmp" "$HTML" 2>/dev/null || true
-    chmod 644 "$HTML" 2>/dev/null || true
+    cat "$TMP_HTML" > "$HTML" 2>/dev/null || true
+    rm -f "$TMP_HTML" 2>/dev/null || true
 }

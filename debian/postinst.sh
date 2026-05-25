@@ -54,6 +54,13 @@ touch /var/log/vdr-rectools.log
 chown vdr:vdr /var/log/vdr-rectools.log
 chmod 664 /var/log/vdr-rectools.log
 
+# HTML Dashboard-Datei anlegen und global beschreibbar machen
+if [ -d "/var/www/html" ]; then
+    touch /var/www/html/rectools.html
+    chown vdr:vdr /var/www/html/rectools.html
+    chmod 666 /var/www/html/rectools.html
+fi
+
 db_stop
 #DEBHELPER#
 exit 0
