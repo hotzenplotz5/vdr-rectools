@@ -19,7 +19,32 @@ $msg = '';
 
 // Dateioperationen verarbeiten
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+    if (isset($_POST['download_file'])) {
+        $file = $_POST['download_file'];
+        if (file_exists($file) && is_file($file)) {
+            while (ob_get_level()) ob_end_clean();
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . basename($file) . '"');
+            header('Expires: 0');
+            header('Cache-Control: must-revalidate');
+            header('Pragma: public');
+            header('Content-Length: ' . filesize($file));
+            $handle = @fopen($file, 'rb');
+            if ($handle) {
+                while (!feof($handle) && connection_status() == 0) {
+                    echo fread($handle, 1048576);
+                    flush();
+                }
+                fclose($handle);
+                exit;
+            } else {
+                $msg = "<div class='msg msg-err'>❌ Datei konnte nicht gelesen werden!</div>";
+            }
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Datei nicht gefunden!</div>";
+        }
+    } elseif (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
         $msg = "<div class='msg msg-err'>❌ Upload abgebrochen! Datei ist zu groß für den Webserver (Limit oder Arbeitsspeicher voll).</div>";
     } elseif (isset($_POST['single_move'])) {
         $file = $_POST['single_move'];
@@ -243,6 +268,7 @@ $dst_contents = get_dir_contents($dst);
                                 <?= htmlspecialchars($f['name']) ?> <span style="color: #666; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span>
                             </span>
                         </label>
+                        <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white;" formtarget="_blank" title="Herunterladen">⬇️</button>
                         <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('Diese Datei wirklich UNWIDERRUFLICH löschen?');">🗑️</button>
                         <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
                         </div>
@@ -264,6 +290,7 @@ $dst_contents = get_dir_contents($dst);
                         <div class="item" style="color: #888; display: flex; justify-content: space-between; align-items: center;">
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?> <span style="color: #555; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span></span>
                             <form method="POST" style="margin: 0;">
+                                <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white; padding: 2px 8px;" formtarget="_blank" title="Herunterladen">⬇️</button>
                                 <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diese Datei im Zielordner UNWIDERRUFLICH löschen?');">🗑️</button>
                             </form>
                         </div>
