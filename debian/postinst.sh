@@ -32,33 +32,16 @@ if [ -f "$CONF" ]; then
     sed -i "s|^AUTO_SUB_DOWNLOAD=.*|AUTO_SUB_DOWNLOAD=$SUB_VAL|" "$CONF"
 fi
 
-# 3. Systemd-Teil
+# 3. Systemd-Teil und Cleanup alter Hacks
 if [ -d /run/systemd/system ]; then
+    # Alten Workaround restlos entfernen
+    rm -f /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
     systemctl daemon-reload
     systemctl enable vdr-rectools.timer || true
     systemctl start vdr-rectools.timer || true
 fi
 
-# 4. VDR OSD-Befehle (Systemd Drop-In für yaVDR Ansible)
-if [ -f "/var/lib/vdr/reccmds.conf" ] || [ -d "/usr/share/yavdr-ansible" ]; then
-    mkdir -p /etc/systemd/system/vdr.service.d
-    cat <<EOFF > /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
-[Service]
-# --- OSD Befehle fuer Aufnahmen (reccmds) ---
-ExecStartPre=+/bin/bash -c "grep -q repair_single /var/lib/vdr/reccmds.conf || echo \"Aufnahme reparieren (Rectools) : /usr/bin/vdr-rectools repair_single\" >> /var/lib/vdr/reccmds.conf"
-ExecStartPre=+/bin/bash -c "grep -q cut_single /var/lib/vdr/reccmds.conf || echo \"Werbung schneiden (Rectools)   : /usr/bin/vdr-rectools cut_single\" >> /var/lib/vdr/reccmds.conf"
-ExecStartPre=+/bin/bash -c "grep -q shrink_single /var/lib/vdr/reccmds.conf || echo \"Platz sparen H.265 (Rectools)  : /usr/bin/vdr-rectools shrink_single\" >> /var/lib/vdr/reccmds.conf"
-ExecStartPre=+/bin/bash -c "grep -q sync_single /var/lib/vdr/reccmds.conf || echo \"Plex/Kodi Sync (Rectools)      : /usr/bin/vdr-rectools sync_single\" >> /var/lib/vdr/reccmds.conf"
-
-# --- Globale OSD Befehle (commands) ---
-ExecStartPre=+/bin/bash -c 'touch /var/lib/vdr/commands.conf; grep -q osd-status /var/lib/vdr/commands.conf || echo -e "VDR-Rectools Optionen : echo \"Starte VDR-Rectools...\"\n- Status anzeigen : /usr/bin/vdr-rectools osd-status\n- Import starten : /usr/bin/vdr-rectools import > /dev/null 2>&1 &\n- Re-Encode JETZT starten (Ja) : /usr/bin/vdr-rectools osd-confirm yes\n- Re-Encode ueberspringen (Nein) : /usr/bin/vdr-rectools osd-confirm no" >> /var/lib/vdr/commands.conf'
-EOFF
-    if [ -d /run/systemd/system ]; then
-        systemctl daemon-reload || true
-    fi
-fi
-
-# 5. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
+# 4. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
 # ACHTUNG: NIEMALS chown -R auf das komplette /srv/vdr/video.00 Verzeichnis!
 mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files /srv/vdr/video.00
 chown -R vdr:vdr /srv/vdr/tmp/staging /srv/vdr/repaired_files

@@ -13,6 +13,6 @@ lib/systemd/system/vdr-rectools.timer lib/systemd/system/
 # Konfigurationsdatei
 debian/vdr-rectools.conf etc/vdr/conf.d/
 
-# VDR OSD Menüs (Standard VDR Hooks)
-debian/commands.vdr-rectools.conf usr/share/vdr/command-hooks/
-debian/reccmds.vdr-rectools.conf usr/share/vdr/command-hooks/
+# VDR OSD Menüs (Aktiviert in /etc/ statt /usr/share/)
+debian/commands.vdr-rectools.conf etc/vdr/command-hooks/
+debian/reccmds.vdr-rectools.conf etc/vdr/command-hooks/
