@@ -3,7 +3,7 @@ Description=VDR-Rectools Web Dashboard
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/php -S 0.0.0.0:8080 -t /var/www/html /var/www/html/router.php
+ExecStart=/usr/bin/php -d upload_max_filesize=50G -d post_max_size=50G -d max_execution_time=0 -d max_input_time=0 -S 0.0.0.0:8080 -t /var/www/html /var/www/html/router.php
 Restart=always
 User=vdr
 

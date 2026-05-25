@@ -47,6 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             $msg = "<div class='msg msg-err'>❌ Ordner existiert bereits!</div>";
         }
+    } elseif ($_POST['action'] === 'upload' && isset($_FILES['upload_file'])) {
+        $file_tmp = $_FILES['upload_file']['tmp_name'];
+        $file_name = basename($_FILES['upload_file']['name']);
+        if (is_uploaded_file($file_tmp)) {
+            if (@move_uploaded_file($file_tmp, $dst . '/' . $file_name)) {
+                $msg = "<div class='msg msg-ok'>✅ '$file_name' erfolgreich hochgeladen!</div>";
+            } else {
+                $msg = "<div class='msg msg-err'>❌ Fehler beim Speichern der hochgeladenen Datei im Zielordner.</div>";
+            }
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen. (Datei zu groß oder abgebrochen?)</div>";
+        }
     }
 }
 
@@ -112,6 +124,17 @@ $dst_contents = get_dir_contents($dst);
             <!-- LINKE SEITE (Quelle) -->
             <div class="pane">
                 <h3>🔍 Quelle (Auswählen & Verschieben)</h3>
+                
+                <div style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin-top:0; color:#2196F3; margin-bottom: 10px;">📤 Von Deinem PC hochladen</h4>
+                    <form method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap: wrap; gap:10px; align-items: center;">
+                        <input type="hidden" name="action" value="upload">
+                        <input type="file" name="upload_file" required style="color:#fff; flex-grow: 1;">
+                        <button type="submit" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;">🚀 Hochladen</button>
+                    </form>
+                    <div style="color:#aaa; font-size: 0.85em; margin-top: 8px;">Lädt eine Datei von diesem Computer direkt in den Zielordner (Rechts) hoch.</div>
+                </div>
+                
                 <div class="path-bar"><?= htmlspecialchars($src) ?></div>
                 <div class="list">
                     <?php foreach ($src_contents['dirs'] as $d): ?>
