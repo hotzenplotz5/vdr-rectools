@@ -1136,9 +1136,15 @@ export_html_status() {
     
     local ACTION_HTML=""
     if [[ $IS_RUNNING -eq 1 ]]; then
-        ACTION_HTML="<div style='margin-top: 15px;'><span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>▶️ Import starten</span></div>"
+        ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>▶️ Import starten</span>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🛑 Abbrechen</a>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a></div>"
     else
-        ACTION_HTML="<div style='margin-top: 15px;'><a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>▶️ Import starten</a></div>"
+        ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>▶️ Import starten</a>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>🛑 Abbrechen</span>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a></div>"
     fi
     
     local PROMPT_HTML=""
