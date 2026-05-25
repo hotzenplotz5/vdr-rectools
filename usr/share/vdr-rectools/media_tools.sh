@@ -42,9 +42,20 @@ shrink_video() {
     esac
 
     echo "[$(date +%T)] Starte H.265 Kompression ($H265_ENC) für $1" >> "$LOG_FILE"
+    
+    # --- Downscaling-Pruefung ---
+    local VF_OPT=""
+    if [[ "${SHRINK_MAX_RES:-0}" -gt 0 ]]; then
+        local RES_H=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | head -n 1)
+        if [[ -n "$RES_H" && "$RES_H" =~ ^[0-9]+$ && "$RES_H" -gt "${SHRINK_MAX_RES}" ]]; then
+            echo "[$(date +%T)] INFO: Videoaufloesung ($RES_H) ist groesser als Limit (${SHRINK_MAX_RES}). Aktiviere Downscaling..." >> "$LOG_FILE"
+            VF_OPT="-vf scale=-2:${SHRINK_MAX_RES}"
+        fi
+    fi
+
     local DURATION=$(get_duration "$1")
     echo "$DURATION" > "${VIDEO_DIR:-/srv/vdr/video}/.vdr-rectools.duration" 2>/dev/null
-    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
     if [[ $FF_STATUS -eq 0 && -f "$OUT" ]]; then

@@ -343,14 +343,25 @@ process_folder() {
                 if [[ "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] Shrink mit Hardwarebeschleunigung ($H265_ENC) gestartet." >> "$LOG_FILE"
                 fi
+                
+                # --- Downscaling-Pruefung ---
+                local VF_OPT=""
+                if [[ "${SHRINK_MAX_RES:-0}" -gt 0 ]]; then
+                    local RES_H=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$STAGING_REC/joined.ts" 2>/dev/null | head -n 1)
+                    if [[ -n "$RES_H" && "$RES_H" =~ ^[0-9]+$ && "$RES_H" -gt "${SHRINK_MAX_RES}" ]]; then
+                        echo "[$(date +%T)] INFO: Videoaufloesung ($RES_H) ist groesser als Limit (${SHRINK_MAX_RES}). Aktiviere Downscaling..." >> "$LOG_FILE"
+                        VF_OPT="-vf scale=-2:${SHRINK_MAX_RES}"
+                    fi
+                fi
+
                 local DURATION=$(get_duration "$STAGING_REC/joined.ts")
                 echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
-                ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 local FF_STATUS=${PIPESTATUS[0]}
                 
                 if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] WARNUNG: Hardware-beschleunigtes Shrinken fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
-                    ffmpeg -y -hide_banner -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                    ffmpeg -y -hide_banner -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" -c:a copy -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                     FF_STATUS=${PIPESTATUS[0]}
                 fi
                 
