@@ -161,6 +161,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Datei nicht gefunden oder es ist ein Ordner!</div>";
         }
+    } elseif (isset($_POST['delete_dir'])) {
+        $dir = $_POST['delete_dir'];
+        if (is_dir($dir)) {
+            if (@rmdir($dir)) {
+                $msg = "<div class='msg msg-ok'>✅ Ordner '" . basename($dir) . "' erfolgreich gelöscht!</div>";
+            } else {
+                $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen! (Ist der Ordner nicht leer oder fehlen Rechte?)</div>";
+            }
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Ordner nicht gefunden!</div>";
+        }
     }
     }
 }
@@ -248,7 +259,14 @@ $dst_contents = get_dir_contents($dst);
                 <div class="path-bar"><?= htmlspecialchars($src) ?></div>
                 <div class="list">
                     <?php foreach ($src_contents['dirs'] as $d): ?>
-                        <div class="item"><a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>"><strong><?= htmlspecialchars($d['name']) ?></strong></a></div>
+                        <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
+                            <?php if ($d['name'] !== '⬅️ .. (Eine Ebene hoch)'): ?>
+                            <form method="POST" style="margin: 0;">
+                                <button type="submit" name="delete_dir" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diesen Ordner wirklich löschen? (Muss leer sein!)');">🗑️</button>
+                            </form>
+                            <?php endif; ?>
+                        </div>
                     <?php endforeach; ?>
                 
                 <?php if (!empty($src_contents['files'])): ?>
@@ -284,7 +302,14 @@ $dst_contents = get_dir_contents($dst);
                 <div class="path-bar"><?= htmlspecialchars($dst) ?></div>
                 <div class="list">
                     <?php foreach ($dst_contents['dirs'] as $d): ?>
-                        <div class="item"><a href="?src=<?= urlencode($src) ?>&dst=<?= urlencode($d['path']) ?>"><strong><?= htmlspecialchars($d['name']) ?></strong></a></div>
+                        <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="?src=<?= urlencode($src) ?>&dst=<?= urlencode($d['path']) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
+                            <?php if ($d['name'] !== '⬅️ .. (Eine Ebene hoch)'): ?>
+                            <form method="POST" style="margin: 0;">
+                                <button type="submit" name="delete_dir" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diesen Ordner im Zielordner wirklich löschen? (Muss leer sein!)');">🗑️</button>
+                            </form>
+                            <?php endif; ?>
+                        </div>
                     <?php endforeach; ?>
                     <?php foreach ($dst_contents['files'] as $f): ?>
                         <div class="item" style="color: #888; display: flex; justify-content: space-between; align-items: center;">
