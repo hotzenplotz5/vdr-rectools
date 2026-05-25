@@ -7,14 +7,20 @@ set -e
 CONF="/etc/vdr/conf.d/vdr-rectools.conf"
 mkdir -p /etc/vdr/conf.d
 
-# 1. FIX FÜR DAS CONFFILE-PROBLEM (Warum keine Abfrage kam)
-# Wenn dpkg wegen alter sed-Änderungen die neue Datei als .dpkg-dist ablegt,
-# erzwingen wir hier das Update, damit du die neue kommentierte Datei bekommst!
-if [ -f "${CONF}.dpkg-dist" ]; then
-    mv "${CONF}.dpkg-dist" "$CONF"
-elif [ -f "${CONF}.dpkg-new" ]; then
-    mv "${CONF}.dpkg-new" "$CONF"
-fi
+# 1. FIX FÜR DAS CONFFILE-PROBLEM (Sicheres Update ohne Datenverlust!)
+# Anstatt die Datei brutal zu ueberschreiben (was Benutzerdaten wie Telegram-Tokens loescht),
+# fuegen wir nur neue, fehlende Parameter aus dem Update sanft unten an.
+for EXT in ".dpkg-dist" ".dpkg-new"; do
+    if [ -f "${CONF}${EXT}" ]; then
+        grep -E '^[A-Z_]+=' "${CONF}${EXT}" | while read -r line; do
+            key=$(echo "$line" | cut -d'=' -f1)
+            if ! grep -q "^$key=" "$CONF"; then
+                echo "$line" >> "$CONF"
+            fi
+        done
+        rm -f "${CONF}${EXT}"
+    fi
+done
 
 # 2. Debconf-Werte auslesen
 db_get vdr-rectools/mail
