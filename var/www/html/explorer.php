@@ -56,6 +56,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Fehler beim Verschieben. Keine Dateien verschoben.</div>";
         }
+    } elseif (isset($_POST['bulk_delete']) && !empty($_POST['files'])) {
+        $success = 0; $errors = 0;
+        foreach ($_POST['files'] as $file) {
+            if (file_exists($file) && is_file($file)) {
+                if (@unlink($file)) {
+                    $success++;
+                } else {
+                    $errors++;
+                }
+            }
+        }
+        if ($success > 0 && $errors === 0) {
+            $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich gelöscht!</div>";
+        } elseif ($success > 0 && $errors > 0) {
+            $msg = "<div class='msg msg-err'>⚠️ $success Datei(en) gelöscht, $errors Fehler.</div>";
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen. Keine Dateien gelöscht.</div>";
+        }
     } elseif (isset($_POST['action'])) {
         if ($_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
         $newdir = $dst . '/' . basename($_POST['dirname']);
@@ -107,6 +125,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: " . htmlspecialchars(implode(', ', $err_details)) . "</div>";
             }
         }
+    } elseif (isset($_POST['delete_file'])) {
+        $file = $_POST['delete_file'];
+        if (file_exists($file) && is_file($file)) {
+            if (@unlink($file)) {
+                $msg = "<div class='msg msg-ok'>✅ Datei '" . basename($file) . "' erfolgreich gelöscht!</div>";
+            } else {
+                $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen (Fehlende Rechte?).</div>";
+            }
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Datei nicht gefunden oder es ist ein Ordner!</div>";
+        }
     }
     }
 }
@@ -123,7 +152,11 @@ function get_dir_contents($dir) {
                 continue;
             }
             if (is_dir($path)) $dirs[] = ['name' => '📁 ' . $item, 'path' => $path];
-            else $files[] = ['name' => '📄 ' . $item, 'path' => $path, 'raw_path' => $path];
+            else {
+                $size = @filesize($path);
+                $size_str = $size >= 1073741824 ? round($size / 1073741824, 2) . ' GB' : ($size >= 1048576 ? round($size / 1048576, 2) . ' MB' : round($size / 1024, 2) . ' KB');
+                $files[] = ['name' => '📄 ' . $item, 'path' => $path, 'raw_path' => $path, 'size' => $size_str];
+            }
         }
     }
     return ['dirs' => $dirs, 'files' => $files];
@@ -197,14 +230,20 @@ $dst_contents = get_dir_contents($dst);
                 <form method="POST" style="margin: 0;">
                     <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
                         <label style="cursor: pointer;"><input type="checkbox" id="selectAllChk" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked); if(typeof updateSelectionStorage === 'function') updateSelectionStorage();"> <strong>Alle auswählen</strong></label>
-                        <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
+                        <div>
+                            <button type="submit" name="bulk_delete" value="1" class="btn btn-move" style="margin: 0; background: #F44336; color: white;" onclick="return confirm('Alle markierten Dateien WIRKLICH UNWIDERRUFLICH löschen?');">🗑️ Markierte löschen</button>
+                            <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
+                        </div>
                     </div>
                     <?php foreach ($src_contents['files'] as $f): ?>
                         <div class="item">
                         <label style="display: flex; align-items: center; cursor: pointer; flex-grow: 1; overflow: hidden;">
                             <input type="checkbox" name="files[]" value="<?= htmlspecialchars($f['raw_path']) ?>" class="file-chk" style="margin-right: 10px;" onchange="if(typeof updateSelectionStorage === 'function') updateSelectionStorage();">
-                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?></span>
+                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <?= htmlspecialchars($f['name']) ?> <span style="color: #666; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span>
+                            </span>
                         </label>
+                        <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('Diese Datei wirklich UNWIDERRUFLICH löschen?');">🗑️</button>
                         <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
                         </div>
                     <?php endforeach; ?>
@@ -222,7 +261,12 @@ $dst_contents = get_dir_contents($dst);
                         <div class="item"><a href="?src=<?= urlencode($src) ?>&dst=<?= urlencode($d['path']) ?>"><strong><?= htmlspecialchars($d['name']) ?></strong></a></div>
                     <?php endforeach; ?>
                     <?php foreach ($dst_contents['files'] as $f): ?>
-                        <div class="item" style="color: #888;"><?= htmlspecialchars($f['name']) ?></div>
+                        <div class="item" style="color: #888; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?> <span style="color: #555; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span></span>
+                            <form method="POST" style="margin: 0;">
+                                <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diese Datei im Zielordner UNWIDERRUFLICH löschen?');">🗑️</button>
+                            </form>
+                        </div>
                     <?php endforeach; ?>
                 </div>
                 <form method="POST" class="mkdir-form">
