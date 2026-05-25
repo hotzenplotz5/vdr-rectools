@@ -79,6 +79,11 @@ if [ -d "/var/www/html" ]; then
     # PHP-Dateien dem Webserver-Nutzer (vdr) zuweisen
     chown vdr:vdr /var/www/html/*.php 2>/dev/null || true
     chmod 644 /var/www/html/*.php 2>/dev/null || true
+    
+    # Dashboard einmalig aktualisieren, damit neue Buttons nach dem Update sofort sichtbar sind
+    if [ -x "/usr/bin/vdr-rectools" ]; then
+        /usr/bin/vdr-rectools status >/dev/null 2>&1 || true
+    fi
 fi
 
 db_stop
