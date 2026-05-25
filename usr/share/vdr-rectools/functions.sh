@@ -34,6 +34,7 @@ LOG_FILE="/var/log/vdr-rectools.log"
 LOCK_FILE="$VIDEO_DIR/.vdr-rectools.lock"
 STATE_FILE="$VIDEO_DIR/.vdr-rectools.state"
 DURATION_FILE="$VIDEO_DIR/.vdr-rectools.duration"
+SESSION_FILE="$VIDEO_DIR/.vdr-rectools.session"
 USE_TVSCRAPER=0
 TVSCRAPER_MODE="batch"
 
@@ -122,6 +123,9 @@ ensure_single_instance() {
         chmod 666 "$DURATION_FILE" 2>/dev/null || true
     fi
     
+    > "$SESSION_FILE" 2>/dev/null || true
+    chmod 666 "$SESSION_FILE" 2>/dev/null || true
+    
     # --- HTML Dashboard Auto-Updater ---
     HTML_UPDATER_PID=""
     if [[ "${HTML_DASHBOARD:-0}" -eq 1 && -n "$HTML_PATH" ]]; then
@@ -136,12 +140,28 @@ ensure_single_instance() {
     fi
 
     # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
     echo "$1" > "$STATE_FILE" 2>/dev/null || true
     > "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen (behält Rechte)
+}
+
+# --- NEU: Snapshot als Hintergrundbild für das Dashboard generieren ---
+set_dashboard_bg() {
+    [[ "${HTML_DASHBOARD:-0}" -ne 1 ]] && return
+    local SRC="$1"
+    local BG_IMG="$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg"
+    if [[ -f "$SRC" ]]; then
+        (
+            ffmpeg -hide_banner -y -ss "${SNAPSHOT_TIME:-00:05:00}" -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1 || \
+            ffmpeg -hide_banner -y -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1
+            chmod 666 "$BG_IMG" 2>/dev/null || true
+        ) &
+    else
+        rm -f "$BG_IMG" 2>/dev/null
+    fi
 }
 
 # Hilfsfunktion: Filtert bekannte, harmlose FFmpeg-Warnungen aus dem Log (z.B. Matroska BlockAdditions)
@@ -326,6 +346,8 @@ process_folder() {
             check) MODE_DE="Prüfe Integrität" ;;
         esac
         set_state "$MODE_DE: $CLEAN_NAME"
+        local FIRST_FILE=$(ls 000*.ts 2>/dev/null | head -n 1)
+        [[ -n "$FIRST_FILE" ]] && set_dashboard_bg "$FIRST_FILE"
 
         local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_${RANDOM}_$$"
         mkdir -p "$STAGING_REC"
@@ -592,6 +614,7 @@ process_import() {
     mkdir -p "$STAGING_REC"
 
     echo "[$(date +%T)] Import-Analyse für $FILENAME. Erkannter Codec: ${VCODEC:-unbekannt}" >> "$LOG_FILE"
+    set_dashboard_bg "$SOURCE_FILE"
     set_state "Importiere: $PRETTY_TITLE"
     local DURATION=$(get_duration "$SOURCE_FILE")
     echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
@@ -792,6 +815,7 @@ process_import() {
             fi
         fi
 
+        echo "$PRETTY_TITLE" >> "$SESSION_FILE" 2>/dev/null || true
         echo "[$(date +%T)] ERFOLG: Import von '$PRETTY_TITLE' erfolgreich abgeschlossen!" >> "$LOG_FILE"
         send_mail "Der Film '$PRETTY_TITLE' wurde erfolgreich importiert." "Import erfolgreich: $PRETTY_TITLE"
         return 0
@@ -943,6 +967,16 @@ show_status() {
         else
             echo -e " \033[1;32m📥 IMPORT\033[0m   - Leer (Alles erledigt)"
         fi
+    fi
+
+    # 3b. Erledigte Importe (Sitzungsverlauf)
+    if [[ -s "$SESSION_FILE" ]]; then
+        local SESSION_TEXT="Letzte Sitzung"
+        [[ $IS_RUNNING -eq 1 ]] && SESSION_TEXT="Diese Sitzung"
+        echo -e " \033[1;32m✅ ERLEDIGT\033[0m   - $SESSION_TEXT importiert:"
+        while read -r imported_title; do
+            echo -e "              - \033[0;37m$imported_title\033[0m"
+        done < "$SESSION_FILE"
     fi
 
     # 4. Live-Log mit farblichem Highlighting
@@ -1108,7 +1142,7 @@ export_html_status() {
         if [[ "$P_STATUS" == "WAIT" ]]; then
             HAS_PROMPT=1
             local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-            PROMPT_HTML="<div style='margin-top: 20px; background: #3a2a00; color: #ffeb3b; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;'>"
+            PROMPT_HTML="<div style='margin-top: 20px; background: rgba(58, 42, 0, 0.8); color: #ffeb3b; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;'>"
             PROMPT_HTML+="<strong style='font-size: 1.1em;'>⚠️ AKTION ERFORDERLICH: Re-Encode</strong><br>"
             PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>Der Film <b>$P_TITLE</b> erfordert einen Re-Encode. Starten?</div>"
             PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>✔️ JA, Starten</a>"
@@ -1118,15 +1152,28 @@ export_html_status() {
     fi
     
     if [[ $HAS_PROMPT -eq 0 ]]; then
-        PROMPT_HTML="<div style='margin-top: 20px; background: #1e1e1e; color: #555; padding: 15px; border-radius: 8px; border: 1px solid #333;'>"
+        PROMPT_HTML="<div style='margin-top: 20px; background: rgba(0,0,0,0.3); color: #555; padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);'>"
         PROMPT_HTML+="<strong style='font-size: 1.1em;'>ℹ️ Keine Aktion erforderlich</strong><br>"
         PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #555;'>Aktuell stehen keine manuellen Best&auml;tigungen f&uuml;r Re-Encodes aus.</div>"
         # Nutze <span> statt <a>, damit die Buttons im inaktiven Zustand nicht angeklickt werden können
-        PROMPT_HTML+="<span style='display: inline-block; background: #2a2a2a; color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>✔️ JA, Starten</span>"
-        PROMPT_HTML+="<span style='display: inline-block; background: #2a2a2a; color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>❌ NEIN, &Uuml;berspringen</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>✔️ JA, Starten</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>❌ NEIN, &Uuml;berspringen</span>"
         PROMPT_HTML+="</div>"
     fi
     
+    local SESSION_HTML=""
+    if [[ -s "$SESSION_FILE" ]]; then
+        local SESSION_TEXT="Letzte Sitzung"
+        [[ $IS_RUNNING -eq 1 ]] && SESSION_TEXT="Diese Sitzung"
+        SESSION_HTML="<div style='margin-top: 15px; background: rgba(30, 58, 30, 0.8); color: #4CAF50; padding: 10px; border-radius: 5px; border: 1px solid #4CAF50;'>"
+        SESSION_HTML+="<strong>✅ $SESSION_TEXT importiert:</strong><ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #fff;'>"
+        while read -r imported_title; do
+            local safe_title=$(echo "$imported_title" | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            SESSION_HTML+="<li>$safe_title</li>"
+        done < "$SESSION_FILE"
+        SESSION_HTML+="</ul></div>"
+    fi
+
     local DISK_HTML=""
     if [[ -d "$VIDEO_DIR" ]]; then
         local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
@@ -1146,6 +1193,12 @@ export_html_status() {
         }')
     fi
 
+    local BG_IMG_PATH="$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg"
+    local BODY_CSS="background-color: #121212;"
+    if [[ -f "$BG_IMG_PATH" && $IS_RUNNING -eq 1 ]]; then
+        BODY_CSS="background: linear-gradient(rgba(18, 18, 18, 0.75), rgba(18, 18, 18, 0.95)), url('dashboard_bg.jpg?t=$(date +%s)') no-repeat center center fixed; background-size: cover;"
+    fi
+
     local TMP_HTML="/tmp/vdr-rectools-dashboard.tmp"
     cat <<EOF > "$TMP_HTML"
 <!DOCTYPE html>
@@ -1156,11 +1209,11 @@ export_html_status() {
     <meta http-equiv="refresh" content="5">
     <title>🎬 VDR-Rectools Dashboard</title>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); border: 1px solid #333; }
+        body { $BODY_CSS color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: 20px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
         h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; color: #fff; }
-        .status-box { background: #252526; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.1em; border: 1px solid #333; }
-        .log-box { background: #000; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9em; height: 220px; overflow-y: auto; white-space: nowrap; line-height: 1.5; border: 1px solid #333; }
+        .status-box { background: rgba(0, 0, 0, 0.4); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.1em; border: 1px solid rgba(255,255,255,0.1); }
+        .log-box { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9em; height: 220px; overflow-y: auto; white-space: nowrap; line-height: 1.5; border: 1px solid rgba(255,255,255,0.1); }
         .footer { margin-top: 20px; font-size: 0.8em; color: #666; text-align: right; }
     </style>
 </head>
@@ -1172,6 +1225,7 @@ export_html_status() {
             <strong>Status:</strong> $STATUS_TEXT
             $PROGRESS_HTML
             $PROMPT_HTML
+            $SESSION_HTML
         </div>
         
         <div class="status-box" style="font-size: 0.95em;">
