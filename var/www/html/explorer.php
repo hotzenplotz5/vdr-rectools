@@ -71,22 +71,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($_POST['action'] === 'upload') {
         if (!isset($_FILES['upload_file'])) {
             $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: Keine Datei empfangen.</div>";
-        } elseif ($_FILES['upload_file']['error'] !== UPLOAD_ERR_OK) {
-            $err = $_FILES['upload_file']['error'];
-            $msg = "<div class='msg msg-err'>❌ Upload-Fehler Code: $err (Server-Limit überschritten).</div>";
         } else {
-            $file_tmp = $_FILES['upload_file']['tmp_name'];
-            $file_name = basename($_FILES['upload_file']['name']);
-            if (is_uploaded_file($file_tmp)) {
-                if (@move_uploaded_file($file_tmp, $dst . '/' . $file_name)) {
-                    $msg = "<div class='msg msg-ok'>✅ '$file_name' erfolgreich hochgeladen!</div>";
-                } else {
-                    $e = error_get_last();
-                    $err_msg = $e ? $e['message'] : 'Unbekannter Schreibfehler';
-                    $msg = "<div class='msg msg-err'>❌ Fehler beim Speichern: " . htmlspecialchars($err_msg) . "</div>";
+            $success = 0; $errors = 0; $err_details = [];
+            $files = $_FILES['upload_file'];
+            $is_multi = is_array($files['name']);
+            $count = $is_multi ? count($files['name']) : 1;
+            for ($i = 0; $i < $count; $i++) {
+                $file_tmp = $is_multi ? $files['tmp_name'][$i] : $files['tmp_name'];
+                $file_name = basename($is_multi ? $files['name'][$i] : $files['name']);
+                $error_code = $is_multi ? $files['error'][$i] : $files['error'];
+                if ($error_code !== UPLOAD_ERR_OK) {
+                    if ($error_code !== UPLOAD_ERR_NO_FILE) {
+                        $errors++;
+                        $err_details[] = "$file_name (Code: $error_code)";
+                    }
+                    continue;
                 }
-            } else {
-                $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen. (Temporäre Datei ungültig)</div>";
+                if (is_uploaded_file($file_tmp)) {
+                    if (@move_uploaded_file($file_tmp, $dst . '/' . $file_name)) {
+                        $success++;
+                    } else {
+                        $errors++;
+                        $e = error_get_last();
+                        $err_details[] = "$file_name (" . ($e ? $e['message'] : 'Schreibfehler') . ")";
+                    }
+                } else {
+                    $errors++;
+                }
+            }
+            if ($success > 0 && $errors === 0) {
+                $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich hochgeladen!</div>";
+            } elseif ($success > 0 && $errors > 0) {
+                $msg = "<div class='msg msg-err'>⚠️ $success hochgeladen, $errors Fehler: " . htmlspecialchars(implode(', ', $err_details)) . "</div>";
+            } elseif ($errors > 0) {
+                $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: " . htmlspecialchars(implode(', ', $err_details)) . "</div>";
             }
         }
     }
@@ -160,7 +178,7 @@ $dst_contents = get_dir_contents($dst);
                     <h4 style="margin-top:0; color:#2196F3; margin-bottom: 10px;">📤 Von Deinem PC hochladen</h4>
                     <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap: wrap; gap:10px; align-items: center;">
                         <input type="hidden" name="action" value="upload">
-                        <input type="file" id="uploadFile" name="upload_file" required style="color:#fff; flex-grow: 1;">
+                        <input type="file" id="uploadFile" name="upload_file[]" multiple required style="color:#fff; flex-grow: 1;">
                         <button type="submit" id="uploadBtn" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;">🚀 Hochladen</button>
                     </form>
                     <div id="progressContainer" style="display:none; margin-top: 15px; background: #333; border-radius: 5px; width: 100%; height: 25px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
