@@ -4,6 +4,8 @@ if (isset($_GET['action'])) {
         exec('nohup /usr/bin/vdr-rectools import </dev/null >/tmp/rectools_web.log 2>&1 &');
     } elseif ($_GET['action'] === 'stop') {
         exec('nohup /usr/bin/vdr-rectools stop </dev/null >/tmp/rectools_web.log 2>&1 &');
+    } elseif ($_GET['action'] === 'restart_vdr') {
+        exec('nohup sudo /bin/systemctl --no-block restart vdr.service </dev/null >/dev/null 2>&1 &');
     } else {
         $prompt_file = '/srv/vdr/video/.vdr-rectools.prompt';
         if (file_exists($prompt_file)) {

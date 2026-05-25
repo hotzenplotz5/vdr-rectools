@@ -146,7 +146,7 @@ ensure_single_instance() {
     fi
 
     # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "/tmp/dashboard_bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -158,7 +158,7 @@ set_state() {
 set_dashboard_bg() {
     [[ "${HTML_DASHBOARD:-0}" -ne 1 ]] && return
     local SRC="$1"
-    local BG_IMG="/tmp/dashboard_bg.jpg"
+    local BG_IMG="$VIDEO_DIR/.vdr-rectools-bg.jpg"
     if [[ -f "$SRC" ]]; then
         (
             ffmpeg -hide_banner -y -ss "${SNAPSHOT_TIME:-00:05:00}" -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1 || \
@@ -1144,12 +1144,16 @@ export_html_status() {
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>▶️ Import starten</span>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🛑 Abbrechen</a>"
-        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a></div>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a>"
+        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>📋 Logfile</a>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🔄 VDR Neustart</a></div>"
     else
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>▶️ Import starten</a>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>🛑 Abbrechen</span>"
-        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a></div>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a>"
+        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>📋 Logfile</a>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🔄 VDR Neustart</a></div>"
     fi
     
     local PROMPT_HTML=""
@@ -1211,7 +1215,7 @@ export_html_status() {
         }')
     fi
 
-    local BG_IMG_PATH="/tmp/dashboard_bg.jpg"
+    local BG_IMG_PATH="$VIDEO_DIR/.vdr-rectools-bg.jpg"
     local BODY_CSS="background-color: #121212;"
     if [[ -f "$BG_IMG_PATH" && $IS_RUNNING -eq 1 ]]; then
         local B64=$(base64 -w 0 "$BG_IMG_PATH" 2>/dev/null)
@@ -1220,7 +1224,7 @@ export_html_status() {
         fi
     fi
 
-    local TMP_HTML="/tmp/vdr-rectools-dashboard.tmp"
+    local TMP_HTML="$VIDEO_DIR/.vdr-rectools-dashboard_$BASHPID.tmp"
     
     # --- HTML-Template aufrufen und generieren lassen ---
     if type render_dashboard_html >/dev/null 2>&1; then
