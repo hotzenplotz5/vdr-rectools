@@ -73,10 +73,10 @@ send_mail() {
     /usr/bin/svdrpsend MESG "Rectools: $OSD_MSG" > /dev/null 2>&1 || true
 
     # --- E-Mail ---
-    [[ -z "$MAIL_NOTIFY" ]] && return
+    [[ -z "${MAIL_NOTIFY// /}" ]] && return
     # Body wird mit 'fold' umgebrochen, um "501 line too long" Fehler zu vermeiden.
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
-    if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" 2>> "$LOG_FILE"; then
+    if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" >> "$LOG_FILE" 2>&1; then
         echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
     fi
 }

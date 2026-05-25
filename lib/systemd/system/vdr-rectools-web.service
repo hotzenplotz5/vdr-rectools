@@ -3,7 +3,7 @@ Description=VDR-Rectools Web Dashboard
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/php -S 0.0.0.0:8080 -t /var/www/html
+ExecStart=/usr/bin/php -S 0.0.0.0:8080 -t /var/www/html /var/www/html/router.php
 Restart=always
 User=vdr
 
