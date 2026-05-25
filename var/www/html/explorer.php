@@ -127,11 +127,14 @@ $dst_contents = get_dir_contents($dst);
                 
                 <div style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <h4 style="margin-top:0; color:#2196F3; margin-bottom: 10px;">📤 Von Deinem PC hochladen</h4>
-                    <form method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap: wrap; gap:10px; align-items: center;">
+                    <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap: wrap; gap:10px; align-items: center;">
                         <input type="hidden" name="action" value="upload">
-                        <input type="file" name="upload_file" required style="color:#fff; flex-grow: 1;">
-                        <button type="submit" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;">🚀 Hochladen</button>
+                        <input type="file" id="uploadFile" name="upload_file" required style="color:#fff; flex-grow: 1;">
+                        <button type="submit" id="uploadBtn" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;">🚀 Hochladen</button>
                     </form>
+                    <div id="progressContainer" style="display:none; margin-top: 15px; background: #333; border-radius: 5px; width: 100%; height: 25px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+                        <div id="progressBar" style="background: #2196F3; width: 0%; height: 100%; text-align: center; color: white; line-height: 25px; font-size: 14px; font-weight: bold; white-space: nowrap;">0%</div>
+                    </div>
                     <div style="color:#aaa; font-size: 0.85em; margin-top: 8px;">Lädt eine Datei von diesem Computer direkt in den Zielordner (Rechts) hoch.</div>
                 </div>
                 
@@ -175,5 +178,41 @@ $dst_contents = get_dir_contents($dst);
         
         <a href="rectools.html" class="btn btn-back">⬅️ Zurück zum Dashboard</a>
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var uploadForm = document.getElementById('uploadForm');
+            if (uploadForm) {
+                uploadForm.addEventListener('submit', function(e) {
+                    e.preventDefault(); // Verhindert das normale Neuladen der Seite
+                    var fileInput = document.getElementById('uploadFile');
+                    if(fileInput.files.length === 0) return;
+
+                    document.getElementById('uploadBtn').innerText = '⏳ Bitte warten...';
+                    document.getElementById('uploadBtn').style.background = '#555';
+                    document.getElementById('uploadBtn').style.cursor = 'not-allowed';
+                    document.getElementById('uploadBtn').disabled = true;
+                    
+                    var pContainer = document.getElementById('progressContainer');
+                    var pBar = document.getElementById('progressBar');
+                    pContainer.style.display = 'block';
+                    
+                    var formData = new FormData(uploadForm);
+                    var xhr = new XMLHttpRequest();
+                    
+                    xhr.open('POST', window.location.href, true);
+                    xhr.upload.onprogress = function(e) {
+                        if (e.lengthComputable) {
+                            var percent = Math.round((e.loaded / e.total) * 100);
+                            pBar.style.width = percent + '%';
+                            pBar.innerHTML = percent + '% (Upload läuft)';
+                        }
+                    };
+                    xhr.onload = function() { document.open(); document.write(xhr.responseText); document.close(); };
+                    xhr.onerror = function() { alert('Netzwerkfehler beim Upload!'); window.location.reload(); };
+                    xhr.send(formData);
+                });
+            }
+        });
+    </script>
 </body>
 </html>
