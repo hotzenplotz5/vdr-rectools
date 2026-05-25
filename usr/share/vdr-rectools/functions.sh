@@ -44,12 +44,18 @@ if [ -f "$CONFIG_FILE" ]; then
     . "$CONFIG_FILE"
 fi
 
-# 3. MEDIA TOOLS LADEN
+# 3. LIBRARIES & TEMPLATES LADEN
 if [ -f /usr/share/vdr-rectools/media_tools.sh ]; then
     source /usr/share/vdr-rectools/media_tools.sh
 else
     echo "[$(date +%T)] FEHLER: media_tools.sh nicht gefunden!" >> "$LOG_FILE"
     exit 1
+fi
+
+if [ -f /usr/share/vdr-rectools/html_template.sh ]; then
+    source /usr/share/vdr-rectools/html_template.sh
+else
+    echo "[$(date +%T)] WARNUNG: html_template.sh nicht gefunden! Web-Dashboard wird evtl. nicht korrekt exportiert." >> "$LOG_FILE"
 fi
 
 send_mail() {
@@ -1215,49 +1221,12 @@ export_html_status() {
     fi
 
     local TMP_HTML="/tmp/vdr-rectools-dashboard.tmp"
-    cat <<EOF > "$TMP_HTML"
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="5">
-    <title>🎬 VDR-Rectools Dashboard</title>
-    <style>
-        body { $BODY_CSS color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: 20px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
-        h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; color: #fff; }
-        .status-box { background: rgba(0, 0, 0, 0.4); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.1em; border: 1px solid rgba(255,255,255,0.1); }
-        .log-box { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9em; height: 220px; overflow-y: auto; white-space: nowrap; line-height: 1.5; border: 1px solid rgba(255,255,255,0.1); }
-        .footer { margin-top: 20px; font-size: 0.8em; color: #666; text-align: right; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>🎬 VDR-Rectools - Live Dashboard</h2>
-        
-        <div class="status-box">
-            <strong>Status:</strong> $STATUS_TEXT
-            $ACTION_HTML
-            $PROGRESS_HTML
-            $PROMPT_HTML
-            $SESSION_HTML
-        </div>
-        
-        <div class="status-box" style="font-size: 0.95em;">
-            <strong>💾 Festplatte:</strong> $DISK_HTML
-        </div>
-
-        <h3 style="color: #bbb; font-size: 1.1em; margin-bottom: 10px;">📋 Letzte Log-Aktivitäten</h3>
-        <div class="log-box">
-            $LOG_HTML
-        </div>
-        
-        <div class="footer">Auto-Refresh (5s) | Letzte Aktualisierung: $(date +"%d.%m.%Y %H:%M:%S")</div>
-    </div>
-</body>
-</html>
-EOF
+    
+    # --- HTML-Template aufrufen und generieren lassen ---
+    if type render_dashboard_html >/dev/null 2>&1; then
+        render_dashboard_html "$TMP_HTML"
+    fi
+    
     cat "$TMP_HTML" > "$HTML" 2>/dev/null || true
     rm -f "$TMP_HTML" 2>/dev/null || true
 }

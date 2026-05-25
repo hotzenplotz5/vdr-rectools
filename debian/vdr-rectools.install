@@ -2,6 +2,7 @@
 usr/bin/vdr-rectools usr/bin/
 usr/share/vdr-rectools/functions.sh usr/share/vdr-rectools/
 usr/share/vdr-rectools/media_tools.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/html_template.sh usr/share/vdr-rectools/
 
 # Die unkomprimierte Manpage
 usr/share/man/man1/vdr-rectools.1 usr/share/man/man1/
@@ -20,3 +21,6 @@ debian/reccmds.vdr-rectools.conf usr/share/vdr/command-hooks/
 
 # Logrotate
 etc/logrotate.d/vdr-rectools etc/logrotate.d/
+
+# Web Dashboard Dateien
+var/www/html/*.php var/www/html/
