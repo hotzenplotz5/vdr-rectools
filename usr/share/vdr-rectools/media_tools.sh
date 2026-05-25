@@ -19,7 +19,11 @@ extract_subtitles() {
 get_audio_map() {
     # Nimmt Video und Audio, wirft aber Spuren mit "visual_impaired" (Audio-Description) ab
     # HINWEIS: Bei negativen Maps (-0) führt ein angehängtes '?' zu Fehlverhalten in FFmpeg!
-    echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c copy"
+    if [[ "${AUDIO_NORMALIZE:-0}" -eq 1 ]]; then
+        echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c:v copy -c:a aac -b:a 192k -ac 2 -af loudnorm -c:s copy"
+    else
+        echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c copy"
+    fi
 }
 
 shrink_video() {
@@ -53,9 +57,15 @@ shrink_video() {
         fi
     fi
 
+    local AUDIO_OPTS="-c:a copy"
+    if [[ "${AUDIO_NORMALIZE:-0}" -eq 1 ]]; then
+        AUDIO_OPTS="-c:a aac -b:a 192k -ac 2 -af loudnorm"
+        echo "[$(date +%T)] INFO: Audio-Normalisierung (Night-Mode) für Shrink aktiviert." >> "$LOG_FILE"
+    fi
+
     local DURATION=$(get_duration "$1")
     echo "$DURATION" > "${VIDEO_DIR:-/srv/vdr/video}/.vdr-rectools.duration" 2>/dev/null
-    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" -c:a copy -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" $AUDIO_OPTS -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
     if [[ $FF_STATUS -eq 0 && -f "$OUT" ]]; then

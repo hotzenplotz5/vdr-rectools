@@ -13,6 +13,7 @@
 * **💬 Auto-Subtitles:** Automatically searches for matching subtitles during import and saves them as an `.srt` file with the recording.
 * **🔖 MKV Chapter Support:** Automatically extracts embedded chapters from MKV/MP4 files during import and converts them into VDR cut marks (`marks`), allowing seamless navigation via remote control.
 * **�️ H.265 Shrink Mode:** Compresses large recordings into the space-saving HEVC (H.265) codec at the touch of a button.
+* **🔊 Night-Mode (Audio-Normalize):** Downmixes 5.1/7.1 audio tracks (DTS/TrueHD) to TV-friendly stereo and normalizes the volume (Night-Mode) automatically during import/shrink.
 * **✂️ Commercial Cut (In-Place):** Fully automated, lossless cutting (`-c copy`) based on VDR cut marks. The original file is overwritten directly to save disk space immediately.
 * **📺 VDR OSD Integration:** Automatically integrates into the `reccmds.conf` command menu of the VDR (including Smart Downscaling).
 * **✉️ Intelligent Reporting:** Sends success or failure reports via email.
@@ -91,6 +92,7 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **TELEGRAM_CHAT_ID** | Your personal Telegram Chat ID | (empty) |
 | **AUTO_SUB_DOWNLOAD** | Automatic download of subtitles | `1` |
 | **SUB_LANG** | Language for subtitles (e.g., de, en) | `de` |
+| **AUDIO_NORMALIZE** | Audio downmix (stereo) & dialog normalization (1=On, 0=Off) | `0` |
 | **AUTO_ENCODE_IMPORT** | Automatic re-encoding on import (1=On, 0=Off) | `1` |
 | **ASK_BEFORE_ENCODE** | Ask via dashboard/mail before starting a re-encode (1=On, 0=Off) | `1` |
 | **CRF_H264_DEFAULT** | CRF value for H.264 (lower=better) | `23` |
