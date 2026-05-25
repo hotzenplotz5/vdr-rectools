@@ -11,6 +11,7 @@
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen Metadaten-Scrape im VDR (Modi: `immediate` oder `batch`).
 * **🛠️ Smart Repair:** Repariert defekte Aufnahmen in einem zweistufigen Verfahren: Zuerst ein schneller Header-Fix, bei Bedarf gefolgt von einem kompletten Re-Encoding.
 * **💬 Auto-Subtitles:** Sucht beim Import automatisch nach passenden Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
+* **🔖 MKV-Kapitel Support:** Konvertiert eingebettete Kapitel-Metadaten aus MKV/MP4-Dateien beim Import vollautomatisch in VDR-Schnittmarken (`marks`), wodurch perfektes Navigieren per Fernbedienung möglich wird.
 * **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
 * **✂️ Werbeschnitt (In-Place):** Schneidet Aufnahmen vollautomatisch und verlustfrei (`-c copy`) anhand der VDR-Schnittmarken. Die Originaldatei wird direkt überschrieben, um sofort Speicherplatz freizugeben.
 * **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Smart Downscaling).

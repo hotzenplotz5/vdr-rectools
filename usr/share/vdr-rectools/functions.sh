@@ -692,6 +692,29 @@ process_import() {
         local PLEX_NAME=$(echo "$CLEAN_NAME" | sed 's/_/ /g')
         [[ -f "$NFO_SOURCE" ]] && cp "$NFO_SOURCE" "$STAGING_REC/${PLEX_NAME}.nfo"
 
+        # --- MKV-Kapitel zu VDR-Schnittmarken konvertieren ---
+        local MARKS_FILE="$STAGING_REC/marks"
+        ffprobe -v error -show_chapters -of default=noprint_wrappers=1 "$SOURCE_FILE" 2>/dev/null | awk -F= '
+        /^id=/ {
+            if (time_str != "") {
+                if (title != "") print time_str " " title;
+                else print time_str;
+            }
+            time_str=""; title=""
+        }
+        /^start_time=/ {
+            t=$2; h=int(t/3600); m=int((t%3600)/60); s=int(t%60); f=int((t-int(t))*25)+1; if(f>25) f=25
+            time_str=sprintf("%02d:%02d:%02d.%02d", h, m, s, f)
+        }
+        /^TAG:title=/ {
+            title=substr($0, 11); gsub(/\r/, "", title)
+        }
+        END {
+            if (time_str != "") { if (title != "") print time_str " " title; else print time_str; }
+        }' > "$MARKS_FILE"
+        
+        [[ ! -s "$MARKS_FILE" ]] && rm -f "$MARKS_FILE" || { echo "[$(date +%T)] INFO: MKV-Kapitel als VDR-Schnittmarken exportiert." >> "$LOG_FILE"; chown vdr:vdr "$MARKS_FILE" 2>/dev/null || true; }
+
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         
         # Lokale Untertitel (inkl. Ländercode wie .de.srt) einbinden, bevor nach neuen gesucht wird
