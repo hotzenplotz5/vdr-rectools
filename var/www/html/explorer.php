@@ -21,9 +21,8 @@ $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
         $msg = "<div class='msg msg-err'>❌ Upload abgebrochen! Datei ist zu groß für den Webserver (Limit oder Arbeitsspeicher voll).</div>";
-    } elseif (isset($_POST['action'])) {
-        if ($_POST['action'] === 'move' && isset($_POST['file'])) {
-        $file = $_POST['file'];
+    } elseif (isset($_POST['single_move'])) {
+        $file = $_POST['single_move'];
         $filename = basename($file);
         $target = $dst . '/' . $filename;
         
@@ -39,7 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "<div class='msg msg-err'>❌ Fehler beim Verschieben (Fehlende Rechte?).</div>";
             }
         }
-    } elseif ($_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
+    } elseif (isset($_POST['bulk_move']) && !empty($_POST['files'])) {
+        $success = 0; $errors = 0;
+        foreach ($_POST['files'] as $file) {
+            $filename = basename($file);
+            $target = $dst . '/' . $filename;
+            if (file_exists($file) && !file_exists($target) && @rename($file, $target)) {
+                $success++;
+            } else {
+                $errors++;
+            }
+        }
+        if ($success > 0 && $errors === 0) {
+            $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich verschoben!</div>";
+        } elseif ($success > 0 && $errors > 0) {
+            $msg = "<div class='msg msg-err'>⚠️ $success Datei(en) verschoben, $errors Fehler.</div>";
+        } else {
+            $msg = "<div class='msg msg-err'>❌ Fehler beim Verschieben. Keine Dateien verschoben.</div>";
+        }
+    } elseif (isset($_POST['action'])) {
+        if ($_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
         $newdir = $dst . '/' . basename($_POST['dirname']);
         if (!file_exists($newdir)) {
             if (@mkdir($newdir, 0775)) {
@@ -156,16 +174,24 @@ $dst_contents = get_dir_contents($dst);
                     <?php foreach ($src_contents['dirs'] as $d): ?>
                         <div class="item"><a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>"><strong><?= htmlspecialchars($d['name']) ?></strong></a></div>
                     <?php endforeach; ?>
+                
+                <?php if (!empty($src_contents['files'])): ?>
+                <form method="POST" style="margin: 0;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <label style="cursor: pointer;"><input type="checkbox" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked);"> <strong>Alle auswählen</strong></label>
+                        <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
+                    </div>
                     <?php foreach ($src_contents['files'] as $f): ?>
                         <div class="item">
+                        <label style="display: flex; align-items: center; cursor: pointer; flex-grow: 1; overflow: hidden;">
+                            <input type="checkbox" name="files[]" value="<?= htmlspecialchars($f['raw_path']) ?>" class="file-chk" style="margin-right: 10px;">
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?></span>
-                            <form method="POST" style="margin: 0;">
-                                <input type="hidden" name="action" value="move">
-                                <input type="hidden" name="file" value="<?= htmlspecialchars($f['raw_path']) ?>">
-                                <button type="submit" class="btn btn-move" onclick="return confirm('Datei nach Rechts verschieben? (Dauert je nach Groesse kurz)');">➡️ Rüber</button>
-                            </form>
+                        </label>
+                        <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
                         </div>
                     <?php endforeach; ?>
+                </form>
+                <?php endif; ?>
                 </div>
             </div>
             
