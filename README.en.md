@@ -155,6 +155,13 @@ If `MAIL_NOTIFY` is set, the script sends an email after each run with:
 * Warnings if disk space is low (`MIN_FREE_GB`).
 * Detailed error messages if an import or remuxing failed.
 
+**Important note for the Web Dashboard:**
+When you start actions via the Web Dashboard, the script runs securely as the `vdr` user. If you use `msmtp` to send emails, make sure your configuration is readable system-wide to avoid a `sendmail error 78`:
+```bash
+sudo cp ~/.msmtprc /etc/msmtprc
+sudo chmod 644 /etc/msmtprc
+```
+
 ### Telegram Notifications
 In addition to emails, the script can send push messages to a Telegram bot.
 Just enter your `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the configuration.

@@ -157,6 +157,13 @@ Bei gesetzter `MAIL_NOTIFY` Adresse versendet das Skript nach jedem Lauf eine E-
 * Warnungen bei zu wenig Festplattenplatz (`MIN_FREE_GB`).
 * Detaillierten Fehlermeldungen, falls ein Import oder Re-Muxing fehlgeschlagen ist.
 
+**Wichtiger Hinweis für das Web-Dashboard:**
+Wenn du Aktionen über das Web-Dashboard startest, läuft das Skript aus Sicherheitsgründen als Benutzer `vdr`. Falls du z.B. `msmtp` für den Mailversand nutzt, stelle sicher, dass die Konfiguration systemweit lesbar ist, um einen `sendmail error 78` zu vermeiden:
+```bash
+sudo cp ~/.msmtprc /etc/msmtprc
+sudo chmod 644 /etc/msmtprc
+```
+
 ### Telegram-Benachrichtigungen
 Neben E-Mails kann das Skript auch Push-Nachrichten an einen Telegram-Bot senden. 
 Trage dazu einfach den `TELEGRAM_BOT_TOKEN` und deine `TELEGRAM_CHAT_ID` in der Konfiguration ein.
