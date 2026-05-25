@@ -196,13 +196,13 @@ $dst_contents = get_dir_contents($dst);
                 <?php if (!empty($src_contents['files'])): ?>
                 <form method="POST" style="margin: 0;">
                     <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
-                        <label style="cursor: pointer;"><input type="checkbox" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked);"> <strong>Alle auswählen</strong></label>
+                        <label style="cursor: pointer;"><input type="checkbox" id="selectAllChk" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked); if(typeof updateSelectionStorage === 'function') updateSelectionStorage();"> <strong>Alle auswählen</strong></label>
                         <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
                     </div>
                     <?php foreach ($src_contents['files'] as $f): ?>
                         <div class="item">
                         <label style="display: flex; align-items: center; cursor: pointer; flex-grow: 1; overflow: hidden;">
-                            <input type="checkbox" name="files[]" value="<?= htmlspecialchars($f['raw_path']) ?>" class="file-chk" style="margin-right: 10px;">
+                            <input type="checkbox" name="files[]" value="<?= htmlspecialchars($f['raw_path']) ?>" class="file-chk" style="margin-right: 10px;" onchange="if(typeof updateSelectionStorage === 'function') updateSelectionStorage();">
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?></span>
                         </label>
                         <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
@@ -236,7 +236,34 @@ $dst_contents = get_dir_contents($dst);
         <a href="rectools.html" class="btn btn-back">⬅️ Zurück zum Dashboard</a>
     </div>
     <script>
+        const EXPLORER_STORAGE_KEY = 'vdr_rectools_explorer_selection';
+
+        function updateSelectionStorage() {
+            var checked = [];
+            document.querySelectorAll('.file-chk:checked').forEach(function(c) {
+                checked.push(c.value);
+            });
+            sessionStorage.setItem(EXPLORER_STORAGE_KEY, JSON.stringify(checked));
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
+            // Checkbox-Status wiederherstellen (beim Navigieren durch Ordner)
+            try {
+                var saved = JSON.parse(sessionStorage.getItem(EXPLORER_STORAGE_KEY) || '[]');
+                document.querySelectorAll('.file-chk').forEach(function(c) {
+                    if (saved.indexOf(c.value) !== -1) {
+                        c.checked = true;
+                    }
+                });
+                
+                // "Alle auswählen" Haken wiederherstellen, falls alle Einzeldateien markiert sind
+                var allBoxes = document.querySelectorAll('.file-chk');
+                if (allBoxes.length > 0 && document.querySelectorAll('.file-chk:checked').length === allBoxes.length) {
+                    var selectAll = document.getElementById('selectAllChk');
+                    if (selectAll) selectAll.checked = true;
+                }
+            } catch(e) {}
+
             var uploadForm = document.getElementById('uploadForm');
             if (uploadForm) {
                 uploadForm.addEventListener('submit', function(e) {
