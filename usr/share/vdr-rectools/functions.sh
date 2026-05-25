@@ -1100,6 +1100,21 @@ export_html_status() {
         fi
     fi
     
+    local PROMPT_HTML=""
+    local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+    if [[ -f "$PROMPT_FILE" ]]; then
+        local P_STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
+        if [[ "$P_STATUS" == "WAIT" ]]; then
+            local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            PROMPT_HTML="<div style='margin-top: 20px; background: #3a2a00; color: #ffeb3b; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;'>"
+            PROMPT_HTML+="<strong style='font-size: 1.1em;'>⚠️ AKTION ERFORDERLICH: Re-Encode</strong><br>"
+            PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>Der Film <b>$P_TITLE</b> erfordert einen Re-Encode. Starten?</div>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>✔️ JA, Starten</a>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>❌ NEIN, Überspringen</a>"
+            PROMPT_HTML+="</div>"
+        fi
+    fi
+    
     local DISK_HTML=""
     if [[ -d "$VIDEO_DIR" ]]; then
         local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
@@ -1144,6 +1159,7 @@ export_html_status() {
         <div class="status-box">
             <strong>Status:</strong> $STATUS_TEXT
             $PROGRESS_HTML
+            $PROMPT_HTML
         </div>
         
         <div class="status-box" style="font-size: 0.95em;">

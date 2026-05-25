@@ -65,6 +65,27 @@ if [ -d "/var/www/html" ]; then
     touch /var/www/html/rectools.html
     chown vdr:vdr /var/www/html/rectools.html
     chmod 666 /var/www/html/rectools.html
+
+    # PHP-Handler für Bestätigungs-Buttons anlegen
+    cat << 'EOFPHP' > /var/www/html/rectools_confirm.php
+<?php
+$prompt_file = '/srv/vdr/video/.vdr-rectools.prompt';
+if (isset($_GET['action']) && file_exists($prompt_file)) {
+    $content = trim(file_get_contents($prompt_file));
+    $parts = explode('|', $content);
+    if (isset($parts[0]) && $parts[0] === 'WAIT') {
+        $action = $_GET['action'] === 'yes' ? 'YES' : 'NO';
+        $new_content = $action . '|' . $parts[1] . '|' . (isset($parts[2]) ? $parts[2] : '') . "\n";
+        $fp = fopen($prompt_file, 'w');
+        if ($fp) { fwrite($fp, $new_content); fclose($fp); }
+    }
+}
+header('Location: rectools.html');
+exit;
+?>
+EOFPHP
+    chown vdr:vdr /var/www/html/rectools_confirm.php
+    chmod 666 /var/www/html/rectools_confirm.php
 fi
 
 db_stop
