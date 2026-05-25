@@ -5,22 +5,23 @@ set -e
 . /usr/share/debconf/confmodule
 
 CONF="/etc/vdr/conf.d/vdr-rectools.conf"
+TEMPLATE="/usr/share/vdr-rectools/vdr-rectools.conf"
 mkdir -p /etc/vdr/conf.d
 
-# 1. FIX FÜR DAS CONFFILE-PROBLEM (Sicheres Update ohne Datenverlust!)
-# Anstatt die Datei brutal zu ueberschreiben (was Benutzerdaten wie Telegram-Tokens loescht),
-# fuegen wir nur neue, fehlende Parameter aus dem Update sanft unten an.
-for EXT in ".dpkg-dist" ".dpkg-new"; do
-    if [ -f "${CONF}${EXT}" ]; then
-        grep -E '^[A-Z_]+=' "${CONF}${EXT}" | while read -r line; do
-            key=$(echo "$line" | cut -d'=' -f1)
-            if ! grep -q "^$key=" "$CONF"; then
-                echo "$line" >> "$CONF"
-            fi
-        done
-        rm -f "${CONF}${EXT}"
-    fi
-done
+# 1. ABSOLUT SICHERES CONFIG-MANAGEMENT
+# Da Debian conffiles u.U. beim Entpacken (Unpack) ueberschreibt, nutzen wir nun ein Template.
+# Wir kopieren das Template nur, wenn die Config noch gar nicht existiert.
+if [ ! -f "$CONF" ]; then
+    cp "$TEMPLATE" "$CONF" 2>/dev/null || true
+elif [ -f "$TEMPLATE" ]; then
+    # Smart-Merge: Existiert sie bereits, fuegen wir nur neue, fehlende Parameter sanft unten an.
+    grep -E '^[A-Z_]+=' "$TEMPLATE" | while read -r line; do
+        key=$(echo "$line" | cut -d'=' -f1)
+        if ! grep -q "^$key=" "$CONF"; then
+            echo "$line" >> "$CONF"
+        fi
+    done
+fi
 
 # 2. Debconf-Werte auslesen
 db_get vdr-rectools/mail
