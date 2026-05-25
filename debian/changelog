@@ -1,3 +1,17 @@
+vdr-rectools (3.4.0-1) unstable; urgency=medium
+
+  * Release Version 3.4.0 - The "Web & Media" Update
+  * FEAT: Neues, auto-refreshendes Web-Dashboard (HTML) im Dark-Mode integriert.
+  * FEAT: MKV-Kapitel werden beim Import nun als VDR-Schnittmarken übernommen.
+  * FEAT: Night-Mode (Stereo-Downmix & Dialog-Normalisierung) hinzugefügt.
+  * FEAT: Smart Downscaling für 4K-Aufnahmen (SHRINK_MAX_RES) beim H.265-Shrink.
+  * FIX: Einstellungsverlust bei Paket-Update behoben (Smart-Merge in postinst.sh).
+  * FIX: Rechte-Bug beim Erstellen der HTML-Datei in /var/www/html/ gelöst.
+  * FIX: Fehlende Logrotate-Konfiguration wieder ins Paket aufgenommen.
+  * FIX: Hänger beim Untertitel-Download durch 60-Sekunden Timeout abgefangen.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Mon, 25 May 2026 08:28:14 +0000
+
 vdr-rectools (3.3.0-1) unstable; urgency=medium
 
   * Release Version 3.3.0 - The "OSD Integration" Update
