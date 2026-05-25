@@ -20,6 +20,7 @@
 * **📱 Push Notifications:** Optional delivery of status reports via Telegram directly to your smartphone.
 * **🧹 Auto-Cleanup:** Finds and deletes empty recording folders in the video directory.
 * **📊 Live Dashboard:** An interactive, colored console dashboard (`vdr-rectools status`) featuring progress bars, real-time logs, and disk space monitoring.
+* **🌐 Web Dashboard (HTML):** Optional, auto-refreshing web interface for browsers (Desktop & Mobile) for live monitoring.
 
 ---
 
@@ -95,6 +96,8 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **AUDIO_NORMALIZE** | Audio downmix (stereo) & dialog normalization (1=On, 0=Off) | `0` |
 | **AUTO_ENCODE_IMPORT** | Automatic re-encoding on import (1=On, 0=Off) | `1` |
 | **ASK_BEFORE_ENCODE** | Ask via dashboard/mail before starting a re-encode (1=On, 0=Off) | `1` |
+| **HTML_DASHBOARD** | Exports live status to an HTML page (1=On, 0=Off) | `0` |
+| **HTML_PATH** | Path to save the Web Dashboard | `/var/www/html/rectools.html` |
 | **CRF_H264_DEFAULT** | CRF value for H.264 (lower=better) | `23` |
 | **PRESET_H264_DEFAULT** | Preset for H.264 (e.g., `medium`, `fast`) | `medium` |
 | **CRF_H265_DEFAULT** | CRF value for H.265 (lower=better) | `23` |

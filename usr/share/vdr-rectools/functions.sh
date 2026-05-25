@@ -21,6 +21,8 @@ TELEGRAM_CHAT_ID=""
 AUTO_SUB_DOWNLOAD=1
 AUDIO_NORMALIZE=0 # Neu: Audio-Downmix und Normalisierung auf Stereo (Night-Mode)
 ASK_BEFORE_ENCODE=1 # Neu: Fragt per Status-Dashboard nach, bevor re-encodiert wird
+HTML_DASHBOARD=0
+HTML_PATH="/var/www/html/rectools.html"
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
 MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
 MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
@@ -119,9 +121,22 @@ ensure_single_instance() {
         touch "$DURATION_FILE" 2>/dev/null || true
         chmod 666 "$DURATION_FILE" 2>/dev/null || true
     fi
+    
+    # --- HTML Dashboard Auto-Updater ---
+    HTML_UPDATER_PID=""
+    if [[ "${HTML_DASHBOARD:-0}" -eq 1 && -n "$HTML_PATH" ]]; then
+        mkdir -p "$(dirname "$HTML_PATH")" 2>/dev/null || true
+        (
+            while [[ -f "$LOCK_FILE" ]]; do
+                export_html_status 2>/dev/null
+                sleep 5
+            done
+        ) &
+        HTML_UPDATER_PID=$!
+    fi
 
-    # Sperre nach Beendigung sauber aufräumen, damit 'status' keine toten PIDs anzeigt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" 2>/dev/null; exit 0' EXIT INT TERM
+    # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -945,6 +960,9 @@ show_status() {
         echo -e "\033[0;37m Noch keine Log-Einträge vorhanden.\033[0m"
     fi
     echo -e "\033[1;36m========================================================\033[0m\n"
+
+    # --- HTML Dashboard synchronisieren ---
+    [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null
 }
 
 # --- NEU: OSD-optimierter Status (Ohne Farben/Umlaute für den TV) ---
@@ -1025,4 +1043,117 @@ show_osd_status() {
         echo " Noch keine Log-Eintraege vorhanden."
     fi
     echo "====================================================="
+}
+
+# --- NEU: HTML Web-Dashboard Generator ---
+export_html_status() {
+    local HTML="${HTML_PATH:-/var/www/html/rectools.html}"
+    [[ -z "$HTML" ]] && return
+    
+    local PID=""
+    local IS_RUNNING=0
+    if [[ -f "$LOCK_FILE" ]]; then
+        PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            IS_RUNNING=1
+        fi
+    fi
+
+    local STATUS_TEXT="<span style='color: #888;'>⚪ INAKTIV (Wartet auf Arbeit)</span>"
+    local PROGRESS_HTML=""
+    
+    if [[ $IS_RUNNING -eq 1 ]]; then
+        local CURRENT_ACTION="Arbeitet..."
+        [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null | sed 's/</\&lt;/g; s/>/\&gt;/g')
+        STATUS_TEXT="<span style='color: #4CAF50;'>🟢 AKTIV</span> - $CURRENT_ACTION"
+        
+        if [[ -f "$DURATION_FILE" ]]; then
+            local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
+            if [[ -n "$TOT_SEC" && "$TOT_SEC" =~ ^[0-9]+$ && "$TOT_SEC" -gt 0 ]]; then
+                local LAST_TIME=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -oE 'time=[ ]*[0-9]+:[0-9]{2}:[0-9]{2}' | tail -n 1 | cut -d= -f2 | tr -d ' ')
+                if [[ -n "$LAST_TIME" ]]; then
+                    local H=$(echo "$LAST_TIME" | cut -d: -f1); local M=$(echo "$LAST_TIME" | cut -d: -f2); local S=$(echo "$LAST_TIME" | cut -d: -f3)
+                    local CUR_SEC=$(( 10#$H * 3600 + 10#$M * 60 + 10#$S ))
+                    local PERCENT=$(( CUR_SEC * 100 / TOT_SEC ))
+                    [[ $PERCENT -gt 100 ]] && PERCENT=100
+                    
+                    local SPEED=$(tail -n 50 "$LOG_FILE" 2>/dev/null | grep -o 'speed=[ ]*[0-9.]*x' | tail -n 1 | sed 's/speed=//;s/x//;s/ //g')
+                    local ETA_STR=""
+                    if [[ -n "$SPEED" && "$SPEED" != "0" && "$SPEED" != "0.0" ]]; then
+                        local REM_SEC=$(( TOT_SEC - CUR_SEC ))
+                        if [[ $REM_SEC -gt 0 ]]; then
+                            local ETA_SEC=$(awk -v rem="$REM_SEC" -v spd="$SPEED" 'BEGIN { if(spd>0) printf "%d", rem/spd; else print 0 }')
+                            if [[ "$ETA_SEC" -gt 0 ]]; then
+                                local ETA_M=$(( (ETA_SEC % 3600) / 60 )); local ETA_S=$(( ETA_SEC % 60 ))
+                                ETA_STR=" | Restzeit: $(printf "%02d:%02d" $ETA_M $ETA_S) Min."
+                            fi
+                        fi
+                    fi
+                    PROGRESS_HTML="<div style='margin-top: 15px; background: #333; border-radius: 5px; width: 100%; height: 25px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);'><div style='background: #2196F3; width: ${PERCENT}%; height: 100%; text-align: center; color: white; line-height: 25px; font-size: 14px; font-weight: bold; white-space: nowrap;'>${PERCENT}%${ETA_STR}</div></div>"
+                fi
+            fi
+        fi
+    fi
+    
+    local DISK_HTML=""
+    if [[ -d "$VIDEO_DIR" ]]; then
+        local FREE_KB=$(df -Pk "$VIDEO_DIR" | awk 'NR==2 {print $4}')
+        local FREE_GB=$((FREE_KB / 1024 / 1024))
+        local DISK_COLOR="#4CAF50"
+        [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]] && DISK_COLOR="#F44336"
+        DISK_HTML="Speicher $VIDEO_DIR: <span style='color: $DISK_COLOR; font-weight: bold;'>${FREE_GB} GB frei</span>"
+    fi
+
+    local LOG_HTML=""
+    if [[ -f "$LOG_FILE" ]]; then
+        LOG_HTML=$(tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 12 | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' | awk '{
+            if ($0 ~ /FEHLER/ || $0 ~ /KRITISCH/) print "<span style=\"color: #F44336;\">" $0 "</span><br>";
+            else if ($0 ~ /WARNUNG/ || $0 ~ /verdächtig/) print "<span style=\"color: #FFC107;\">" $0 "</span><br>";
+            else if ($0 ~ /erfolgreich/ || $0 ~ /ERFOLG/) print "<span style=\"color: #4CAF50;\">" $0 "</span><br>";
+            else print "<span style=\"color: #ccc;\">" $0 "</span><br>";
+        }')
+    fi
+
+    cat <<EOF > "$HTML.tmp"
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="5">
+    <title>🎬 VDR-Rectools Dashboard</title>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); border: 1px solid #333; }
+        h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; color: #fff; }
+        .status-box { background: #252526; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.1em; border: 1px solid #333; }
+        .log-box { background: #000; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9em; height: 220px; overflow-y: auto; white-space: nowrap; line-height: 1.5; border: 1px solid #333; }
+        .footer { margin-top: 20px; font-size: 0.8em; color: #666; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎬 VDR-Rectools - Live Dashboard</h2>
+        
+        <div class="status-box">
+            <strong>Status:</strong> $STATUS_TEXT
+            $PROGRESS_HTML
+        </div>
+        
+        <div class="status-box" style="font-size: 0.95em;">
+            <strong>💾 Festplatte:</strong> $DISK_HTML
+        </div>
+
+        <h3 style="color: #bbb; font-size: 1.1em; margin-bottom: 10px;">📋 Letzte Log-Aktivitäten</h3>
+        <div class="log-box">
+            $LOG_HTML
+        </div>
+        
+        <div class="footer">Auto-Refresh (5s) | Letzte Aktualisierung: $(date +"%d.%m.%Y %H:%M:%S")</div>
+    </div>
+</body>
+</html>
+EOF
+    mv -f "$HTML.tmp" "$HTML" 2>/dev/null || true
+    chmod 644 "$HTML" 2>/dev/null || true
 }
