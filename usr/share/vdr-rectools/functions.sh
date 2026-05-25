@@ -1241,7 +1241,8 @@ export_html_status() {
     
     # Nur ueberschreiben, wenn die Datei erfolgreich generiert wurde (verhindert kaputte/weisse Seiten)
     if [[ -s "$TMP_HTML" ]]; then
-        mv -f "$TMP_HTML" "$HTML" 2>/dev/null || true
+        cat "$TMP_HTML" > "$HTML" 2>/dev/null || true
+        rm -f "$TMP_HTML" 2>/dev/null || true
         chmod 666 "$HTML" 2>/dev/null || true
     else
         rm -f "$TMP_HTML" 2>/dev/null || true
