@@ -138,7 +138,7 @@ ensure_single_instance() {
         mkdir -p "$(dirname "$HTML_PATH")" 2>/dev/null || true
         (
             while [[ -f "$LOCK_FILE" ]]; do
-                export_html_status 2>/dev/null
+                export_html_status >/dev/null 2>&1
                 sleep 5
             done
         ) &
@@ -1227,10 +1227,18 @@ export_html_status() {
     local TMP_HTML="$VIDEO_DIR/.vdr-rectools-dashboard_$BASHPID.tmp"
     
     # --- HTML-Template aufrufen und generieren lassen ---
-    if type render_dashboard_html >/dev/null 2>&1; then
-        render_dashboard_html "$TMP_HTML"
+    # In Hintergrund-Subshells koennen bash-Funktionen verloren gehen. Zur Sicherheit nachladen:
+    if ! type render_dashboard_html >/dev/null 2>&1; then
+        source /usr/share/vdr-rectools/html_template.sh 2>/dev/null || true
     fi
     
-    cat "$TMP_HTML" > "$HTML" 2>/dev/null || true
-    rm -f "$TMP_HTML" 2>/dev/null || true
+    render_dashboard_html "$TMP_HTML" 2>/dev/null || true
+    
+    # Nur ueberschreiben, wenn die Datei erfolgreich generiert wurde (verhindert kaputte/weisse Seiten)
+    if [[ -s "$TMP_HTML" ]]; then
+        mv -f "$TMP_HTML" "$HTML" 2>/dev/null || true
+        chmod 666 "$HTML" 2>/dev/null || true
+    else
+        rm -f "$TMP_HTML" 2>/dev/null || true
+    fi
 }
