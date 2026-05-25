@@ -10,6 +10,7 @@ vdr-rectools (3.5.0-1) unstable; urgency=medium
   * FIX: Datenverlust (dpkg überschreibt Config) durch sicheres Template-Handling behoben.
   * FIX: Rechteproblem bei PID-Erstellung (Web-User) durch Umzug nach /tmp/ gelöst.
   * FIX: PHP exec() Hänger durch </dev/null Abkopplung der Hintergrundprozesse behoben.
+  * FIX: Rechte/Caching-Probleme beim Fanart-Hintergrund durch Base64-Einbettung behoben.
 
  -- Holger Schvestka <hotzenplotz5@gmx.de>  Mon, 25 May 2026 10:32:00 +0000
 
