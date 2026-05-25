@@ -84,6 +84,11 @@ send_mail() {
     local WRAPPED_BODY=$(echo -e "$BODY\n\nWeitere Details finden Sie in der Log-Datei: $LOG_FILE" | fold -s -w 78)
     if ! echo "$WRAPPED_BODY" | mail -s "VDR-Rectools: $SUBJECT" "$MAIL_NOTIFY" >> "$LOG_FILE" 2>&1; then
         echo "[$(date +%T)] WARNUNG: Mail-Versand für Betreff '$SUBJECT' ist fehlgeschlagen." >> "$LOG_FILE"
+        # Spezifische Hilfestellung fuer msmtp Error 78 (Keine Leserechte auf Mail-Config)
+        if tail -n 5 "$LOG_FILE" | grep -q "error code 78"; then
+            echo "[$(date +%T)] HINWEIS: Der Web-User 'vdr' hat keine Berechtigung, die Mail-Konfiguration zu lesen." >> "$LOG_FILE"
+            echo "[$(date +%T)] TIPP: Pruefen Sie die Dateirechte (z.B. mit 'sudo chmod 644 /etc/msmtprc')." >> "$LOG_FILE"
+        fi
     fi
 }
 
