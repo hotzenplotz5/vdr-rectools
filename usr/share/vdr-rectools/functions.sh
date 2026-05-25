@@ -140,7 +140,7 @@ ensure_single_instance() {
     fi
 
     # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "/tmp/dashboard_bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -152,12 +152,11 @@ set_state() {
 set_dashboard_bg() {
     [[ "${HTML_DASHBOARD:-0}" -ne 1 ]] && return
     local SRC="$1"
-    local BG_IMG="$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg"
+    local BG_IMG="/tmp/dashboard_bg.jpg"
     if [[ -f "$SRC" ]]; then
         (
             ffmpeg -hide_banner -y -ss "${SNAPSHOT_TIME:-00:05:00}" -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1 || \
             ffmpeg -hide_banner -y -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1
-            chmod 666 "$BG_IMG" 2>/dev/null || true
         ) &
     else
         rm -f "$BG_IMG" 2>/dev/null
@@ -1206,10 +1205,13 @@ export_html_status() {
         }')
     fi
 
-    local BG_IMG_PATH="$(dirname "${HTML_PATH:-/var/www/html/rectools.html}")/dashboard_bg.jpg"
+    local BG_IMG_PATH="/tmp/dashboard_bg.jpg"
     local BODY_CSS="background-color: #121212;"
     if [[ -f "$BG_IMG_PATH" && $IS_RUNNING -eq 1 ]]; then
-        BODY_CSS="background: linear-gradient(rgba(18, 18, 18, 0.75), rgba(18, 18, 18, 0.95)), url('dashboard_bg.jpg?t=$(date +%s)') no-repeat center center fixed; background-size: cover;"
+        local B64=$(base64 -w 0 "$BG_IMG_PATH" 2>/dev/null)
+        if [[ -n "$B64" ]]; then
+            BODY_CSS="background: linear-gradient(rgba(18, 18, 18, 0.75), rgba(18, 18, 18, 0.95)), url('data:image/jpeg;base64,$B64') no-repeat center center fixed; background-size: cover;"
+        fi
     fi
 
     local TMP_HTML="/tmp/vdr-rectools-dashboard.tmp"
