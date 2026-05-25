@@ -16,3 +16,6 @@ debian/vdr-rectools.conf etc/vdr/conf.d/
 # VDR OSD Menüs (Standard Debian Paket-Hooks)
 debian/commands.vdr-rectools.conf usr/share/vdr/command-hooks/
 debian/reccmds.vdr-rectools.conf usr/share/vdr/command-hooks/
+
+# Logrotate
+etc/logrotate.d/vdr-rectools etc/logrotate.d/
