@@ -1102,9 +1102,11 @@ export_html_status() {
     
     local PROMPT_HTML=""
     local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
+    local HAS_PROMPT=0
     if [[ -f "$PROMPT_FILE" ]]; then
         local P_STATUS=$(cut -d'|' -f1 "$PROMPT_FILE" 2>/dev/null)
         if [[ "$P_STATUS" == "WAIT" ]]; then
+            HAS_PROMPT=1
             local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             PROMPT_HTML="<div style='margin-top: 20px; background: #3a2a00; color: #ffeb3b; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;'>"
             PROMPT_HTML+="<strong style='font-size: 1.1em;'>⚠️ AKTION ERFORDERLICH: Re-Encode</strong><br>"
@@ -1113,6 +1115,16 @@ export_html_status() {
             PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>❌ NEIN, Überspringen</a>"
             PROMPT_HTML+="</div>"
         fi
+    fi
+    
+    if [[ $HAS_PROMPT -eq 0 ]]; then
+        PROMPT_HTML="<div style='margin-top: 20px; background: #1e1e1e; color: #555; padding: 15px; border-radius: 8px; border: 1px solid #333;'>"
+        PROMPT_HTML+="<strong style='font-size: 1.1em;'>ℹ️ Keine Aktion erforderlich</strong><br>"
+        PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #555;'>Aktuell stehen keine manuellen Best&auml;tigungen f&uuml;r Re-Encodes aus.</div>"
+        # Nutze <span> statt <a>, damit die Buttons im inaktiven Zustand nicht angeklickt werden können
+        PROMPT_HTML+="<span style='display: inline-block; background: #2a2a2a; color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>✔️ JA, Starten</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: #2a2a2a; color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>❌ NEIN, &Uuml;berspringen</span>"
+        PROMPT_HTML+="</div>"
     fi
     
     local DISK_HTML=""

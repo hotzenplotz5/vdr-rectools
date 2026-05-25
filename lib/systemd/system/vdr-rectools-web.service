@@ -1,0 +1,11 @@
+[Unit]
+Description=VDR-Rectools Web Dashboard
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/php -S 0.0.0.0:8080 -t /var/www/html
+Restart=always
+User=vdr
+
+[Install]
+WantedBy=multi-user.target

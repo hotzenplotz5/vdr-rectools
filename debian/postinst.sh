@@ -45,6 +45,8 @@ if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     systemctl enable vdr-rectools.timer || true
     systemctl start vdr-rectools.timer || true
+    systemctl enable vdr-rectools-web.service || true
+    systemctl start vdr-rectools-web.service || true
 fi
 
 # 4. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÜR USER VDR)
