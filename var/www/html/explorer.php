@@ -18,8 +18,11 @@ if (!$dst || !is_dir($dst)) $dst = $import_dir;
 $msg = '';
 
 // Dateioperationen verarbeiten
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'move' && isset($_POST['file'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+        $msg = "<div class='msg msg-err'>❌ Upload abgebrochen! Datei ist zu groß für den Webserver (Limit oder Arbeitsspeicher voll).</div>";
+    } elseif (isset($_POST['action'])) {
+        if ($_POST['action'] === 'move' && isset($_POST['file'])) {
         $file = $_POST['file'];
         $filename = basename($file);
         $target = $dst . '/' . $filename;
@@ -47,18 +50,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             $msg = "<div class='msg msg-err'>❌ Ordner existiert bereits!</div>";
         }
-    } elseif ($_POST['action'] === 'upload' && isset($_FILES['upload_file'])) {
-        $file_tmp = $_FILES['upload_file']['tmp_name'];
-        $file_name = basename($_FILES['upload_file']['name']);
-        if (is_uploaded_file($file_tmp)) {
-            if (@move_uploaded_file($file_tmp, $dst . '/' . $file_name)) {
-                $msg = "<div class='msg msg-ok'>✅ '$file_name' erfolgreich hochgeladen!</div>";
-            } else {
-                $msg = "<div class='msg msg-err'>❌ Fehler beim Speichern der hochgeladenen Datei im Zielordner.</div>";
-            }
+    } elseif ($_POST['action'] === 'upload') {
+        if (!isset($_FILES['upload_file'])) {
+            $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: Keine Datei empfangen.</div>";
+        } elseif ($_FILES['upload_file']['error'] !== UPLOAD_ERR_OK) {
+            $err = $_FILES['upload_file']['error'];
+            $msg = "<div class='msg msg-err'>❌ Upload-Fehler Code: $err (Server-Limit überschritten).</div>";
         } else {
-            $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen. (Datei zu groß oder abgebrochen?)</div>";
+            $file_tmp = $_FILES['upload_file']['tmp_name'];
+            $file_name = basename($_FILES['upload_file']['name']);
+            if (is_uploaded_file($file_tmp)) {
+                if (@move_uploaded_file($file_tmp, $dst . '/' . $file_name)) {
+                    $msg = "<div class='msg msg-ok'>✅ '$file_name' erfolgreich hochgeladen!</div>";
+                } else {
+                    $e = error_get_last();
+                    $err_msg = $e ? $e['message'] : 'Unbekannter Schreibfehler';
+                    $msg = "<div class='msg msg-err'>❌ Fehler beim Speichern: " . htmlspecialchars($err_msg) . "</div>";
+                }
+            } else {
+                $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen. (Temporäre Datei ungültig)</div>";
+            }
         }
+    }
     }
 }
 
