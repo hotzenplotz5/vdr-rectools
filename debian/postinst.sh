@@ -73,7 +73,7 @@ if [ -d "/var/www/html" ]; then
 <?php
 if (isset($_GET['action'])) {
     if ($_GET['action'] === 'import') {
-        exec('nohup /usr/bin/vdr-rectools import > /dev/null 2>&1 &');
+        exec('nohup /usr/bin/vdr-rectools import </dev/null >/tmp/rectools_web.log 2>&1 &');
     } else {
         $prompt_file = '/srv/vdr/video/.vdr-rectools.prompt';
         if (file_exists($prompt_file)) {

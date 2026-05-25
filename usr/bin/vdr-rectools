@@ -6,7 +6,7 @@
 # ==============================================================================
 
 # 1. PID-Management
-PID_FILE="/var/run/vdr-rectools.pid"
+PID_FILE="/tmp/vdr-rectools.pid"
 
 # Stellt sicher, dass das Skript nicht bereits läuft
 is_running() {
