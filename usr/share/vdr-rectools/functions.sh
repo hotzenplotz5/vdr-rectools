@@ -1134,6 +1134,13 @@ export_html_status() {
         fi
     fi
     
+    local ACTION_HTML=""
+    if [[ $IS_RUNNING -eq 1 ]]; then
+        ACTION_HTML="<div style='margin-top: 15px;'><span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>▶️ Import starten</span></div>"
+    else
+        ACTION_HTML="<div style='margin-top: 15px;'><a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>▶️ Import starten</a></div>"
+    fi
+    
     local PROMPT_HTML=""
     local PROMPT_FILE="$VIDEO_DIR/.vdr-rectools.prompt"
     local HAS_PROMPT=0
@@ -1223,6 +1230,7 @@ export_html_status() {
         
         <div class="status-box">
             <strong>Status:</strong> $STATUS_TEXT
+            $ACTION_HTML
             $PROGRESS_HTML
             $PROMPT_HTML
             $SESSION_HTML
