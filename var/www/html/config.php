@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         $current_conf = $new_data;
 
         // Dashboard asynchron ueber den Worker aktualisieren (Fire & Forget)
-        $pending_job = dispatch_job('update-html', $language);
+        $pending_job = dispatch_job('update-html');
         clearstatcache(true); // Verhindert PHP Cache Probleme
         $save_success = true;
     } else {

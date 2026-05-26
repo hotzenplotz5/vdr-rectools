@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        dispatch_job('update-html', $language);
+        dispatch_job('update-html');
         clearstatcache(true);
     }
 }

@@ -69,6 +69,11 @@ function dispatch_job($action, $param = '') {
     $tmp_file = $job_dir . '/.tmp_' . $job_id;
     $job_file = $job_dir . '/' . $job_id . '.job';
     
+    clearstatcache(true); // Caches flushen, um frisch gespeicherte Config zu garantieren
+    $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+    $configMap = file_exists($conf_file) ? parseConfig((string)@file_get_contents($conf_file)) : [];
+    $sys_lang = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
+
     write_job_status($job_id, 'queued', 0, 'Wartet in der Queue');
     
     // Sicheres Key-Value Format mit strikten Quotes (Vorbeugung gegen '=' und Leerzeichen)
@@ -76,6 +81,7 @@ function dispatch_job($action, $param = '') {
     $clean_param  = str_replace(["\r", "\n", '"'], '', $param);
     $payload  = "ACTION=\"" . $clean_action . "\"\n";
     $payload .= "PARAM=\"" . $clean_param . "\"\n";
+    $payload .= "LANGUAGE=\"" . $sys_lang . "\"\n";
     $payload .= "TIMESTAMP=\"" . time() . "\"\n";
     
     // Atomisches Schreiben: Erst Temp-Datei, dann Rename
