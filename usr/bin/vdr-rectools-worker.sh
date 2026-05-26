@@ -21,6 +21,8 @@ while true; do
         ACTION=""
         PARAM=""
         while IFS='=' read -r key value; do
+            value="${value%\"}"
+            value="${value#\"}"
             case "$key" in
                 ACTION) ACTION="$value" ;;
                 PARAM) PARAM="$value" ;;
@@ -45,16 +47,14 @@ while true; do
             SUCCESS=1
         fi
         
-        # 4. Saubere Status-Historie und Logging (Lock wird geloescht, Status neu erstellt)
+        # 4. Saubere Status-Historie und Logging
         LOG_FILE="/var/log/vdr-rectools-worker.log"
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] EXIT=$SUCCESS ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
         if [ $SUCCESS -eq 0 ]; then
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] SUCCESS: ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
-            touch "${job%.job}.done" 2>/dev/null
+            mv "$LOCK_FILE" "${job%.job}.done" 2>/dev/null
         else
-            echo "[$(date +'%Y-%m-%d %H:%M:%S')] FAILED (Exit $SUCCESS): ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
-            touch "${job%.job}.err" 2>/dev/null
+            mv "$LOCK_FILE" "${job%.job}.err" 2>/dev/null
         fi
-        rm -f "$LOCK_FILE"
     done
     
     sleep 0.5

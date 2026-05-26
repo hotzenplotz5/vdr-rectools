@@ -10,12 +10,12 @@ function dispatch_job($action, $param = '') {
     $tmp_file = $job_dir . '/.tmp_' . $job_id;
     $job_file = $job_dir . '/job_' . $job_id . '.job';
     
-    // Sicheres reines Text-Format (Key=Value), ohne Bash-Quotes fuer den sicheren read-Loop
-    $clean_action = str_replace(["\r", "\n"], "", $action);
-    $clean_param = str_replace(["\r", "\n"], "", $param);
-    $payload = "ACTION=" . $clean_action . "\n";
-    $payload .= "PARAM=" . $clean_param . "\n";
-    $payload .= "TIMESTAMP=" . time() . "\n";
+    // Sicheres Key-Value Format mit strikten Quotes (Vorbeugung gegen '=' und Leerzeichen)
+    $clean_action = str_replace(["\r", "\n", '"'], '', $action);
+    $clean_param  = str_replace(["\r", "\n", '"'], '', $param);
+    $payload  = "ACTION=\"" . $clean_action . "\"\n";
+    $payload .= "PARAM=\"" . $clean_param . "\"\n";
+    $payload .= "TIMESTAMP=\"" . time() . "\"\n";
     
     // Atomisches Schreiben: Erst Temp-Datei, dann Rename
     @file_put_contents($tmp_file, $payload);
