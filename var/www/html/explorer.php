@@ -171,6 +171,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Ordner nicht gefunden!</div>";
         }
+        } elseif (isset($_POST['recover_skipped'])) {
+            $file = $_POST['recover_skipped'];
+            if (file_exists($file) && is_file($file)) {
+                $clean = preg_replace('/\.skipped\./', '.', $file);
+                $clean = preg_replace('/\.skipped$/', '', $clean);
+                if (@rename($file, $clean)) {
+                    $msg = "<div class='msg msg-ok'>✅ Datei erfolgreich für den Import freigegeben!</div>";
+                } else {
+                    $msg = "<div class='msg msg-err'>❌ Fehler beim Freigeben der Datei.</div>";
+                }
+            }
+        } elseif (isset($_POST['manual_skipped'])) {
+            $file = $_POST['manual_skipped'];
+            if (file_exists($file) && is_file($file)) {
+                $clean = preg_replace('/\.skipped\./', '.', $file);
+                $clean = preg_replace('/\.skipped$/', '', $clean);
+                $info = pathinfo($clean);
+                $target = $info['dirname'] . '/' . $info['filename'] . '.pc_encode';
+                if (isset($info['extension'])) {
+                    $target .= '.' . $info['extension'];
+                }
+                if (@rename($file, $target)) {
+                    $msg = "<div class='msg msg-ok'>✅ Datei für den PC delegiert (.pc_encode)!</div>";
+                } else {
+                    $msg = "<div class='msg msg-err'>❌ Fehler beim Delegieren an den PC.</div>";
+                }
+            }
     }
 }
 
@@ -281,6 +308,10 @@ $dst_contents = get_dir_contents($dst);
                                 <?= htmlspecialchars($f['name']) ?> <span style="color: #666; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span>
                             </span>
                         </label>
+                        <?php if (strpos($f['name'], '.skipped') !== false): ?>
+                            <button type="submit" name="recover_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white;" title="Freigeben">🔄</button>
+                            <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white;" title="An PC delegieren">🖥️</button>
+                        <?php endif; ?>
                         <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white;" formtarget="_blank" title="Herunterladen">⬇️</button>
                         <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('Diese Datei wirklich UNWIDERRUFLICH löschen?');">🗑️</button>
                         <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
@@ -311,6 +342,10 @@ $dst_contents = get_dir_contents($dst);
                         <div class="item" style="color: #888; display: flex; justify-content: space-between; align-items: center;">
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?> <span style="color: #555; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span></span>
                             <form method="POST" style="margin: 0;">
+                                <?php if (strpos($f['name'], '.skipped') !== false): ?>
+                                    <button type="submit" name="recover_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white; padding: 2px 8px;" title="Für erneuten Import freigeben">🔄 Import</button>
+                                    <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white; padding: 2px 8px;" title="An PC delegieren (.pc_encode)">🖥️ PC</button>
+                                <?php endif; ?>
                                 <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white; padding: 2px 8px;" formtarget="_blank" title="Herunterladen">⬇️</button>
                                 <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diese Datei im Zielordner UNWIDERRUFLICH löschen?');">🗑️</button>
                             </form>
