@@ -100,7 +100,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 | **ASK_BEFORE_ENCODE** | Nachfrage per Dashboard/Mail vor einem Re-Encode (1=An, 0=Aus) | `1` |
 | **HTML_DASHBOARD** | Exportiert den Live-Status als HTML-Seite (1=An, 0=Aus) | `0` |
 | **HTML_PATH** | Speicherpfad für das Web-Dashboard | `/var/www/html/rectools.html` |
-| **LANGUAGE** | Sprache für das Web-Dashboard (`de`, `en`, `es`, `fr`, `it`, `pt`) | `de` |
+| **LANGUAGE** | Sprache für das Web-Dashboard (`de`, `en`, `es`, `fr`, `it`, `pl`, `pt`) | `de` |
 | **CRF_H264_DEFAULT** | CRF-Wert für H.264 (niedriger=besser) | `23` |
 | **PRESET_H264_DEFAULT** | Preset für H.264 (z.B. `medium`, `fast`) | `medium` |
 | **CRF_H265_DEFAULT** | CRF-Wert für H.265 (niedriger=besser) | `23` |
