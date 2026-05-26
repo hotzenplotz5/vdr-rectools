@@ -31,7 +31,6 @@ is_running() {
 # 2. Funktionen laden
 # Laden der Funktionen (wird nun auch für 'status' benötigt, um show_status aufzurufen)
 if [[ "$1" != "stop" && "$1" != "check_running" ]]; then
-    export LANGUAGE_OVERRIDE="${LANGUAGE_OVERRIDE:-de}"
     if [ -f /usr/share/vdr-rectools/functions.sh ]; then
         source /usr/share/vdr-rectools/functions.sh
     else
@@ -107,34 +106,8 @@ case "$1" in
             echo "vdr-rectools läuft bereits."
             exit 1
         fi
-        echo "Starte vdr-rectools im Hintergrund..."
-        (
-            run_scan "normal"
-        ) &
-        ;;
-
-    start_sync)
-        if is_running; then
-            echo "vdr-rectools läuft bereits."
-            exit 1
-        fi
+        echo "Starte vdr-rectools..."
         run_scan "normal"
-        ;;
-
-    import_sync)
-        if is_running; then
-            echo "vdr-rectools läuft bereits."
-            exit 1
-        fi
-        run_scan "import"
-        ;;
-
-    repair_sync)
-        if is_running; then
-            echo "vdr-rectools läuft bereits."
-            exit 1
-        fi
-        run_scan "repair"
         ;;
 
     import)
@@ -142,10 +115,8 @@ case "$1" in
             echo "vdr-rectools läuft bereits."
             exit 1
         fi
-        echo "Starte Import im Hintergrund..."
-        (
-            run_scan "import"
-        ) &
+        echo "Starte Import..."
+        run_scan "import"
         ;;
 
     repair)
@@ -308,24 +279,15 @@ case "$1" in
 
     refresh)
         if ! is_running; then
-            (
-                if [ -f /usr/share/vdr-rectools/functions.sh ]; then
-                    source /usr/share/vdr-rectools/functions.sh
-                fi
-                if [[ -n "$2" ]]; then
-                    export LANGUAGE_OVERRIDE="$2"
-                fi
-                ensure_single_instance
-                export_html_status
-            ) &
+            if [ -f /usr/share/vdr-rectools/functions.sh ]; then
+                source /usr/share/vdr-rectools/functions.sh
+            fi
+            ensure_single_instance
+            export_html_status
         fi
         ;;
         
     update-html)
-        # Sprach-Override aus PHP akzeptieren, um Race-Conditions zu umgehen
-        if [[ -n "$2" ]]; then
-            export LANGUAGE_OVERRIDE="$2"
-        fi
         export_html_status
         ;;
 

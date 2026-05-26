@@ -45,13 +45,9 @@ if [ -f "$CONFIG_FILE" ]; then
     . "$CONFIG_FILE"
 fi
 
-# Override zwingend priorisieren (verhindert Dashboard-Sprachen-Glitches durch alte Config-Dateien)
-if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
-    export LANGUAGE="$LANGUAGE_OVERRIDE"
-fi
-
+export LANGUAGE="${LANGUAGE:-de}"
 # 3. SPRACHDATEIEN LADEN
-LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
+LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
 if [ -f "$LANG_FILE" ]; then
     . "$LANG_FILE"
 elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then
@@ -1132,25 +1128,14 @@ export_html_status() {
     local HTML="${HTML_PATH:-/var/www/html/rectools.html}"
     [[ -z "$HTML" ]] && return
     
-    # --- DEBUGGING-Block (Vorschlag vom Kumpel) ---
-    echo "===== HTML-EXPORT $(date) =====" >> /tmp/rectools_debug.log
-    echo "LANGUAGE_OVERRIDE (aus PHP): ${LANGUAGE_OVERRIDE}" >> /tmp/rectools_debug.log
-    
     # --- NEU: Sprache live neu laden ---
     # Verhindert, dass laufende Hintergrund-Jobs Änderungen aus config.php wieder überschreiben!
     if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then . "/etc/vdr/conf.d/vdr-rectools.conf"; fi
 
-    # Sprach-Override aus dem CLI-Aufruf (PHP) priorisieren
-    if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
-        LANGUAGE="$LANGUAGE_OVERRIDE"
-        echo "LANGUAGE (nach Override): ${LANGUAGE}" >> /tmp/rectools_debug.log
-    fi
-
-    local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
+    export LANGUAGE="${LANGUAGE:-de}"
+    local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
     if [ -f "$L_FILE" ]; then . "$L_FILE"; elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then . "/usr/share/vdr-rectools/lang/de.sh"; fi
     # -----------------------------------
-
-    echo "FINAL LANGUAGE (fuer HTML): ${LANGUAGE}" >> /tmp/rectools_debug.log
 
     local PID=""
     local IS_RUNNING=0
@@ -1345,9 +1330,9 @@ export_html_status() {
     
     # Nur ueberschreiben, wenn die Datei erfolgreich generiert wurde (verhindert kaputte/weisse Seiten)
     if [[ -s "$TMP_HTML" ]]; then
-        cat "$TMP_HTML" > "$HTML" 2>/dev/null || true
-        rm -f "$TMP_HTML" 2>/dev/null || true
-        chmod 666 "$HTML" 2>/dev/null || true
+        chmod 666 "$TMP_HTML" 2>/dev/null || true
+        # Atomares Verschieben verhindert Trunkierungs-Glitches beim Webserver
+        mv -f "$TMP_HTML" "$HTML" 2>/dev/null || true
     else
         rm -f "$TMP_HTML" 2>/dev/null || true
     fi
