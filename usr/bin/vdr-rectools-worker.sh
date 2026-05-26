@@ -35,6 +35,7 @@ write_status() {
         ACTION=""
         PARAM=""
         LANGUAGE=""
+        IDEMPOTENCY_KEY=""
         while IFS='=' read -r key value; do
             value="${value%\"}"
             value="${value#\"}"
@@ -42,6 +43,7 @@ write_status() {
                 ACTION) ACTION="$value" ;;
                 PARAM) PARAM="$value" ;;
                 LANGUAGE) LANGUAGE="$value" ;;
+                IDEMPOTENCY_KEY) IDEMPOTENCY_KEY="$value" ;;
             esac
         done < "$LOCK_FILE"
         
@@ -77,5 +79,9 @@ write_status() {
         else
             mv "$LOCK_FILE" "${job%.job}.err" 2>/dev/null
             write_status "$JOB_NAME" "error" 0 "Fehler (Exit $SUCCESS)"
+        fi
+        
+        if [ -n "$IDEMPOTENCY_KEY" ]; then
+            rm -f "$JOB_DIR/key_$IDEMPOTENCY_KEY" 2>/dev/null
         fi
     done

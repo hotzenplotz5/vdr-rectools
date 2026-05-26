@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="container">
-        <h2><?= __('cfg_title') ?></h2>
+        <h2><?= __('cfg_title') ?> <span id="queue-monitor" style="float: right; font-size: 0.6em; color: #aaa; margin-top: 10px; font-weight: normal;"></span></h2>
         <?= $msg ?>
         <form method="POST">
             <textarea name="config_data" spellcheck="false"><?= htmlspecialchars($current_conf) ?></textarea>
@@ -127,5 +127,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </script>
     <?php endif; ?>
+    <script>
+        setInterval(async () => {
+            try {
+                const res = await fetch('job_queue.php');
+                const data = await res.json();
+                const monitor = document.getElementById('queue-monitor');
+                if (monitor) monitor.innerText = `Queue: ${data.queue} | Running: ${data.running}`;
+            } catch (e) {}
+        }, 2000);
+    </script>
 </body>
 </html>
