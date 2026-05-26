@@ -6,20 +6,21 @@ function dispatch_job($action, $param = '') {
         @chmod($job_dir, 0777);
     }
     
-    $job_id = uniqid();
+    $job_id = uniqid('', true);
+    $tmp_file = $job_dir . '/.tmp_' . $job_id;
     $job_file = $job_dir . '/job_' . $job_id . '.job';
-    $done_file = $job_dir . '/job_' . $job_id . '.done';
     
-    $data = $action . '|' . $param;
-    @file_put_contents($job_file, $data);
-    @chmod($job_file, 0666);
+    $payload = json_encode([
+        'action' => $action,
+        'param' => $param,
+        'timestamp' => time()
+    ]);
     
-    // Warten auf Abschluss durch den Worker (max 5 Sekunden)
-    $timeout = 50; 
-    while (!file_exists($done_file) && $timeout > 0) {
-        usleep(100000); // 100ms
-        $timeout--;
-    }
-    @unlink($done_file);
+    // Atomisches Schreiben: Erst Temp-Datei, dann Rename
+    @file_put_contents($tmp_file, $payload);
+    @chmod($tmp_file, 0666);
+    @rename($tmp_file, $job_file);
+    
+    // KEIN WARTEN MEHR (Fire & Forget)!
 }
 ?>

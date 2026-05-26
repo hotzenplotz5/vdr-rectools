@@ -13,25 +13,33 @@ while true; do
     for job in "$JOB_DIR"/*.job; do
         [ -e "$job" ] || continue
         
-        JOB_DATA=$(cat "$job" 2>/dev/null)
-        rm -f "$job" 2>/dev/null
+        # 1. Atomisches Claiming (verhindert Race-Conditions mit anderen Workern)
+        RUNNING_FILE="${job%.job}.running"
+        mv "$job" "$RUNNING_FILE" 2>/dev/null || continue
         
-        ACTION=$(echo "$JOB_DATA" | cut -d'|' -f1)
-        PARAM=$(echo "$JOB_DATA" | cut -d'|' -f2)
+        # 2. JSON auslesen (dependency-free ueber grep)
+        ACTION=$(grep -Eo '"action"\s*:\s*"[^"]*"' "$RUNNING_FILE" 2>/dev/null | cut -d'"' -f4)
+        PARAM=$(grep -Eo '"param"\s*:\s*"[^"]*"' "$RUNNING_FILE" 2>/dev/null | cut -d'"' -f4)
         
+        # 3. Job synchron ausfuehren (import etc forken sich intern selbst)
         if [ "$ACTION" == "update-html" ]; then
             /usr/bin/vdr-rectools update-html "$PARAM" >/dev/null 2>&1
         elif [ "$ACTION" == "import" ]; then
-            /usr/bin/vdr-rectools import >/dev/null 2>&1 &
+            /usr/bin/vdr-rectools import >/dev/null 2>&1
         elif [ "$ACTION" == "stop" ]; then
-            /usr/bin/vdr-rectools stop >/dev/null 2>&1 &
+            /usr/bin/vdr-rectools stop >/dev/null 2>&1
         elif [ "$ACTION" == "restart_vdr" ]; then
             /bin/systemctl --no-block restart vdr.service >/dev/null 2>&1 &
         fi
         
+        # 4. Status auf Done setzen
         DONE_FILE="${job%.job}.done"
-        touch "$DONE_FILE"
+        mv "$RUNNING_FILE" "$DONE_FILE" 2>/dev/null
         chmod 666 "$DONE_FILE" 2>/dev/null
     done
+    
+    # 5. Alte .done Dateien aufraeumen (aelter als 5 Minuten)
+    find "$JOB_DIR" -name "*.done" -mmin +5 -delete 2>/dev/null
+    
     sleep 0.5
 done
