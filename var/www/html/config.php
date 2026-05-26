@@ -14,18 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_put_contents($conf_file, $new_data) !== false) {
         $new_lang = 'de';
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
-        // Dashboard zwingend SYNCHRON aktualisieren, bevor die Seite neu laedt! Keine Hintergrund-Jobs mehr.
-        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' >/dev/null 2>&1');
-        header('Location: config.php?saved=1&t=' . time());
-        exit;
+        // Dashboard-Update explizit als Bash-Hintergrundprozess (identisch zum Import-Button)
+        exec('nohup /bin/bash -c "/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . '" </dev/null >/dev/null 2>&1 &');
+        $save_success = true;
     } else {
-        header('Location: config.php?error=1&t=' . time());
-        exit;
+        $save_error = true;
     }
 }
-
-$save_success = isset($_GET['saved']);
-$save_error = isset($_GET['error']);
 
 // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
 clearstatcache();
