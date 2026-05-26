@@ -19,6 +19,8 @@
 * **📱 Push-Benachrichtigungen:** Sende Statusberichte und Erfolgsmeldungen via Telegram Bot direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 * **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
+* **🌐 Web-Dashboard (HTML):** Ein Web-Dashboard für Live-Überwachung, Log-Einsicht und Dateimanagement (Explorer) direkt im Browser.
+* **🖥️ PC-Delegierung (Handbrake):** Re-Encodes können auf einen leistungsstarken Windows-PC (.pc_encode) ausgelagert werden.
 
 ---
 

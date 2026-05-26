@@ -20,7 +20,8 @@
 * **📱 Push-Benachrichtigungen:** Optionaler Versand von Statusberichten via Telegram direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 * **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
-* **🌐 Web-Dashboard (HTML):** Optionale, auto-refreshende Web-Oberfläche für Browser (Desktop & Smartphone) zur Live-Überwachung.
+* **🌐 Web-Dashboard (HTML):** Optionale, auto-refreshende Web-Oberfläche für Browser (Desktop & Smartphone) zur Live-Überwachung inkl. integriertem Datei-Explorer.
+* **🖥️ PC-Delegierung (Handbrake):** Filme, die einen Re-Encode benötigen, können für die bequeme externe Bearbeitung über eine Netzwerkfreigabe (Samba) markiert werden, ohne den VDR-Import zu blockieren.
 
 ---
 
