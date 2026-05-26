@@ -27,7 +27,7 @@ if (isset($_GET['action'])) {
             }
         }
         // UI Update anfordern, damit der Prompt sofort verschwindet
-        dispatch_job('update-html');
+        exec('/usr/bin/vdr-rectools update-html >/dev/null 2>&1');
     }
 }
 
