@@ -41,21 +41,31 @@ if [ -d /run/systemd/system ]; then
     # Worker Service anlegen und starten
     cat <<EOFW > /etc/systemd/system/vdr-rectools-worker.service
 [Unit]
-Description=VDR-Rectools Web-UI Worker
-After=network.target
+Description=VDR-Rectools Web-UI Worker (Oneshot)
 
 [Service]
-Type=simple
+Type=oneshot
 ExecStart=/usr/bin/vdr-rectools-worker
-Restart=always
-RestartSec=3
+EOFW
+
+    # Systemd Path-Unit (Event-Trigger) anlegen
+    cat <<EOFP > /etc/systemd/system/vdr-rectools-worker.path
+[Unit]
+Description=VDR-Rectools Job Queue Watcher
+
+[Path]
+PathModified=/tmp/vdr-rectools-jobs
+MakeDirectory=yes
 
 [Install]
 WantedBy=multi-user.target
-EOFW
+EOFP
+
     systemctl daemon-reload
-    systemctl enable vdr-rectools-worker.service || true
-    systemctl restart vdr-rectools-worker.service || true
+    systemctl disable vdr-rectools-worker.service || true
+    systemctl stop vdr-rectools-worker.service || true
+    systemctl enable vdr-rectools-worker.path || true
+    systemctl start vdr-rectools-worker.path || true
 fi
 
 # 4. VDR OSD-Befehle (drop-in)
