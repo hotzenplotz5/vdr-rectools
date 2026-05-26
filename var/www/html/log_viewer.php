@@ -1,11 +1,11 @@
 <?php
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $language = 'de';
+require_once __DIR__ . '/job_dispatcher.php';
+clearstatcache(true);
 if (file_exists($conf_file)) {
-    $lines = @file($conf_file) ?: [];
-    foreach ($lines as $line) {
-        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
-    }
+    $configMap = parseConfig((string)@file_get_contents($conf_file));
+    $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
 }
 
 $lang_file = __DIR__ . "/lang/{$language}.json";

@@ -8,38 +8,7 @@ $msg = '';
 $language = 'de';
 $current_conf = '';
 
-// 1. Sauberes KV-Datenmodell (Parser & Serializer)
-function parseConfig($text) {
-    $out = [];
-    foreach (explode("\n", str_replace("\r\n", "\n", $text)) as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') continue;
-        // First-Wins Prinzip: Der erste Treffer (oben) zaehlt.
-        if (preg_match('/^([A-Z0-9_]+)=(.*)$/', $line, $m)) {
-            $key = trim($m[1]);
-            if (!isset($out[$key])) {
-                $out[$key] = trim(trim($m[2]), "\"'");
-            }
-        }
-    }
-    return $out;
-}
-
-function serializeConfig($config) {
-    $out = "";
-    foreach ($config as $k => $v) {
-        $out .= $k . "=\"" . $v . "\"\n";
-    }
-    return $out;
-}
-
-function normalizeLanguage($lang) {
-    if (!is_string($lang)) return 'de';
-    if (!preg_match('/^[a-z]{2}(_[A-Z]{2})?$/', $lang)) {
-        return 'de';
-    }
-    return $lang;
-}
+require_once __DIR__ . '/job_dispatcher.php';
 
 // 2. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
@@ -54,10 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_put_contents($conf_file, $new_data) !== false) {
         $current_conf = $new_data;
 
-        // Dashboard ueber den neuen Worker aktualisieren und auf Abschluss warten
-        require_once __DIR__ . '/job_dispatcher.php';
-        dispatch_job('update-html', $language);
-        clearstatcache(true); // Verhindert PHP File-Cache Probleme
+        // Dashboard zwingend SYNCHRON aktualisieren!
+        // Der async-Worker schlaeft 0.5s - klickt der User sofort auf "Zurueck", sieht er das alte Dashboard!
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
+        clearstatcache(true); // Verhindert PHP Cache Probleme
         $save_success = true;
     } else {
         $save_error = true;

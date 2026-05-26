@@ -6,12 +6,12 @@ header("Expires: 0");
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $import_dir = '/srv/vdr/import';
 $language = 'de';
+require_once __DIR__ . '/job_dispatcher.php';
+clearstatcache(true);
 if (file_exists($conf_file)) {
-    $lines = @file($conf_file) ?: [];
-    foreach ($lines as $line) {
-        if (preg_match('/^IMPORT_DIR=["\']?(.*?)["\']?$/', trim($line), $m)) $import_dir = $m[1];
-        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
-    }
+    $configMap = parseConfig((string)@file_get_contents($conf_file));
+    $import_dir = $configMap['IMPORT_DIR'] ?? '/srv/vdr/import';
+    $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
 }
 
 $lang_file = __DIR__ . "/lang/{$language}.json";
@@ -229,8 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        require_once __DIR__ . '/job_dispatcher.php';
-        dispatch_job('update-html', $language);
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
         clearstatcache(true);
     }
 }
