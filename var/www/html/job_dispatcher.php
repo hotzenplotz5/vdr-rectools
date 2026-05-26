@@ -83,7 +83,26 @@ function dispatch_job($action, $param = '') {
         }
     }
     
-    $job_id = 'job_' . uniqid('', true);
+    // FIFO-Garantie: Monotone Sequenznummer statt zufaelliger ID erzeugen
+    $seq_file = $job_dir . '/.seq';
+    $seq = 0;
+    $fp = @fopen($seq_file, 'c+');
+    if ($fp) {
+        if (flock($fp, LOCK_EX)) {
+            $seq = (int)stream_get_contents($fp);
+            $seq++;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, (string)$seq);
+            fflush($fp);
+            flock($fp, LOCK_UN);
+        }
+        fclose($fp);
+        @chmod($seq_file, 0666);
+    }
+    if ($seq === 0) $seq = (int)(microtime(true) * 10000); // Fallback
+    
+    $job_id = 'job_' . sprintf('%020d', $seq);
     $tmp_file = $job_dir . '/.tmp_' . $job_id;
     $job_file = $job_dir . '/' . $job_id . '.job';
 

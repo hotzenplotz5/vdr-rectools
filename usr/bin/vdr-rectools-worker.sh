@@ -22,7 +22,8 @@ write_status() {
     chmod 666 "$S_FILE" 2>/dev/null
 }
 
-    for job in "$JOB_DIR"/*.job; do
+    # FIFO-Garantie: Jobs zwingend nach ihrer Sequenznummer (Version Sort) abarbeiten
+    for job in $(ls -1v "$JOB_DIR"/*.job 2>/dev/null); do
         [ -e "$job" ] || continue
         
         JOB_NAME=$(basename "${job%.job}")
