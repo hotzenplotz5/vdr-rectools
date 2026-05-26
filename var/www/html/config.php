@@ -33,12 +33,20 @@ function serializeConfig($config) {
     return $out;
 }
 
+function normalizeLanguage($lang) {
+    if (!is_string($lang)) return 'de';
+    if (!preg_match('/^[a-z]{2}(_[A-Z]{2})?$/', $lang)) {
+        return 'de';
+    }
+    return $lang;
+}
+
 // 2. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     // Datenmodell aus dem POST-Input aufbauen (eliminiert Duplikate automatisch)
     $configMap = parseConfig($_POST['config_data']);
-    $language = $configMap['LANGUAGE'] ?? 'de';
-    $language = preg_replace('/[^a-z]/i', '', $language); // Defensive: Verhindert kaputte Locale-Werte
+    $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
+    $configMap['LANGUAGE'] = $language; // Garantiert, dass der saubere Wert auch gespeichert wird
     
     // Sauberen State serialisieren
     $new_data = serializeConfig($configMap);
@@ -61,8 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_exists($conf_file)) {
         $raw_text = (string)@file_get_contents($conf_file);
         $configMap = parseConfig($raw_text);
-        $language = $configMap['LANGUAGE'] ?? 'de';
-        $language = preg_replace('/[^a-z]/i', '', $language); // Defensive: Verhindert kaputte Locale-Werte
+        $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
+        $configMap['LANGUAGE'] = $language; // Garantiert, dass der saubere Wert im Editor angezeigt wird
         $current_conf = serializeConfig($configMap); // Zeige immer den sauberen KV-State im Editor
     }
 }
