@@ -25,9 +25,11 @@ write_status() {
 echo "VDR-Rectools Worker gestartet. Warte auf Jobs in $JOB_DIR..."
 
 while true; do
+    JOBS_FOUND=0
     for job in "$JOB_DIR"/*.job; do
         [ -e "$job" ] || continue
         
+        JOBS_FOUND=1
         JOB_NAME=$(basename "${job%.job}")
         
         # 1. Atomisches Claiming (verhindert Race-Conditions mit anderen Workern)
@@ -78,5 +80,12 @@ while true; do
         fi
     done
     
-    sleep 0.5
+    # 5. Zero-Polling (Event-Driven): CPU-Schlafmodus, bis neue Dateien eintreffen
+    if [ $JOBS_FOUND -eq 0 ]; then
+        if command -v inotifywait >/dev/null 2>&1; then
+            inotifywait -qq -e close_write,moved_to "$JOB_DIR" 2>/dev/null || sleep 1
+        else
+            sleep 0.5 # Fallback, falls inotify-tools nicht installiert ist
+        fi
+    fi
 done
