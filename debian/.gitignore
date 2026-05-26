@@ -1,0 +1,5 @@
+debian/debhelper-build-stamp
+debian/vdr-rectools/
+debian/vdr-rectools.substvars
+debian/files
+*.deb

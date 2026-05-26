@@ -441,10 +441,13 @@ process_folder() {
                 echo "[$(date +%T)] Starte Stream-Check via Pipe..." >> "$LOG_FILE"
                 CHECK_ERRORS=$(cat 000*.ts | ffmpeg -v error -i pipe:0 -f null - 2>&1 | filter_ffmpeg_log)
                 if [[ -z "$CHECK_ERRORS" ]]; then
-                    send_mail "Die Aufnahme '$CLEAN_NAME' ist fehlerfrei." "Prüfung erfolgreich"
+                    local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_OK_BODY:-Die Aufnahme '%s' ist fehlerfrei.}" "$CLEAN_NAME"
+                    local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_OK_SUBJ:-Prüfung erfolgreich}"
+                    send_mail "$M_BODY" "$M_SUBJ"
                 else
-                    local MAIL_BODY="In der Aufnahme '$CLEAN_NAME' wurden Fehler gefunden.\n\nFehlerdetails:\n$CHECK_ERRORS"
-                    send_mail "$MAIL_BODY" "Prüfung fehlgeschlagen: $CLEAN_NAME"
+                    local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_ERR_BODY:-In der Aufnahme '%s' wurden Fehler gefunden.\n\nFehlerdetails:\n%s}" "$CLEAN_NAME" "$CHECK_ERRORS"
+                    local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_ERR_SUBJ:-Prüfung fehlgeschlagen: %s}" "$CLEAN_NAME"
+                    send_mail "$M_BODY" "$M_SUBJ"
                 fi
                 return
                 ;;
@@ -525,8 +528,9 @@ confirm_encoding() {
     chmod 666 "$PROMPT_FILE" 2>/dev/null || true # Erlaubt Usern, J oder N via Dashboard zu drücken
     
     # E-Mail/Telegram senden
-    local MAIL_BODY="Der Film '$TITLE' (Codec: $CODEC) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools confirm\n\n... um den Vorgang zu bestaetigen oder abzulehnen."
-    send_mail "$MAIL_BODY" "Aktion erforderlich: Re-Encode fuer $TITLE"
+    local M_BODY; printf -v M_BODY "${TXT_MAIL_REQ_BODY:-Der Film '%s' (Codec: %s) muss komplett re-encodiert werden. Dies kann abhaengig von der Hardware mehrere Stunden dauern.\n\nBitte loggen Sie sich per Konsole ein und starten Sie:\n\nvdr-rectools confirm\n\n... um den Vorgang zu bestaetigen oder abzulehnen.}" "$TITLE" "$CODEC"
+    local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_REQ_SUBJ:-Aktion erforderlich: Re-Encode fuer %s}" "$TITLE"
+    send_mail "$M_BODY" "$M_SUBJ"
     
     echo "[$(date +%T)] Warte auf Nutzerbestätigung für Re-Encode von '$TITLE'..." >> "$LOG_FILE"
     set_state "Warte auf Bestätigung (Re-Encode): $TITLE"
@@ -578,15 +582,15 @@ handle_osd_confirm() {
     if [[ "$ANSWER" == "yes" ]]; then
         sed -i 's/^WAIT/YES/' "$PROMPT_FILE"
         echo "-> Re-Encode fuer '$P_TITLE' GESTARTET."
-        /usr/bin/svdrpsend MESG "Rectools: Re-Encode gestartet" >/dev/null 2>&1 || true
+        /usr/bin/svdrpsend MESG "Rectools: ${TXT_OSD_RECODE_START:-Re-Encode gestartet}" >/dev/null 2>&1 || true
     elif [[ "$ANSWER" == "no" ]]; then
         sed -i 's/^WAIT/NO/' "$PROMPT_FILE"
         echo "-> Re-Encode fuer '$P_TITLE' ABGELEHNT."
-        /usr/bin/svdrpsend MESG "Rectools: Import uebersprungen" >/dev/null 2>&1 || true
+        /usr/bin/svdrpsend MESG "Rectools: ${TXT_OSD_RECODE_SKIP:-Import uebersprungen}" >/dev/null 2>&1 || true
     elif [[ "$ANSWER" == "manual" ]]; then
         sed -i 's/^WAIT/MANUAL/' "$PROMPT_FILE"
         echo "-> Re-Encode fuer '$P_TITLE' an PC delegiert."
-        /usr/bin/svdrpsend MESG "Rectools: Fuer PC-Bearbeitung markiert" >/dev/null 2>&1 || true
+        /usr/bin/svdrpsend MESG "Rectools: ${TXT_OSD_RECODE_PC:-Fuer PC-Bearbeitung markiert}" >/dev/null 2>&1 || true
     fi
 }
 
@@ -758,7 +762,9 @@ process_import() {
         # QA Check: Dateigröße
         if ! check_size "$SOURCE_FILE" "$STAGING_REC/00001.ts" "$EXPECTED_RATIO" "$ACTION_TYPE_LOG"; then
             echo "[$(date +%T)] FEHLER: $ACTION_TYPE_LOG für $FILENAME fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wird nicht gelöscht." >> "$LOG_FILE"
-            send_mail "$ACTION_TYPE_LOG für '$PRETTY_TITLE' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wurde nicht gelöscht." "Import-Fehler"
+            local M_BODY; printf -v M_BODY "${TXT_MAIL_IMP_ERR_BODY:-%s für '%s' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wurde nicht gelöscht.}" "$ACTION_TYPE_LOG" "$PRETTY_TITLE"
+            local M_SUBJ="${TXT_MAIL_IMP_ERR_SUBJ:-Import-Fehler}"
+            send_mail "$M_BODY" "$M_SUBJ"
             rm -rf "$STAGING_REC" # Den fehlerhaften Staging-Ordner löschen
             return 1
         fi
@@ -828,7 +834,9 @@ process_import() {
             rm -f "$SOURCE_FILE"
         else
             echo "[$(date +%T)] FEHLER: Konnte $STAGING_REC nicht nach $FINAL_DEST verschieben." >> "$LOG_FILE"
-            send_mail "Fehler beim Verschieben in den Zielordner für '$PRETTY_TITLE'. Die Originaldatei bleibt erhalten." "Import-Fehler"
+            local M_BODY; printf -v M_BODY "${TXT_MAIL_IMP_ERR_MOVE:-Fehler beim Verschieben in den Zielordner für '%s'. Die Originaldatei bleibt erhalten.}" "$PRETTY_TITLE"
+            local M_SUBJ="${TXT_MAIL_IMP_ERR_SUBJ:-Import-Fehler}"
+            send_mail "$M_BODY" "$M_SUBJ"
             rm -rf "$STAGING_REC"
             return 1
         fi
@@ -845,7 +853,9 @@ process_import() {
 
         echo "$PRETTY_TITLE" >> "$SESSION_FILE" 2>/dev/null || true
         echo "[$(date +%T)] ERFOLG: Import von '$PRETTY_TITLE' erfolgreich abgeschlossen!" >> "$LOG_FILE"
-        send_mail "Der Film '$PRETTY_TITLE' wurde erfolgreich importiert." "Import erfolgreich: $PRETTY_TITLE"
+        local M_BODY; printf -v M_BODY "${TXT_MAIL_IMP_OK_BODY:-Der Film '%s' wurde erfolgreich importiert.}" "$PRETTY_TITLE"
+        local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_IMP_OK_SUBJ:-Import erfolgreich: %s}" "$PRETTY_TITLE"
+        send_mail "$M_BODY" "$M_SUBJ"
         return 0
     else
         echo "[$(date +%T)] FEHLER: FFmpeg-Verarbeitung fuer $FILENAME abgebrochen (Status $FF_STATUS)." >> "$LOG_FILE"
@@ -1013,11 +1023,11 @@ show_status() {
     if [[ -f "$LOG_FILE" ]]; then
         # 'grep -v "frame="' filtert den FFmpeg-Fortschritts-Spam aus der Anzeige heraus
         tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 8 | while read -r line; do
-            if [[ "$line" == *"FEHLER"* || "$line" == *"KRITISCH"* ]]; then
+            if [[ "$line" =~ (FEHLER|ERROR|KRITISCH|CRITICAL) ]]; then
                 echo -e "\033[0;31m$line\033[0m" # Rot
-            elif [[ "$line" == *"WARNUNG"* || "$line" == *"verdächtig"* ]]; then
+            elif [[ "$line" =~ (WARNUNG|WARNING|verdächtig|suspicious) ]]; then
                 echo -e "\033[0;33m$line\033[0m" # Gelb
-            elif [[ "$line" == *"erfolgreich"* || "$line" == *"ERFOLG"* ]]; then
+            elif [[ "$line" =~ (erfolgreich|ERFOLG|SUCCESS|successfully) ]]; then
                 echo -e "\033[0;32m$line\033[0m" # Grün
             else
                 echo -e "\033[0;37m$line\033[0m" # Weiß
@@ -1282,9 +1292,9 @@ export_html_status() {
     local LOG_HTML=""
     if [[ -f "$LOG_FILE" ]]; then
         LOG_HTML=$(tail -n 40 "$LOG_FILE" 2>/dev/null | grep -v "frame=" | tail -n 12 | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' | awk '{
-            if ($0 ~ /FEHLER/ || $0 ~ /KRITISCH/) print "<span style=\"color: #F44336;\">" $0 "</span><br>";
-            else if ($0 ~ /WARNUNG/ || $0 ~ /verdächtig/) print "<span style=\"color: #FFC107;\">" $0 "</span><br>";
-            else if ($0 ~ /erfolgreich/ || $0 ~ /ERFOLG/) print "<span style=\"color: #4CAF50;\">" $0 "</span><br>";
+            if ($0 ~ /FEHLER/ || $0 ~ /KRITISCH/ || $0 ~ /ERROR/ || $0 ~ /CRITICAL/) print "<span style=\"color: #F44336;\">" $0 "</span><br>";
+            else if ($0 ~ /WARNUNG/ || $0 ~ /WARNING/ || $0 ~ /verdächtig/ || $0 ~ /suspicious/) print "<span style=\"color: #FFC107;\">" $0 "</span><br>";
+            else if ($0 ~ /erfolgreich/ || $0 ~ /ERFOLG/ || $0 ~ /SUCCESS/ || $0 ~ /successfully/) print "<span style=\"color: #4CAF50;\">" $0 "</span><br>";
             else print "<span style=\"color: #ccc;\">" $0 "</span><br>";
         }')
     fi
