@@ -41,7 +41,7 @@ if [ -d /run/systemd/system ]; then
     # Worker Service anlegen und starten
     cat <<EOFW > /etc/systemd/system/vdr-rectools-worker.service
 [Unit]
-Description=VDR-Rectools Web-UI Worker (Oneshot)
+Description=VDR-Rectools Web-UI Worker
 
 [Service]
 Type=oneshot
