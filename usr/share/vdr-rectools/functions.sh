@@ -46,6 +46,10 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 export LANGUAGE="${LANGUAGE:-de}"
+
+# 3. HARD OVERRIDE (Letzte Instanz gewinnt IMMER)
+if [[ -n "$LANGUAGE_OVERRIDE" ]]; then export LANGUAGE="$LANGUAGE_OVERRIDE"; fi
+
 # 3. SPRACHDATEIEN LADEN
 LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
 if [ -f "$LANG_FILE" ]; then
@@ -67,6 +71,11 @@ if [ -f /usr/share/vdr-rectools/html_template.sh ]; then
 else
     echo "[$(date +%T)] WARNUNG: html_template.sh nicht gefunden! Web-Dashboard wird evtl. nicht korrekt exportiert." >> "$LOG_FILE"
 fi
+
+trigger_dashboard_update() {
+    local LANG_VAL="${LANGUAGE_OVERRIDE:-${LANGUAGE:-de}}"
+    /usr/bin/vdr-rectools update-html "$LANG_VAL" >/dev/null 2>&1 &
+}
 
 send_mail() {
     local BODY="$1"
@@ -162,6 +171,8 @@ ensure_single_instance() {
 
     # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
     trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
+    # Sperre nach Beendigung sauber aufräumen
+    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null; exit 0' EXIT INT TERM
 }
 
 set_state() {
@@ -1041,6 +1052,7 @@ show_status() {
 
     # --- HTML Dashboard synchronisieren ---
     [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null
+    export_html_status 2>/dev/null
 }
 
 # --- NEU: OSD-optimierter Status (Ohne Farben/Umlaute für den TV) ---
@@ -1133,6 +1145,10 @@ export_html_status() {
     if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then . "/etc/vdr/conf.d/vdr-rectools.conf"; fi
 
     export LANGUAGE="${LANGUAGE:-de}"
+    
+    # HARD OVERRIDE (Letzte Instanz gewinnt IMMER)
+    if [[ -n "$LANGUAGE_OVERRIDE" ]]; then export LANGUAGE="$LANGUAGE_OVERRIDE"; fi
+
     local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
     if [ -f "$L_FILE" ]; then . "$L_FILE"; elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then . "/usr/share/vdr-rectools/lang/de.sh"; fi
     # -----------------------------------
