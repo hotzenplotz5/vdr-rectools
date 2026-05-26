@@ -1,1 +1,5 @@
-var/www/html/lang var/www/html/
+﻿etc/* etc/
+lib/* lib/
+usr/* usr/
+var/* var/
+
