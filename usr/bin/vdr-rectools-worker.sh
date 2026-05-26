@@ -85,3 +85,6 @@ write_status() {
             rm -f "$JOB_DIR/key_$IDEMPOTENCY_KEY" 2>/dev/null
         fi
     done
+
+    # Garbage Collector: Haengengebliebene Idempotency Keys (Job TTL) sicher abraeumen
+    find "$JOB_DIR" -type f -name "key_*" -mmin +10 -delete 2>/dev/null

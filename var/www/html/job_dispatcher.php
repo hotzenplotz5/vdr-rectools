@@ -76,15 +76,11 @@ function dispatch_job($action, $param = '') {
     
     clearstatcache(true, $key_file);
     if (file_exists($key_file)) {
-        // Enhancement 1 (Job TTL): "Haengende" Idempotency-Keys nach 10 Minuten verwerfen
-        if (time() - filemtime($key_file) > 600) {
-            @unlink($key_file);
-        } else {
-            $existing_job = trim((string)@file_get_contents($key_file));
-            // Deduplizieren, wenn der Job noch in der Warteschlange ist oder gerade laeuft
-            if (file_exists($job_dir . '/' . $existing_job . '.job') || file_exists($job_dir . '/' . $existing_job . '.lock')) {
-                return $existing_job;
-            }
+        @touch($key_file); // Touch-based lease renewal: TTL automatisch verlaengern
+        $existing_job = trim((string)@file_get_contents($key_file));
+        // Deduplizieren, wenn der Job noch in der Warteschlange ist oder gerade laeuft
+        if (file_exists($job_dir . '/' . $existing_job . '.job') || file_exists($job_dir . '/' . $existing_job . '.lock')) {
+            return $existing_job;
         }
     }
     
