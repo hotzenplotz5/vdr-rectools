@@ -21,7 +21,16 @@
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 * **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
 * **🌐 Web-Dashboard (HTML):** Optionale, auto-refreshende Web-Oberfläche für Browser (Desktop & Smartphone) zur Live-Überwachung inkl. integriertem Datei-Explorer.
+* **⚡ Event-Driven Architektur:** Komplett asynchrones Job-System (via `systemd.path`) für verzögerungsfreie Web-UIs, Status-Feedback in Echtzeit und 0% CPU-Overhead im Leerlauf.
 * **🖥️ PC-Delegierung (Handbrake):** Filme, die einen Re-Encode benötigen, können für die bequeme externe Bearbeitung über eine Netzwerkfreigabe (Samba) markiert werden, ohne den VDR-Import zu blockieren.
+
+---
+
+## 🏗️ Architektur & Job-System
+Die Web-Oberfläche kommuniziert über ein modernes, vollständig entkoppeltes **Event-Driven Job-System** mit dem Backend:
+* **Zero-Polling:** Das Web-UI schreibt lediglich eine Job-Datei. Der Linux-Kernel (`systemd.path`) überwacht das Verzeichnis und triggert den Worker (`vdr-rectools-worker`) punktgenau als `oneshot`-Dienst.
+* **Live-Status Feedback:** Der Worker schreibt aktive Status-Updates (`.status`), welche die Web-UI asynchron abfragt. Der Nutzer sieht in Echtzeit: *Wartet in Queue -> Arbeitet -> Fertig*.
+* **Crash-Safe:** Atomare Dateioperationen und strenge Key-Value-Validierung garantieren, dass keine Jobs verloren gehen oder kaputte Daten verarbeitet werden.
 
 ---
 
