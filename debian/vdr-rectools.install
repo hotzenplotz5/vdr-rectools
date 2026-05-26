@@ -2,6 +2,7 @@ usr/bin/vdr-rectools usr/bin/
 usr/share/vdr-rectools/functions.sh usr/share/vdr-rectools/
 usr/share/vdr-rectools/media_tools.sh usr/share/vdr-rectools/
 usr/share/vdr-rectools/html_template.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/lang/* usr/share/vdr-rectools/lang/
 usr/share/man/man1/vdr-rectools.1 usr/share/man/man1/
 lib/systemd/system/vdr-rectools.service lib/systemd/system/
 lib/systemd/system/vdr-rectools.timer lib/systemd/system/

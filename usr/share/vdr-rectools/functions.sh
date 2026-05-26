@@ -45,6 +45,14 @@ if [ -f "$CONFIG_FILE" ]; then
     . "$CONFIG_FILE"
 fi
 
+# 3. SPRACHDATEIEN LADEN
+LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
+if [ -f "$LANG_FILE" ]; then
+    . "$LANG_FILE"
+elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then
+    . "/usr/share/vdr-rectools/lang/de.sh"
+fi
+
 # 3. LIBRARIES & TEMPLATES LADEN
 if [ -f /usr/share/vdr-rectools/media_tools.sh ]; then
     source /usr/share/vdr-rectools/media_tools.sh
@@ -1118,13 +1126,13 @@ export_html_status() {
         fi
     fi
 
-    local STATUS_TEXT="<span style='color: #888;'>⚪ INAKTIV (Wartet auf Arbeit)</span>"
+    local STATUS_TEXT="<span style='color: #888;'>${TXT_INACTIVE:-⚪ INAKTIV (Wartet auf Arbeit)}</span>"
     local PROGRESS_HTML=""
     
     if [[ $IS_RUNNING -eq 1 ]]; then
-        local CURRENT_ACTION="Arbeitet..."
+        local CURRENT_ACTION="${TXT_WORKING:-Arbeitet...}"
         [[ -f "$STATE_FILE" ]] && CURRENT_ACTION=$(cat "$STATE_FILE" 2>/dev/null | sed 's/</\&lt;/g; s/>/\&gt;/g')
-        STATUS_TEXT="<span style='color: #4CAF50;'>🟢 AKTIV</span> - $CURRENT_ACTION"
+        STATUS_TEXT="<span style='color: #4CAF50;'>${TXT_ACTIVE:-🟢 AKTIV}</span> - $CURRENT_ACTION"
         
         if [[ -f "$DURATION_FILE" ]]; then
             local TOT_SEC=$(cat "$DURATION_FILE" 2>/dev/null)
@@ -1144,7 +1152,7 @@ export_html_status() {
                             local ETA_SEC=$(awk -v rem="$REM_SEC" -v spd="$SPEED" 'BEGIN { if(spd>0) printf "%d", rem/spd; else print 0 }')
                             if [[ "$ETA_SEC" -gt 0 ]]; then
                                 local ETA_M=$(( (ETA_SEC % 3600) / 60 )); local ETA_S=$(( ETA_SEC % 60 ))
-                                ETA_STR=" | Restzeit: $(printf "%02d:%02d" $ETA_M $ETA_S) Min."
+                                ETA_STR=" | ${TXT_REMAINING:-Restzeit}: $(printf "%02d:%02d" $ETA_M $ETA_S) ${TXT_MIN:-Min.}"
                             fi
                         fi
                     fi
@@ -1157,20 +1165,20 @@ export_html_status() {
     local ACTION_HTML=""
     if [[ $IS_RUNNING -eq 1 ]]; then
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
-        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>▶️ Import starten</span>"
-        ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🛑 Abbrechen</a>"
-        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a>"
-        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>📁 Explorer</span>"
-        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>📋 Logfile</a>"
-        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🔄 VDR Neustart</a></div>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_IMPORT:-▶️ Import starten}</span>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_ABORT:-🛑 Abbrechen}</a>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_EXPLORER:-📁 Datei-Explorer}</span>"
+        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_LOGFILE:-📋 Logfile}</a>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('${TXT_RESTART_CONFIRM:-VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!}');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_RESTART_VDR:-🔄 VDR Neustart}</a></div>"
     else
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
-        ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>▶️ Import starten</a>"
-        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>🛑 Abbrechen</span>"
-        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>⚙️ Einstellungen</a>"
-        ACTION_HTML+="<a href='explorer.php' style='display: inline-block; background: #9C27B0; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>📁 Datei-Explorer</a>"
-        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>📋 Logfile</a>"
-        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🔄 VDR Neustart</a></div>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_IMPORT:-▶️ Import starten}</a>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_ABORT:-🛑 Abbrechen}</span>"
+        ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
+        ACTION_HTML+="<a href='explorer.php' style='display: inline-block; background: #9C27B0; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_EXPLORER:-📁 Datei-Explorer}</a>"
+        ACTION_HTML+="<a href='log_viewer.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_LOGFILE:-📋 Logfile}</a>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=restart_vdr' onclick=\"return confirm('${TXT_RESTART_CONFIRM:-VDR wirklich neu starten? Aktuelle TV-Aufnahmen koennten abgebrochen werden!}');\" style='display: inline-block; background: #FF9800; color: #000; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_RESTART_VDR:-🔄 VDR Neustart}</a></div>"
     fi
     
     local PROMPT_HTML=""
@@ -1181,24 +1189,26 @@ export_html_status() {
         if [[ "$P_STATUS" == "WAIT" ]]; then
             HAS_PROMPT=1
             local P_TITLE=$(cut -d'|' -f2 "$PROMPT_FILE" 2>/dev/null | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            local PROMPT_TEXT="${TXT_PROMPT_TEXT:-Der Film <b>%s</b> erfordert einen Re-Encode. Starten?}"
+            PROMPT_TEXT="${PROMPT_TEXT//%s/$P_TITLE}"
             PROMPT_HTML="<div style='margin-top: 20px; background: rgba(58, 42, 0, 0.8); color: #ffeb3b; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;'>"
-            PROMPT_HTML+="<strong style='font-size: 1.1em;'>⚠️ AKTION ERFORDERLICH: Re-Encode</strong><br>"
-            PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>Der Film <b>$P_TITLE</b> erfordert einen Re-Encode. Starten?</div>"
-            PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>✔️ JA, Starten</a>"
-            PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>❌ NEIN, Überspringen</a>"
-            PROMPT_HTML+="<a href='rectools_confirm.php?action=manual' onclick=\"return confirm('Handbrake Workflow:\\n\\n1. Bestaetige hier mit OK.\\n2. Oeffne Handbrake auf deinem PC.\\n3. Importiere die Datei ueber das Samba-Netzlaufwerk.\\n4. Lege das fertige Video danach wieder im Import-Ordner ab.\\n\\nJetzt fuer den PC delegieren?');\" style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px;' title='Bereitet die Datei für Handbrake via Netzwerk-Freigabe (Samba) vor'>🖥️ Am PC (Handbrake über SMB) bearbeiten</a>"
+            PROMPT_HTML+="<strong style='font-size: 1.1em;'>${TXT_PROMPT_REQ:-⚠️ AKTION ERFORDERLICH: Re-Encode}</strong><br>"
+            PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>$PROMPT_TEXT</div>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>${TXT_PROMPT_YES:-✔️ JA, Starten}</a>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>${TXT_PROMPT_NO:-❌ NEIN, Überspringen}</a>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=manual' onclick=\"return confirm('${TXT_PROMPT_PC_CONFIRM:-Handbrake Workflow:\\n\\n1. Bestaetige hier mit OK.\\n2. Oeffne Handbrake auf deinem PC.\\n3. Importiere die Datei ueber das Samba-Netzlaufwerk.\\n4. Lege das fertige Video danach wieder im Import-Ordner ab.\\n\\nJetzt fuer den PC delegieren?}');\" style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px;'>${TXT_PROMPT_PC:-🖥️ Am PC bearbeiten}</a>"
             PROMPT_HTML+="</div>"
         fi
     fi
     
     if [[ $HAS_PROMPT -eq 0 ]]; then
         PROMPT_HTML="<div style='margin-top: 20px; background: rgba(0,0,0,0.3); color: #555; padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);'>"
-        PROMPT_HTML+="<strong style='font-size: 1.1em;'>ℹ️ Keine Aktion erforderlich</strong><br>"
-        PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #555;'>Aktuell stehen keine manuellen Best&auml;tigungen f&uuml;r Re-Encodes aus.</div>"
+        PROMPT_HTML+="<strong style='font-size: 1.1em;'>${TXT_PROMPT_NO_REQ:-ℹ️ Keine Aktion erforderlich}</strong><br>"
+        PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #555;'>${TXT_PROMPT_NO_REQ_TEXT:-Aktuell stehen keine manuellen Best&auml;tigungen f&uuml;r Re-Encodes aus.}</div>"
         # Nutze <span> statt <a>, damit die Buttons im inaktiven Zustand nicht angeklickt werden können
-        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>✔️ JA, Starten</span>"
-        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>❌ NEIN, &Uuml;berspringen</span>"
-        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px; cursor: not-allowed;'>🖥️ Am PC bearbeiten</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>${TXT_PROMPT_YES:-✔️ JA, Starten}</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_PROMPT_NO:-❌ NEIN, Überspringen}</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px; cursor: not-allowed;'>${TXT_PROMPT_PC:-🖥️ Am PC bearbeiten}</span>"
         PROMPT_HTML+="</div>"
     fi
 
@@ -1211,8 +1221,8 @@ export_html_status() {
         
         if [[ ${#SKIPPED_FILES[@]} -gt 0 ]]; then
             SKIPPED_HTML="<div style='margin-top: 15px; background: rgba(244, 67, 54, 0.1); color: #F44336; padding: 15px; border-radius: 8px; border: 1px solid rgba(244, 67, 54, 0.5);'>"
-            SKIPPED_HTML+="<strong style='font-size: 1.1em;'>⚠️ Abgelehnte Dateien (.skipped)</strong><br>"
-            SKIPPED_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>Folgende Filme wurden in der Vergangenheit uebersprungen:</div>"
+            SKIPPED_HTML+="<strong style='font-size: 1.1em;'>${TXT_SKIPPED_TITLE:-⚠️ Abgelehnte Dateien (.skipped)}</strong><br>"
+            SKIPPED_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>${TXT_SKIPPED_TEXT:-Folgende Filme wurden in der Vergangenheit uebersprungen:}</div>"
             SKIPPED_HTML+="<ul style='color: #fff; margin-bottom: 15px; padding-left: 20px;'>"
             for f in "${SKIPPED_FILES[@]}"; do
                 local CLEAN_F="$(echo "$f" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
@@ -1221,7 +1231,7 @@ export_html_status() {
                 SKIPPED_HTML+="<li>$SAFE_NAME</li>"
             done
             SKIPPED_HTML+="</ul>"
-            SKIPPED_HTML+="<div style='color: #aaa; font-size: 0.9em;'>👉 Nutze das Terminal (<code style='background: #000; padding: 2px 5px; border-radius: 3px; color: #4CAF50;'>vdr-rectools confirm</code>), um sie freizugeben oder an den PC zu delegieren.</div>"
+            SKIPPED_HTML+="<div style='color: #aaa; font-size: 0.9em;'>${TXT_SKIPPED_HINT:-👉 Nutze den Datei-Explorer, um sie freizugeben oder an den PC zu delegieren.}</div>"
             SKIPPED_HTML+="</div>"
         fi
     fi
@@ -1235,8 +1245,8 @@ export_html_status() {
         
         if [[ ${#PC_FILES[@]} -gt 0 ]]; then
             PC_ENCODE_HTML="<div style='margin-top: 15px; background: rgba(156, 39, 176, 0.1); color: #E040FB; padding: 15px; border-radius: 8px; border: 1px solid rgba(156, 39, 176, 0.5);'>"
-            PC_ENCODE_HTML+="<strong style='font-size: 1.1em;'>🖥️ Warten auf PC-Bearbeitung (.pc_encode)</strong><br>"
-            PC_ENCODE_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>Diese Dateien ignoriert der VDR, bis du sie in Handbrake fertig encodiert hast:</div>"
+            PC_ENCODE_HTML+="<strong style='font-size: 1.1em;'>${TXT_PC_TITLE:-🖥️ Warten auf PC-Bearbeitung (.pc_encode)}</strong><br>"
+            PC_ENCODE_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>${TXT_PC_TEXT:-Diese Dateien ignoriert der VDR, bis du sie in Handbrake fertig encodiert hast:}</div>"
             PC_ENCODE_HTML+="<ul style='color: #fff; margin-bottom: 0; padding-left: 20px;'>"
             for f in "${PC_FILES[@]}"; do
                 local F_NAME="$(basename "$f")"
@@ -1249,10 +1259,10 @@ export_html_status() {
     
     local SESSION_HTML=""
     if [[ -s "$SESSION_FILE" ]]; then
-        local SESSION_TEXT="Letzte Sitzung"
-        [[ $IS_RUNNING -eq 1 ]] && SESSION_TEXT="Diese Sitzung"
+        local SESSION_TEXT="${TXT_SESSION_LAST:-Letzte Sitzung}"
+        [[ $IS_RUNNING -eq 1 ]] && SESSION_TEXT="${TXT_SESSION_THIS:-Diese Sitzung}"
         SESSION_HTML="<div style='margin-top: 15px; background: rgba(30, 58, 30, 0.8); color: #4CAF50; padding: 10px; border-radius: 5px; border: 1px solid #4CAF50;'>"
-        SESSION_HTML+="<strong>✅ $SESSION_TEXT importiert:</strong><ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #fff;'>"
+        SESSION_HTML+="<strong>✅ $SESSION_TEXT ${TXT_SESSION_IMPORTED:-importiert:}</strong><ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #fff;'>"
         while read -r imported_title; do
             local safe_title=$(echo "$imported_title" | sed 's/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
             SESSION_HTML+="<li>$safe_title</li>"
@@ -1266,7 +1276,7 @@ export_html_status() {
         local FREE_GB=$((FREE_KB / 1024 / 1024))
         local DISK_COLOR="#4CAF50"
         [[ "$FREE_GB" -lt "$MIN_FREE_GB" ]] && DISK_COLOR="#F44336"
-        DISK_HTML="Speicher $VIDEO_DIR: <span style='color: $DISK_COLOR; font-weight: bold;'>${FREE_GB} GB frei</span>"
+        DISK_HTML="<span style='color: $DISK_COLOR; font-weight: bold;'>${FREE_GB} ${TXT_DISK_FREE:-GB frei}</span> ($VIDEO_DIR)"
     fi
 
     local LOG_HTML=""
