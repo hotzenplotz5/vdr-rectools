@@ -282,14 +282,18 @@ case "$1" in
         ;;
 
     refresh)
-        # Ein stiller Dummy-Aufruf (wie Import), um das Dashboard sicher neu zu laden
-        if [[ -n "$2" ]]; then
-            export LANGUAGE_OVERRIDE="$2"
-        fi
         if ! is_running; then
-            ensure_single_instance
+            (
+                if [ -f /usr/share/vdr-rectools/functions.sh ]; then
+                    source /usr/share/vdr-rectools/functions.sh
+                fi
+                if [[ -n "$2" ]]; then
+                    export LANGUAGE_OVERRIDE="$2"
+                fi
+                ensure_single_instance
+                export_html_status
+            ) &
         fi
-        export_html_status
         ;;
         
     update-html)
