@@ -10,11 +10,10 @@ function dispatch_job($action, $param = '') {
     $tmp_file = $job_dir . '/.tmp_' . $job_id;
     $job_file = $job_dir . '/job_' . $job_id . '.job';
     
-    $payload = json_encode([
-        'action' => $action,
-        'param' => $param,
-        'timestamp' => time()
-    ]);
+    // Sicheres Bash-Format (Source-able), ersetzt fehleranfaelliges JSON
+    $payload = "ACTION=" . escapeshellarg($action) . "\n";
+    $payload .= "PARAM=" . escapeshellarg($param) . "\n";
+    $payload .= "TIMESTAMP=" . time() . "\n";
     
     // Atomisches Schreiben: Erst Temp-Datei, dann Rename
     @file_put_contents($tmp_file, $payload);
