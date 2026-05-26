@@ -1,0 +1,114 @@
+#!/bin/sh
+set -e
+
+# Debconf-Modul laden
+. /usr/share/debconf/confmodule
+
+CONF="/etc/vdr/conf.d/vdr-rectools.conf"
+mkdir -p /etc/vdr/conf.d
+
+# 1. FIX FÃœR DAS CONFFILE-PROBLEM (Warum keine Abfrage kam)
+# Wenn dpkg wegen alter sed-Ã„nderungen die neue Datei als .dpkg-dist ablegt,
+# erzwingen wir hier das Update, damit du die neue kommentierte Datei bekommst!
+if [ -f "${CONF}.dpkg-dist" ]; then
+    mv "${CONF}.dpkg-dist" "$CONF"
+elif [ -f "${CONF}.dpkg-new" ]; then
+    mv "${CONF}.dpkg-new" "$CONF"
+fi
+
+# 2. Debconf-Werte auslesen
+db_get vdr-rectools/mail
+MAIL_VAL="$RET"
+db_get vdr-rectools/timer
+[ "$RET" = "true" ] && TIMER_VAL=1 || TIMER_VAL=0
+db_get vdr-rectools/subtitles
+[ "$RET" = "true" ] && SUB_VAL=1 || SUB_VAL=0
+
+# Werte sicher in der Datei aktualisieren
+# Nur ausfÃ¼hren, wenn die Konfigurationsdatei existiert (Standard bei conffiles)
+if [ -f "$CONF" ]; then
+    sed -i "s|^MAIL_NOTIFY=.*|MAIL_NOTIFY=\"$MAIL_VAL\"|" "$CONF"
+    sed -i "s|^AUTO_TIMER=.*|AUTO_TIMER=$TIMER_VAL|" "$CONF"
+    sed -i "s|^AUTO_SUB_DOWNLOAD=.*|AUTO_SUB_DOWNLOAD=$SUB_VAL|" "$CONF"
+fi
+
+# 3. Systemd-Teil
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl enable vdr-rectools.timer || true
+    systemctl start vdr-rectools.timer || true
+
+    # Worker Service anlegen und starten
+    cat <<EOFW > /etc/systemd/system/vdr-rectools-worker.service
+[Unit]
+Description=VDR-Rectools Web-UI Worker (Oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/vdr-rectools-worker
+EOFW
+
+    # Systemd Path-Unit (Event-Trigger) anlegen
+    cat <<EOFP > /etc/systemd/system/vdr-rectools-worker.path
+[Unit]
+Description=VDR-Rectools Job Queue Watcher
+
+[Path]
+PathModified=/tmp/vdr-rectools-jobs
+MakeDirectory=yes
+
+[Install]
+WantedBy=multi-user.target
+EOFP
+
+    systemctl daemon-reload
+    systemctl disable vdr-rectools-worker.service || true
+    systemctl stop vdr-rectools-worker.service || true
+    systemctl enable vdr-rectools-worker.path || true
+    systemctl start vdr-rectools-worker.path || true
+fi
+
+# 4. VDR OSD-Befehle (drop-in)
+if [ -f "/var/lib/vdr/reccmds.conf" ] || [ -d "/usr/share/yavdr-ansible" ]; then
+    mkdir -p /etc/systemd/system/vdr.service.d
+    cat <<EOFF > /etc/systemd/system/vdr.service.d/99-rectools-menu.conf
+[Service]
+# --- OSD Befehle fuer Aufnahmen (reccmds) ---
+ExecStartPre=+/bin/bash -c "grep -q repair_single /var/lib/vdr/reccmds.conf || echo \"Aufnahme reparieren (Rectools) : /usr/bin/vdr-rectools repair_single\" >> /var/lib/vdr/reccmds.conf"
+ExecStartPre=+/bin/bash -c "grep -q cut_single /var/lib/vdr/reccmds.conf || echo \"Werbung schneiden (Rectools)   : /usr/bin/vdr-rectools cut_single\" >> /var/lib/vdr/reccmds.conf"
+ExecStartPre=+/bin/bash -c "grep -q shrink_single /var/lib/vdr/reccmds.conf || echo \"Platz sparen H.265 (Rectools)  : /usr/bin/vdr-rectools shrink_single\" >> /var/lib/vdr/reccmds.conf"
+ExecStartPre=+/bin/bash -c "grep -q sync_single /var/lib/vdr/reccmds.conf || echo \"Plex/Kodi Sync (Rectools)      : /usr/bin/vdr-rectools sync_single\" >> /var/lib/vdr/reccmds.conf"
+
+# --- Globale OSD Befehle (commands) ---
+ExecStartPre=+/bin/bash -c 'touch /var/lib/vdr/commands.conf; grep -q osd-status /var/lib/vdr/commands.conf || echo -e "VDR-Rectools Optionen : echo \"Starte VDR-Rectools...\"\n- Status anzeigen : /usr/bin/vdr-rectools osd-status\n- Import starten : /usr/bin/vdr-rectools import > /dev/null 2>&1 &\n- Re-Encode JETZT starten (Ja) : /usr/bin/vdr-rectools osd-confirm yes\n- Re-Encode ueberspringen (Nein) : /usr/bin/vdr-rectools osd-confirm no" >> /var/lib/vdr/commands.conf'
+EOFF
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+    fi
+fi
+
+# 5. RECHTE UND ARBEITSVERZEICHNISSE (FIX FÃœR USER VDR)
+# ACHTUNG: NIEMALS chown -R auf das komplette /srv/vdr/video.00 Verzeichnis!
+mkdir -p /srv/vdr/tmp/staging /srv/vdr/repaired_files /srv/vdr/video.00
+chown -R vdr:vdr /srv/vdr/tmp/staging /srv/vdr/repaired_files
+chmod -R 775 /srv/vdr/tmp/staging /srv/vdr/repaired_files
+chown vdr:vdr /srv/vdr/video.00
+chmod 775 /srv/vdr/video.00
+
+# Logfile fÃ¼r vdr-user schreibbar machen
+touch /var/log/vdr-rectools.log
+chown vdr:vdr /var/log/vdr-rectools.log
+chmod 664 /var/log/vdr-rectools.log
+
+# Dashboard-Datei für den Webserver schreibbar machen
+touch /var/www/html/rectools.html
+chmod 666 /var/www/html/rectools.html
+
+# Debug-Logfile für den Sprachwechsel-Bug anlegen
+touch /tmp/rectools_debug.log
+chown vdr:vdr /tmp/rectools_debug.log
+chmod 666 /tmp/rectools_debug.log
+
+db_stop
+#DEBHELPER#
+exit 0
