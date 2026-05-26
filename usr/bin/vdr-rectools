@@ -280,6 +280,17 @@ case "$1" in
     osd-status)
         show_osd_status
         ;;
+
+    refresh)
+        # Ein stiller Dummy-Aufruf (wie Import), um das Dashboard sicher neu zu laden
+        if [[ -n "$2" ]]; then
+            export LANGUAGE_OVERRIDE="$2"
+        fi
+        if ! is_running; then
+            ensure_single_instance
+        fi
+        export_html_status
+        ;;
         
     update-html)
         # Sprach-Override aus PHP akzeptieren, um Race-Conditions zu umgehen
