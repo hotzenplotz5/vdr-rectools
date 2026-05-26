@@ -7,6 +7,7 @@ $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $msg = '';
 $language = 'de';
 $current_conf = '';
+$pending_job = '';
 
 require_once __DIR__ . '/job_dispatcher.php';
 
@@ -24,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         $current_conf = $new_data;
 
         // Dashboard asynchron ueber den Worker aktualisieren (Fire & Forget)
-        dispatch_job('update-html', $language);
+        $pending_job = dispatch_job('update-html', $language);
         clearstatcache(true); // Verhindert PHP Cache Probleme
         $save_success = true;
     } else {
@@ -61,9 +62,9 @@ function __($key, ...$args) {
 // 4. Erfolgsmeldung in der NEUEN Sprache generieren
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($save_success)) {
-        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
+        $msg = "<div id='cfg-msg' style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
     } elseif (isset($save_error)) {
-        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
+        $msg = "<div id='cfg-msg' style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
     }
 }
 ?>
@@ -96,5 +97,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </form>
     </div>
+
+    <?php if ($pending_job): ?>
+    <script>
+        const jobId = '<?= $pending_job ?>';
+        const msgBox = document.getElementById('cfg-msg');
+        if (jobId && msgBox) {
+            const statusEl = document.createElement('div');
+            statusEl.id = 'job-status';
+            statusEl.style.fontSize = '0.9em';
+            statusEl.style.marginTop = '8px';
+            statusEl.style.opacity = '0.9';
+            statusEl.innerHTML = "🕒 Wartet auf Worker...";
+            msgBox.appendChild(statusEl);
+            
+            const timer = setInterval(async () => {
+                try {
+                    const res = await fetch('job_status.php?id=' + jobId);
+                    const data = await res.json();
+                    
+                    if (data.state === 'running') statusEl.innerHTML = "🔄 " + data.message;
+                    else if (data.state === 'done') { statusEl.innerHTML = "✅ Dashboard im Hintergrund aktualisiert!"; clearInterval(timer); }
+                    else if (data.state === 'error') { statusEl.innerHTML = "❌ " + data.message; clearInterval(timer); }
+                } catch (e) {}
+            }, 500);
+        }
+    </script>
+    <?php endif; ?>
 </body>
 </html>

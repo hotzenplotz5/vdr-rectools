@@ -30,6 +30,34 @@ function normalizeLanguage($lang) {
     return $lang;
 }
 
+function write_job_status($job_id, $state, $progress = 0, $message = '') {
+    $job_dir = '/tmp/vdr-rectools-jobs';
+    $file = $job_dir . '/' . $job_id . '.status';
+    $tmp  = $file . '.tmp';
+    
+    $data  = "state=" . $state . "\n";
+    $data .= "progress=" . intval($progress) . "\n";
+    $data .= "message=" . str_replace(["\n","\r"], "", $message) . "\n";
+    $data .= "updated=" . time() . "\n";
+    
+    @file_put_contents($tmp, $data, LOCK_EX);
+    @chmod($tmp, 0666);
+    @rename($tmp, $file);
+}
+
+function read_job_status($job_id) {
+    $file = '/tmp/vdr-rectools-jobs/' . $job_id . '.status';
+    if (!file_exists($file)) return ['state' => 'unknown', 'progress' => 0, 'message' => '', 'updated' => 0];
+    
+    $data = parseConfig((string)@file_get_contents($file));
+    return [
+        'state'    => $data['state'] ?? 'unknown',
+        'progress' => intval($data['progress'] ?? 0),
+        'message'  => $data['message'] ?? '',
+        'updated'  => intval($data['updated'] ?? 0)
+    ];
+}
+
 function dispatch_job($action, $param = '') {
     $job_dir = '/tmp/vdr-rectools-jobs';
     if (!is_dir($job_dir)) {
@@ -37,9 +65,11 @@ function dispatch_job($action, $param = '') {
         @chmod($job_dir, 0777);
     }
     
-    $job_id = uniqid('', true);
+    $job_id = 'job_' . uniqid('', true);
     $tmp_file = $job_dir . '/.tmp_' . $job_id;
-    $job_file = $job_dir . '/job_' . $job_id . '.job';
+    $job_file = $job_dir . '/' . $job_id . '.job';
+    
+    write_job_status($job_id, 'queued', 0, 'Wartet in der Queue');
     
     // Sicheres Key-Value Format mit strikten Quotes (Vorbeugung gegen '=' und Leerzeichen)
     $clean_action = str_replace(["\r", "\n", '"'], '', $action);
@@ -53,6 +83,6 @@ function dispatch_job($action, $param = '') {
     @chmod($tmp_file, 0666);
     @rename($tmp_file, $job_file);
     
-    // KEIN WARTEN MEHR (Fire & Forget)!
+    return $job_id;
 }
 ?>

@@ -7,11 +7,28 @@ JOB_DIR="/tmp/vdr-rectools-jobs"
 mkdir -p "$JOB_DIR"
 chmod 777 "$JOB_DIR"
 
+write_status() {
+    local J_NAME="$1"
+    local STATE="$2"
+    local PROG="$3"
+    local MSG="$4"
+    local S_FILE="$JOB_DIR/${J_NAME}.status"
+    local T_FILE="${S_FILE}.tmp"
+    echo "state=$STATE" > "$T_FILE"
+    echo "progress=$PROG" >> "$T_FILE"
+    echo "message=$MSG" >> "$T_FILE"
+    echo "updated=$(date +%s)" >> "$T_FILE"
+    mv "$T_FILE" "$S_FILE" 2>/dev/null
+    chmod 666 "$S_FILE" 2>/dev/null
+}
+
 echo "VDR-Rectools Worker gestartet. Warte auf Jobs in $JOB_DIR..."
 
 while true; do
     for job in "$JOB_DIR"/*.job; do
         [ -e "$job" ] || continue
+        
+        JOB_NAME=$(basename "${job%.job}")
         
         # 1. Atomisches Claiming (verhindert Race-Conditions mit anderen Workern)
         LOCK_FILE="${job%.job}.lock"
@@ -28,6 +45,8 @@ while true; do
                 PARAM) PARAM="$value" ;;
             esac
         done < "$LOCK_FILE"
+        
+        write_status "$JOB_NAME" "running" 10 "Ausfuehrung gestartet"
         
         # 3. Job synchron ausfuehren und Exit-Code abfangen
         SUCCESS=0
@@ -52,8 +71,10 @@ while true; do
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] EXIT=$SUCCESS ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
         if [ $SUCCESS -eq 0 ]; then
             mv "$LOCK_FILE" "${job%.job}.done" 2>/dev/null
+            write_status "$JOB_NAME" "done" 100 "Erfolgreich abgeschlossen"
         else
             mv "$LOCK_FILE" "${job%.job}.err" 2>/dev/null
+            write_status "$JOB_NAME" "error" 0 "Fehler (Exit $SUCCESS)"
         fi
     done
     
