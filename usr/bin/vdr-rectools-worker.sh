@@ -22,14 +22,25 @@ write_status() {
     chmod 666 "$S_FILE" 2>/dev/null
 }
 
-# 0. Crash-Recovery: Heartbeat-basiertes Stale Lock Reclaim
-# Findet .lock Dateien, die aelter als 5 Minuten sind. Da aktive Jobs jede Minute einen
-# Heartbeat (touch) erhalten, bedeutet dies, dass der Worker hart gecrasht ist (Stromausfall, SIGKILL).
-find "$JOB_DIR" -maxdepth 1 -type f -name "*.lock" -mmin +5 -print0 2>/dev/null | while IFS= read -r -d '' stale_lock; do
-    mv "$stale_lock" "${stale_lock%.lock}.job" 2>/dev/null
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] CRASH RECOVERY: Zombie-Lock $(basename "$stale_lock") requeued." >> "/var/log/vdr-rectools-worker.log"
-    J_NAME=$(basename "${stale_lock%.lock}")
-    write_status "$J_NAME" "queued" 0 "Crash Recovery: Job neu eingereiht nach Absturz"
+# 0. Crash-Recovery: PID-Fingerprint & Soft-TTL (Hybrid-Modell)
+# Prueft ob der Prozess (PID), der das Lock besitzt, noch lebt. Ein Heartbeat-Prozess wird nicht mehr benoetigt.
+for stale_lock in "$JOB_DIR"/*.lock; do
+    [ -e "$stale_lock" ] || continue
+    
+    W_PID=$(grep -E "^WORKER_PID=" "$stale_lock" 2>/dev/null | cut -d'=' -f2)
+    # Soft-TTL Fallback: Wenn PID recycelt wurde, greift nach >24h die Soft-TTL (stundenlange FFmpeg-Jobs!)
+    AGE=$(( $(date +%s) - $(stat -c %Y "$stale_lock" 2>/dev/null || echo $(date +%s)) ))
+    
+    IS_ZOMBIE=0
+    if [ -n "$W_PID" ] && ! kill -0 "$W_PID" 2>/dev/null; then IS_ZOMBIE=1; fi
+    if [ "$AGE" -gt 86400 ]; then IS_ZOMBIE=1; fi
+    
+    if [ $IS_ZOMBIE -eq 1 ]; then
+        mv "$stale_lock" "${stale_lock%.lock}.job" 2>/dev/null
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] CRASH RECOVERY: Zombie-Lock $(basename "$stale_lock") (PID: ${W_PID:-unknown}) requeued." >> "/var/log/vdr-rectools-worker.log"
+        J_NAME=$(basename "${stale_lock%.lock}")
+        write_status "$J_NAME" "queued" 0 "Crash Recovery: Job neu eingereiht (Worker tot)"
+    fi
 done
 
 for job in "$JOB_DIR"/*.job; do
@@ -41,20 +52,15 @@ for job in "$JOB_DIR"/*.job; do
     LOCK_FILE="${job%.job}.lock"
     mv "$job" "$LOCK_FILE" 2>/dev/null || continue
     
-    # 2. Heartbeat Lease-Renewal: Hintergrundprozess, der das Lock aktiv am Leben haelt
-    (
-        while [ -f "$LOCK_FILE" ]; do
-            touch "$LOCK_FILE" 2>/dev/null
-            sleep 60
-        done
-    ) &
-    HEARTBEAT_PID=$!
+    # 2. Hard Guard: Eigene PID in die Lock-Datei schreiben
+    echo "WORKER_PID=$$" >> "$LOCK_FILE"
     
     # 3. Variablen initialisieren und sicher einlesen (Safe-Parsing statt source)
     ACTION=""
     PARAM=""
     LANGUAGE=""
     IDEMPOTENCY_KEY=""
+    WORKER_PID=""
     while IFS='=' read -r key value; do
         value="${value%\"}"
         value="${value#\"}"
@@ -63,6 +69,7 @@ for job in "$JOB_DIR"/*.job; do
             PARAM) PARAM="$value" ;;
             LANGUAGE) LANGUAGE="$value" ;;
             IDEMPOTENCY_KEY) IDEMPOTENCY_KEY="$value" ;;
+            WORKER_PID) WORKER_PID="$value" ;;
         esac
     done < "$LOCK_FILE"
     
@@ -104,9 +111,6 @@ for job in "$JOB_DIR"/*.job; do
     if [ -n "$IDEMPOTENCY_KEY" ]; then
         rm -f "$JOB_DIR/key_$IDEMPOTENCY_KEY" 2>/dev/null
     fi
-    
-    # Heartbeat sauber beenden
-    kill "$HEARTBEAT_PID" 2>/dev/null
 done
 
 # 5. Housekeeping: Alte Status-Dateien sicher aufraeumen (unbedenklich, da Oneshot)
