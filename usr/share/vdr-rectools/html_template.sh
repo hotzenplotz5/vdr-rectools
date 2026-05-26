@@ -11,7 +11,6 @@ render_dashboard_html() {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="5">
     <title>${TXT_DASH_TITLE:-🎬 VDR-Rectools Dashboard}</title>
     <style>
         body { $BODY_CSS color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
@@ -41,6 +40,11 @@ render_dashboard_html() {
         <div class="log-box">$LOG_HTML</div>
         <div class="footer">${TXT_DASH_FOOTER:-Auto-Refresh (5s) | Letzte Aktualisierung:} $(date +"%d.%m.%Y %H:%M:%S")</div>
     </div>
+    <script>
+        setTimeout(function() {
+            window.location.replace(window.location.pathname + '?t=' + new Date().getTime());
+        }, 5000);
+    </script>
 </body>
 </html>
 EOF

@@ -73,8 +73,9 @@ else
 fi
 
 trigger_dashboard_update() {
-    local LANG_VAL="${LANGUAGE_OVERRIDE:-${LANGUAGE:-de}}"
-    /usr/bin/vdr-rectools update-html "$LANG_VAL" >/dev/null 2>&1 &
+    # Event-driven Dashboard-Update: direkt im aktuellen Prozess rendern.
+    # Kein vdr-rectools update-html im Hintergrund, damit keine neuen Locks/Prozesse entstehen.
+    export_html_status >/dev/null 2>&1 || true
 }
 
 send_mail() {
@@ -156,28 +157,24 @@ ensure_single_instance() {
     > "$SESSION_FILE" 2>/dev/null || true
     chmod 666 "$SESSION_FILE" 2>/dev/null || true
     
-    # --- HTML Dashboard Auto-Updater ---
-    HTML_UPDATER_PID=""
-    if [[ "${HTML_DASHBOARD:-0}" -eq 1 && -n "$HTML_PATH" ]]; then
-        mkdir -p "$(dirname "$HTML_PATH")" 2>/dev/null || true
-        (
-            while [[ -f "$LOCK_FILE" ]]; do
-                export_html_status >/dev/null 2>&1
-                sleep 5
-            done
-        ) &
-        HTML_UPDATER_PID=$!
-    fi
+    # Initialer Dashboard-Render: ab jetzt event-driven, keine Polling-Schleife mehr.
+    trigger_dashboard_update
 
-    # Sperre und HTML-Updater nach Beendigung sauber aufräumen, damit das HTML am Ende auf INAKTIV springt
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null; [[ -n "$HTML_UPDATER_PID" ]] && kill "$HTML_UPDATER_PID" 2>/dev/null; [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null; exit 0' EXIT INT TERM
-    # Sperre nach Beendigung sauber aufräumen
-    trap 'truncate -s 0 "$LOCK_FILE" 2>/dev/null; rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null; exit 0' EXIT INT TERM
+    cleanup_rectools() {
+        local rc=$?
+        truncate -s 0 "$LOCK_FILE" 2>/dev/null || true
+        rm -f "$STATE_FILE" "$DURATION_FILE" "$VIDEO_DIR/.vdr-rectools.prompt" "$P_FILE" "$VIDEO_DIR/.vdr-rectools-bg.jpg" 2>/dev/null || true
+        # Nach dem Cleanup nochmals rendern, damit das Dashboard sicher auf INAKTIV springt.
+        export_html_status >/dev/null 2>&1 || true
+        exit "$rc"
+    }
+    trap cleanup_rectools EXIT INT TERM
 }
 
 set_state() {
     echo "$1" > "$STATE_FILE" 2>/dev/null || true
     > "$DURATION_FILE" 2>/dev/null || true # Fortschrittsbalken für neue Aktion zurücksetzen (behält Rechte)
+    trigger_dashboard_update
 }
 
 # --- NEU: Snapshot als Hintergrundbild für das Dashboard generieren ---
@@ -1051,7 +1048,6 @@ show_status() {
     echo -e "\033[1;36m========================================================\033[0m\n"
 
     # --- HTML Dashboard synchronisieren ---
-    [[ "${HTML_DASHBOARD:-0}" -eq 1 ]] && export_html_status 2>/dev/null
     export_html_status 2>/dev/null
 }
 

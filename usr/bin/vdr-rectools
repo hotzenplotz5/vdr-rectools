@@ -29,6 +29,12 @@ is_running() {
 }
 
 # 2. Funktionen laden
+# Runtime-Sprache fuer update-html muss VOR functions.sh gesetzt werden,
+# weil functions.sh beim Laden direkt die Sprachdatei sourced.
+if [[ "$1" == "update-html" && -n "$2" ]]; then
+    export LANGUAGE_OVERRIDE="$2"
+fi
+
 # Laden der Funktionen (wird nun auch für 'status' benötigt, um show_status aufzurufen)
 if [[ "$1" != "stop" && "$1" != "check_running" ]]; then
     if [ -f /usr/share/vdr-rectools/functions.sh ]; then
@@ -124,10 +130,8 @@ case "$1" in
             echo "vdr-rectools läuft bereits."
             exit 1
         fi
-        echo "Starte Reparatur-Lauf im Hintergrund..."
-        (
-            run_scan "repair"
-        ) &
+        echo "Starte Reparatur-Lauf..."
+        run_scan "repair"
         ;;
         
     repair_single)
@@ -278,13 +282,7 @@ case "$1" in
         ;;
 
     refresh)
-        if ! is_running; then
-            if [ -f /usr/share/vdr-rectools/functions.sh ]; then
-                source /usr/share/vdr-rectools/functions.sh
-            fi
-            ensure_single_instance
-            export_html_status
-        fi
+        export_html_status
         ;;
         
     update-html)
