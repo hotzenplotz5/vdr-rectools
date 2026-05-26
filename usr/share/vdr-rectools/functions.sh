@@ -535,12 +535,12 @@ confirm_encoding() {
         elif [[ "$STATUS" == "NO" ]]; then
             rm -f "$PROMPT_FILE"
             echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' abgelehnt. Datei wird übersprungen (.skipped)." >> "$LOG_FILE"
-            mv -f "$SRC_FILE" "${SRC_FILE}.skipped" 2>/dev/null
+            mv -f "$SRC_FILE" "${SRC_FILE%.*}.skipped.${SRC_FILE##*.}" 2>/dev/null
             return 1
         elif [[ "$STATUS" == "MANUAL" ]]; then
             rm -f "$PROMPT_FILE"
             echo "[$(date +%T)] Nutzer encodiert '$TITLE' extern (Handbrake/Samba). Datei wird umbenannt (.pc_encode)." >> "$LOG_FILE"
-            mv -f "$SRC_FILE" "${SRC_FILE}.pc_encode" 2>/dev/null
+            mv -f "$SRC_FILE" "${SRC_FILE%.*}.pc_encode.${SRC_FILE##*.}" 2>/dev/null
             return 1
         fi
         sleep 2
@@ -608,8 +608,8 @@ process_import() {
     local MOVIE_FOLDER="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME"
     if find "$MOVIE_FOLDER" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | grep -q "."; then
         echo "[$(date +%T)] WARNUNG: '$PRETTY_TITLE' existiert bereits im VDR. Import wird übersprungen." >> "$LOG_FILE"
-        mv -f "$SOURCE_FILE" "${SOURCE_FILE}.duplicate" 2>/dev/null
-        [[ -f "$NFO_SOURCE" ]] && mv -f "$NFO_SOURCE" "${NFO_SOURCE}.duplicate" 2>/dev/null
+        mv -f "$SOURCE_FILE" "${SOURCE_FILE%.*}.duplicate.${SOURCE_FILE##*.}" 2>/dev/null
+        [[ -f "$NFO_SOURCE" ]] && mv -f "$NFO_SOURCE" "${NFO_SOURCE%.*}.duplicate.nfo" 2>/dev/null
         return 0
     fi
 
@@ -619,7 +619,7 @@ process_import() {
         local F_SIZE_GB=$((F_SIZE_BYTES / 1073741824))
         if [[ "$F_SIZE_GB" -ge "$MAX_FILESIZE_GB" ]]; then
             echo "[$(date +%T)] WARNUNG: '$PRETTY_TITLE' ist zu groß ($F_SIZE_GB GB, Limit: $MAX_FILESIZE_GB GB). Überspringe Import (.skipped)." >> "$LOG_FILE"
-            mv -f "$SOURCE_FILE" "${SOURCE_FILE}.skipped" 2>/dev/null
+            mv -f "$SOURCE_FILE" "${SOURCE_FILE%.*}.skipped.${SOURCE_FILE##*.}" 2>/dev/null
             return 0
         fi
     fi
@@ -865,7 +865,7 @@ run_scan() {
     
     if [[ "$MODE" == "normal" || "$MODE" == "import" ]]; then
         set_state "Scanne Import-Verzeichnis..."
-        find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) | while read -r FILE; do
+        find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) ! -name "*.skipped*" ! -name "*.pc_encode*" ! -name "*.duplicate*" | while read -r FILE; do
             [[ $COUNT -ge "$MAX_FILES" ]] && break
             process_import "$FILE" "$MODE" && ((COUNT++))
         done
@@ -974,8 +974,8 @@ show_status() {
 
     # 3. Import-Warteschlange
     if [[ -d "$IMPORT_DIR" ]]; then
-        local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) 2>/dev/null | wc -l)
-        local SKIPPED_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f -name "*.skipped" 2>/dev/null | wc -l)
+        local QUEUE_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) ! -name "*.skipped*" ! -name "*.pc_encode*" ! -name "*.duplicate*" 2>/dev/null | wc -l)
+        local SKIPPED_COUNT=$(find "$IMPORT_DIR" -maxdepth 2 -type f -name "*.skipped*" 2>/dev/null | wc -l)
         
         if [[ $QUEUE_COUNT -gt 0 && $SKIPPED_COUNT -gt 0 ]]; then
             echo -e " \033[1;33m📥 IMPORT\033[0m   - $QUEUE_COUNT Datei(en) warten, \033[1;31m$SKIPPED_COUNT abgelehnt (.skipped)\033[0m"
