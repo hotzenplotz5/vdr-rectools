@@ -2,7 +2,7 @@
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $language = 'de';
 if (file_exists($conf_file)) {
-    $lines = file($conf_file);
+    $lines = @file($conf_file) ?: [];
     foreach ($lines as $line) {
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
     }
@@ -12,7 +12,7 @@ $lang_file = __DIR__ . "/lang/{$language}.json";
 if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
 $translations = [];
 if (file_exists($lang_file)) {
-    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', file_get_contents($lang_file));
+    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', (string)@file_get_contents($lang_file));
     $decoded = json_decode($json_content, true);
     if (is_array($decoded)) $translations = $decoded;
 }
@@ -23,7 +23,7 @@ function __($key, ...$args) {
 }
 
 $log_file = '/var/log/vdr-rectools.log';
-$log_content = file_exists($log_file) ? htmlspecialchars(file_get_contents($log_file)) : __('log_not_found');
+$log_content = file_exists($log_file) ? htmlspecialchars((string)@file_get_contents($log_file)) : __('log_not_found');
 ?>
 <!DOCTYPE html>
 <html lang="de">

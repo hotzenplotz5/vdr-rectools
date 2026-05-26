@@ -3,7 +3,7 @@ $config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $user = 'admin';
 $pass = 'vdr123';
 if (file_exists($config_file)) {
-    $lines = file($config_file);
+    $lines = @file($config_file) ?: [];
     foreach ($lines as $line) {
         if (preg_match('/^WEB_USER=["\']?(.*?)["\']?$/', trim($line), $m)) $user = $m[1];
         if (preg_match('/^WEB_PASS=["\']?(.*?)["\']?$/', trim($line), $m)) $pass = $m[1];

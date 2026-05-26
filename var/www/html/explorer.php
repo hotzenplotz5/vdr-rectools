@@ -3,7 +3,7 @@ $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $import_dir = '/srv/vdr/import';
 $language = 'de';
 if (file_exists($conf_file)) {
-    $lines = file($conf_file);
+    $lines = @file($conf_file) ?: [];
     foreach ($lines as $line) {
         if (preg_match('/^IMPORT_DIR=["\']?(.*?)["\']?$/', trim($line), $m)) $import_dir = $m[1];
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
@@ -16,7 +16,7 @@ if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
 $translations = [];
 $debug_lang = "";
 if (file_exists($lang_file)) {
-    $json_content = file_get_contents($lang_file);
+    $json_content = (string)@file_get_contents($lang_file);
     $json_content = preg_replace('/^\xEF\xBB\xBF/', '', $json_content); // Unsichtbares Windows-BOM entfernen
     $decoded = json_decode($json_content, true);
     if (is_array($decoded)) $translations = $decoded;

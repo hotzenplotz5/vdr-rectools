@@ -2,7 +2,7 @@
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $language = 'de';
 if (file_exists($conf_file)) {
-    $lines = file($conf_file);
+    $lines = @file($conf_file) ?: [];
     foreach ($lines as $line) {
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
     }
@@ -12,7 +12,7 @@ $lang_file = __DIR__ . "/lang/{$language}.json";
 if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
 $translations = [];
 if (file_exists($lang_file)) {
-    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', file_get_contents($lang_file));
+    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', (string)@file_get_contents($lang_file));
     $decoded = json_decode($json_content, true);
     if (is_array($decoded)) $translations = $decoded;
 }
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
     }
 }
-$current_conf = file_exists($conf_file) ? file_get_contents($conf_file) : '';
+$current_conf = (string)@file_get_contents($conf_file);
 ?>
 <!DOCTYPE html>
 <html lang="de">
