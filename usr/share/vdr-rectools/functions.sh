@@ -1225,6 +1225,27 @@ export_html_status() {
         fi
     fi
     
+    local PC_ENCODE_HTML=""
+    if [[ -d "$IMPORT_DIR" ]]; then
+        local PC_FILES=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && PC_FILES+=("$line")
+        done < <(find "$IMPORT_DIR" -type f -name "*.pc_encode*" 2>/dev/null | sort)
+        
+        if [[ ${#PC_FILES[@]} -gt 0 ]]; then
+            PC_ENCODE_HTML="<div style='margin-top: 15px; background: rgba(156, 39, 176, 0.1); color: #E040FB; padding: 15px; border-radius: 8px; border: 1px solid rgba(156, 39, 176, 0.5);'>"
+            PC_ENCODE_HTML+="<strong style='font-size: 1.1em;'>🖥️ Warten auf PC-Bearbeitung (.pc_encode)</strong><br>"
+            PC_ENCODE_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>Diese Dateien ignoriert der VDR, bis du sie in Handbrake fertig encodiert hast:</div>"
+            PC_ENCODE_HTML+="<ul style='color: #fff; margin-bottom: 0; padding-left: 20px;'>"
+            for f in "${PC_FILES[@]}"; do
+                local F_NAME="$(basename "$f")"
+                local SAFE_NAME="$(echo "$F_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+                PC_ENCODE_HTML+="<li>$SAFE_NAME</li>"
+            done
+            PC_ENCODE_HTML+="</ul></div>"
+        fi
+    fi
+    
     local SESSION_HTML=""
     if [[ -s "$SESSION_FILE" ]]; then
         local SESSION_TEXT="Letzte Sitzung"

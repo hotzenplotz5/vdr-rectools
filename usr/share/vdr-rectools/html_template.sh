@@ -31,6 +31,7 @@ render_dashboard_html() {
             $PROGRESS_HTML
             $PROMPT_HTML
             $SKIPPED_HTML
+            $PC_ENCODE_HTML
             $SESSION_HTML
         </div>
         <div class="status-box" style="font-size: 0.95em;">
