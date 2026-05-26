@@ -11,10 +11,14 @@ $current_conf = '';
 // 1. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
+
+    // Fix: Nur den ersten Intent des Users nehmen und Duplikate rigoros loeschen
+    if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $language = trim($m[1][0]); }
+    $new_data = preg_replace('/^LANGUAGE=.*(\r?\n)?/m', '', $new_data);
+    $new_data = rtrim($new_data) . "\nLANGUAGE=\"" . $language . "\"\n";
+
     if (file_put_contents($conf_file, $new_data) !== false) {
         $current_conf = $new_data;
-        // WICHTIG: Den LETZTEN Eintrag lesen, da Bash (source) immer den letzten verwendet!
-        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $language = trim(end($m[1])); }
 
         // Dashboard ueber den neuen Worker aktualisieren und auf Abschluss warten
         require_once __DIR__ . '/job_dispatcher.php';
@@ -30,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     // 2. Kein POST-Request: Config von der Festplatte auslesen
     if (file_exists($conf_file)) {
         $current_conf = (string)@file_get_contents($conf_file);
-        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim(end($m[1])); }
+        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim($m[1][0]); }
     }
 }
 
