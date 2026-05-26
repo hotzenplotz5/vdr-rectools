@@ -17,10 +17,15 @@ while true; do
         LOCK_FILE="${job%.job}.lock"
         mv "$job" "$LOCK_FILE" 2>/dev/null || continue
         
-        # 2. Variablen initialisieren und sicher einlesen (Source-able format)
+        # 2. Variablen initialisieren und sicher einlesen (Safe-Parsing statt source)
         ACTION=""
         PARAM=""
-        source "$LOCK_FILE"
+        while IFS='=' read -r key value; do
+            case "$key" in
+                ACTION) ACTION="$value" ;;
+                PARAM) PARAM="$value" ;;
+            esac
+        done < "$LOCK_FILE"
         
         # 3. Job synchron ausfuehren und Exit-Code abfangen
         SUCCESS=0
@@ -40,12 +45,16 @@ while true; do
             SUCCESS=1
         fi
         
-        # 4. Saubere Status-Historie (Lock wird zu Done oder Err)
+        # 4. Saubere Status-Historie und Logging (Lock wird geloescht, Status neu erstellt)
+        LOG_FILE="/var/log/vdr-rectools-worker.log"
         if [ $SUCCESS -eq 0 ]; then
-            mv "$LOCK_FILE" "${job%.job}.done" 2>/dev/null
+            echo "[$(date +'%Y-%m-%d %H:%M:%S')] SUCCESS: ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
+            touch "${job%.job}.done" 2>/dev/null
         else
-            mv "$LOCK_FILE" "${job%.job}.err" 2>/dev/null
+            echo "[$(date +'%Y-%m-%d %H:%M:%S')] FAILED (Exit $SUCCESS): ACTION=$ACTION PARAM=$PARAM" >> "$LOG_FILE"
+            touch "${job%.job}.err" 2>/dev/null
         fi
+        rm -f "$LOCK_FILE"
     done
     
     sleep 0.5
