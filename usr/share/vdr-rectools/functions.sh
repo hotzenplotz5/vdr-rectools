@@ -1315,7 +1315,7 @@ export_html_status() {
         fi
     fi
 
-    local TMP_HTML="$VIDEO_DIR/.vdr-rectools-dashboard_$BASHPID.tmp"
+    local TMP_HTML="/tmp/.vdr-rectools-dashboard_$BASHPID.tmp"
     
     # --- HTML-Template aufrufen und generieren lassen ---
     # In Hintergrund-Subshells koennen bash-Funktionen verloren gehen. Zur Sicherheit nachladen:
