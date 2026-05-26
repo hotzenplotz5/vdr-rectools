@@ -12,7 +12,18 @@ if (file_exists($conf_file)) {
 
 $lang_file = __DIR__ . "/lang/{$language}.json";
 if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
-$translations = file_exists($lang_file) ? json_decode(file_get_contents($lang_file), true) : [];
+
+$translations = [];
+$debug_lang = "";
+if (file_exists($lang_file)) {
+    $json_content = file_get_contents($lang_file);
+    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', $json_content); // Unsichtbares Windows-BOM entfernen
+    $decoded = json_decode($json_content, true);
+    if (is_array($decoded)) $translations = $decoded;
+    else $debug_lang = "JSON Error: " . json_last_error_msg();
+} else {
+    $debug_lang = "Datei fehlt: " . basename($lang_file);
+}
 
 function __($key, ...$args) {
     global $translations;
@@ -27,7 +38,7 @@ if (!$src || !is_dir($src)) $src = '/';
 $dst = isset($_GET['dst']) ? realpath($_GET['dst']) : $import_dir;
 if (!$dst || !is_dir($dst)) $dst = $import_dir;
 
-$msg = '';
+$msg = $debug_lang ? "<div class='msg msg-err'>⚠️ Sprach-System Fehler: $debug_lang</div>" : '';
 
 // Dateioperationen verarbeiten
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

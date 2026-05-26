@@ -1,12 +1,34 @@
 <?php
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+$language = 'de';
+if (file_exists($conf_file)) {
+    $lines = file($conf_file);
+    foreach ($lines as $line) {
+        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
+    }
+}
+
+$lang_file = __DIR__ . "/lang/{$language}.json";
+if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
+$translations = [];
+if (file_exists($lang_file)) {
+    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', file_get_contents($lang_file));
+    $decoded = json_decode($json_content, true);
+    if (is_array($decoded)) $translations = $decoded;
+}
+function __($key, ...$args) {
+    global $translations;
+    $text = isset($translations[$key]) ? $translations[$key] : $key;
+    return !empty($args) ? vsprintf($text, $args) : $text;
+}
+
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
     if (file_put_contents($conf_file, $new_data) !== false) {
-        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>✅ Konfiguration erfolgreich gespeichert!</div>";
+        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
     } else {
-        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>❌ Fehler beim Speichern! (Keine Schreibrechte?)</div>";
+        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
     }
 }
 $current_conf = file_exists($conf_file) ? file_get_contents($conf_file) : '';
@@ -16,7 +38,7 @@ $current_conf = file_exists($conf_file) ? file_get_contents($conf_file) : '';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚙️ VDR-Rectools Konfiguration</title>
+    <title><?= __('cfg_title') ?></title>
     <style>
         body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 900px; margin: 0 auto; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
@@ -30,13 +52,13 @@ $current_conf = file_exists($conf_file) ? file_get_contents($conf_file) : '';
 </head>
 <body>
     <div class="container">
-        <h2>⚙️ Einstellungen (vdr-rectools.conf)</h2>
+        <h2><?= __('cfg_title') ?></h2>
         <?= $msg ?>
         <form method="POST">
             <textarea name="config_data" spellcheck="false"><?= htmlspecialchars($current_conf) ?></textarea>
             <div>
-                <a href="rectools.html" class="btn btn-back">⬅️ Zurück zum Dashboard</a>
-                <button type="submit" class="btn">💾 Konfiguration speichern</button>
+                <a href="rectools.html" class="btn btn-back"><?= __('btn_back') ?></a>
+                <button type="submit" class="btn"><?= __('cfg_btn_save') ?></button>
             </div>
         </form>
     </div>

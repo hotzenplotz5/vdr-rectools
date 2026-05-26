@@ -1,13 +1,36 @@
 <?php
+$conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+$language = 'de';
+if (file_exists($conf_file)) {
+    $lines = file($conf_file);
+    foreach ($lines as $line) {
+        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
+    }
+}
+
+$lang_file = __DIR__ . "/lang/{$language}.json";
+if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
+$translations = [];
+if (file_exists($lang_file)) {
+    $json_content = preg_replace('/^\xEF\xBB\xBF/', '', file_get_contents($lang_file));
+    $decoded = json_decode($json_content, true);
+    if (is_array($decoded)) $translations = $decoded;
+}
+function __($key, ...$args) {
+    global $translations;
+    $text = isset($translations[$key]) ? $translations[$key] : $key;
+    return !empty($args) ? vsprintf($text, $args) : $text;
+}
+
 $log_file = '/var/log/vdr-rectools.log';
-$log_content = file_exists($log_file) ? htmlspecialchars(file_get_contents($log_file)) : 'Keine Log-Datei gefunden.';
+$log_content = file_exists($log_file) ? htmlspecialchars(file_get_contents($log_file)) : __('log_not_found');
 ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📋 VDR-Rectools Logfile</title>
+    <title><?= __('log_title') ?></title>
     <style>
         body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: 0 auto; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
@@ -28,11 +51,11 @@ $log_content = file_exists($log_file) ? htmlspecialchars(file_get_contents($log_
 </head>
 <body>
     <div class="container">
-        <h2>📋 VDR-Rectools Logfile Viewer</h2>
+        <h2><?= __('log_title') ?></h2>
         <div class="log-area" id="log-area"><?= $log_content ?></div>
         <div>
-            <a href="rectools.html" class="btn">⬅️ Zurück zum Dashboard</a>
-            <a href="log_viewer.php" class="btn btn-refresh">🔄 Log aktualisieren</a>
+            <a href="rectools.html" class="btn"><?= __('btn_back') ?></a>
+            <a href="log_viewer.php" class="btn btn-refresh"><?= __('log_btn_refresh') ?></a>
         </div>
     </div>
 </body>
