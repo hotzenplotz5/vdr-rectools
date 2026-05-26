@@ -37,7 +37,8 @@ function serializeConfig($config) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     // Datenmodell aus dem POST-Input aufbauen (eliminiert Duplikate automatisch)
     $configMap = parseConfig($_POST['config_data']);
-    $language = isset($configMap['LANGUAGE']) ? $configMap['LANGUAGE'] : 'de';
+    $language = $configMap['LANGUAGE'] ?? 'de';
+    $language = preg_replace('/[^a-z]/i', '', $language); // Defensive: Verhindert kaputte Locale-Werte
     
     // Sauberen State serialisieren
     $new_data = serializeConfig($configMap);
@@ -60,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_exists($conf_file)) {
         $raw_text = (string)@file_get_contents($conf_file);
         $configMap = parseConfig($raw_text);
-        $language = isset($configMap['LANGUAGE']) ? $configMap['LANGUAGE'] : 'de';
+        $language = $configMap['LANGUAGE'] ?? 'de';
+        $language = preg_replace('/[^a-z]/i', '', $language); // Defensive: Verhindert kaputte Locale-Werte
         $current_conf = serializeConfig($configMap); // Zeige immer den sauberen KV-State im Editor
     }
 }
