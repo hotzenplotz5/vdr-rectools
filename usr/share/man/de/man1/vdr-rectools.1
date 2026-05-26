@@ -27,6 +27,18 @@ Zeigt die Prozess-ID (PID), die bisherige Laufzeit und die letzten Log-Einträge
 .B stop
 Beendet laufende Hintergrundprozesse sauber.
 .TP
+.B osd-status
+Zeigt einen OSD-optimierten Status (für das VDR-Menü) an.
+.TP
+.B diag
+Zeigt System-Diagnoseinformationen (Hardwarebeschleuniger, Encoder) an.
+.TP
+.B confirm
+Bestätigt oder verwirft einen ausstehenden Re-Encode (inkl. Wiederherstellung).
+.TP
+.B osd-confirm \fI<yes|no|manual>\fR
+Bestätigt, verwirft oder delegiert einen ausstehenden Re-Encode via OSD.
+.TP
 .B cron
 Simuliert den nächtlichen Timer-Aufruf und prüft, ob die Automatik in der Konfiguration aktiviert ist.
 .TP
@@ -57,11 +69,29 @@ Die wichtigsten Variablen sind:
 .B AUTO_START_NIGHT
 Erlaubt den nächtlichen automatischen Scan (1=An, 0=Aus). Standard: 0.
 .TP
+.B AUTO_TIMER
+Genereller Schalter für Timer-Aktionen. Standard: 0.
+.TP
 .B IMPORT_DIR
 Verzeichnis, in dem nach zu importierenden Videodateien gesucht wird.
 .TP
+.B VDR_HOOK_DIR
+Pfad zum VDR Shutdown-Hooks Verzeichnis. Standard: /etc/vdr/shutdown-hooks.
+.TP
 .B AUTO_ENCODE_IMPORT
 Erlaubt das automatische Re-Encoding beim Import, falls ein inkompatibler Codec erkannt wird (1=An, 0=Aus). Bei 0 wird der Import abgelehnt. Standard: 1.
+.TP
+.B ASK_BEFORE_ENCODE
+Nachfrage per Dashboard/Mail vor einem Re-Encode (1=An, 0=Aus). Standard: 1.
+.TP
+.B HTML_DASHBOARD
+Exportiert den Live-Status als HTML-Seite (1=An, 0=Aus). Standard: 0.
+.TP
+.B HTML_PATH
+Speicherpfad für das Web-Dashboard. Standard: /var/www/html/rectools.html.
+.TP
+.B LANGUAGE
+Sprache für das Web-Dashboard (de, en). Standard: de.
 .TP
 .B CRF_H264_DEFAULT
 Constant Rate Factor (CRF) für H.264-Encodierung. Ein niedrigerer Wert bedeutet bessere Qualität, aber größere Dateigröße. Standard: 23.
@@ -75,11 +105,26 @@ CRF für H.265-Encodierung. Standard: 23.
 .B PRESET_H265_DEFAULT
 Preset für H.265-Encodierung. Standard: `medium`.
 .TP
+.B HW_ACCEL
+Hardwarebeschleunigung (none, nvenc, vaapi, qsv). Standard: none.
+.TP
+.B SHRINK_MAX_RES
+Maximale Auflösung (Höhe) für Shrink. 0=deaktiviert. Standard: 0.
+.TP
 .B CRF_H264_FALLBACK
 CRF für Fallback-Encodierung. Standard: 23.
 .TP
 .B PRESET_H264_FALLBACK
 Preset für Fallback-Encodierung. Standard: `fast`.
+.TP
+.B MIN_COMPRESSION_RATIO_H264
+Max. Dateigröße in % des Originals für H.264-Encodes. Standard: 70.
+.TP
+.B MIN_COMPRESSION_RATIO_H265
+Max. Dateigröße in % des Originals für H.265-Encodes. Standard: 50.
+.TP
+.B MIN_COMPRESSION_RATIO_H264_FALLBACK
+Max. Dateigröße in % des Originals für H.264-Fallback. Standard: 70.
 .TP
 .B AUTO_SUB_DOWNLOAD
 Aktiviert den automatischen Download von Untertiteln via Subliminal (1=An, 0=Aus). Standard: 1.
@@ -87,11 +132,32 @@ Aktiviert den automatischen Download von Untertiteln via Subliminal (1=An, 0=Aus
 .B SUB_LANG
 Bevorzugte Sprache für Untertitel (z.B. de, en). Standard: "de".
 .TP
+.B AUDIO_NORMALIZE
+Audio-Downmix (Stereo) & Dialog-Normalisierung (1=An, 0=Aus). Standard: 0.
+.TP
 .B MAIL_NOTIFY
 E-Mail-Adresse für Status- und Fehlerberichte. Wenn leer, werden keine Mails versendet.
 .TP
+.B TELEGRAM_BOT_TOKEN
+API-Token für deinen Telegram-Bot.
+.TP
+.B TELEGRAM_CHAT_ID
+Deine persönliche Telegram Chat-ID.
+.TP
 .B MIN_FREE_GB
-Mindestfreispeicher (in GB) auf dem Video-Laufwerk. Unterschreitung führt zum Abbruch. Standard: 50.
+Mindestfreispeicher (in GB) auf dem Video-Laufwerk. Unterschreitung führt zum Abbruch. Standard: 20.
+.TP
+.B MAX_FILESIZE_GB
+Überspringt Importe ab dieser Dateigröße in GB (0=Aus). Standard: 0.
+.TP
+.B MAX_FILES
+Maximale Anzahl Dateien pro Durchlauf. Standard: 10.
+.TP
+.B PAUSE_WORK
+Pause zwischen Arbeitsschritten (Sekunden). Standard: 30.
+.TP
+.B PAUSE_CHECK
+Pause zwischen Datei-Checks (Sekunden). Standard: 2.
 .TP
 .B USE_TVSCRAPER
 Aktiviert die Integration mit dem tvscraper-Plugin des VDR (1=An, 0=Aus). Standard: 0.

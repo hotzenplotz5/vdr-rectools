@@ -27,6 +27,18 @@ Shows the process ID (PID), runtime, and the latest log entries of a running pro
 .B stop
 Stops running background processes cleanly.
 .TP
+.B osd-status
+Shows an OSD-optimized status (for VDR menus).
+.TP
+.B diag
+Shows system diagnostic information (hardware accelerators, encoders).
+.TP
+.B confirm
+Confirms or rejects a pending re-encode (incl. restore option).
+.TP
+.B osd-confirm \fI<yes|no|manual>\fR
+Confirms, rejects, or delegates a pending re-encode via OSD.
+.TP
 .B cron
 Simulates the nightly timer call and checks if automation is enabled in the configuration.
 .TP
@@ -49,7 +61,7 @@ The file is transcoded to H.264 using a deinterlace filter (yadif) to remove ima
 As a fallback, the file is transcoded to H.264 to ensure compatibility.
 .P
 This automatic transcoding process can be disabled via the configuration file to prevent CPU-intensive operations on low-power systems.
-.SH KONFIGURATION
+.SH CONFIGURATION
 The configuration is done via the file
 .BR /etc/vdr/conf.d/vdr-rectools.conf .
 The most important variables are:
@@ -57,11 +69,29 @@ The most important variables are:
 .B AUTO_START_NIGHT
 Enables the nightly automatic scan (1=On, 0=Off). Default: 0.
 .TP
+.B AUTO_TIMER
+General switch for timer-based actions. Default: 0.
+.TP
 .B IMPORT_DIR
 Directory to scan for video files to import.
 .TP
+.B VDR_HOOK_DIR
+Path to the VDR shutdown-hooks directory. Default: /etc/vdr/shutdown-hooks.
+.TP
 .B AUTO_ENCODE_IMPORT
 Enables automatic re-encoding during import if an incompatible codec is detected (1=On, 0=Off). If 0, the import is rejected. Default: 1.
+.TP
+.B ASK_BEFORE_ENCODE
+Ask via dashboard/mail before starting a re-encode (1=On, 0=Off). Default: 1.
+.TP
+.B HTML_DASHBOARD
+Exports live status to an HTML page (1=On, 0=Off). Default: 0.
+.TP
+.B HTML_PATH
+Path to save the Web Dashboard. Default: /var/www/html/rectools.html.
+.TP
+.B LANGUAGE
+Language for the Web Dashboard (de, en). Default: de.
 .TP
 .B CRF_H264_DEFAULT
 Constant Rate Factor (CRF) for H.264 encoding. A lower value means better quality but larger file size. Default: 23.
@@ -75,11 +105,26 @@ CRF for H.265 encoding. Default: 23.
 .B PRESET_H265_DEFAULT
 Preset for H.265 encoding. Default: `medium`.
 .TP
+.B HW_ACCEL
+Hardware acceleration (none, nvenc, vaapi, qsv). Default: none.
+.TP
+.B SHRINK_MAX_RES
+Maximum resolution (height) for shrink. 0=disabled. Default: 0.
+.TP
 .B CRF_H264_FALLBACK
 CRF for fallback encoding. Default: 23.
 .TP
 .B PRESET_H264_FALLBACK
 Preset for fallback encoding. Default: `fast`.
+.TP
+.B MIN_COMPRESSION_RATIO_H264
+Max file size in % of original for H.264 encodes. Default: 70.
+.TP
+.B MIN_COMPRESSION_RATIO_H265
+Max file size in % of original for H.265 encodes. Default: 50.
+.TP
+.B MIN_COMPRESSION_RATIO_H264_FALLBACK
+Max file size in % of original for H.264 fallback encodes. Default: 70.
 .TP
 .B AUTO_SUB_DOWNLOAD
 Enables automatic download of subtitles via Subliminal (1=On, 0=Off). Default: 1.
@@ -87,11 +132,32 @@ Enables automatic download of subtitles via Subliminal (1=On, 0=Off). Default: 1
 .B SUB_LANG
 Preferred language for subtitles (e.g., de, en). Default: "de".
 .TP
+.B AUDIO_NORMALIZE
+Audio downmix (stereo) & dialog normalization (Night-Mode). (1=On, 0=Off). Default: 0.
+.TP
 .B MAIL_NOTIFY
 E-mail address for status and error reports. If empty, no mails are sent.
 .TP
+.B TELEGRAM_BOT_TOKEN
+API Token for your Telegram Bot (for push notifications).
+.TP
+.B TELEGRAM_CHAT_ID
+Your personal Telegram Chat ID.
+.TP
 .B MIN_FREE_GB
-Minimum free disk space (in GB) on the video drive. Undercutting leads to abort. Default: 50.
+Minimum free disk space (in GB) on the video drive. Undercutting leads to abort. Default: 20.
+.TP
+.B MAX_FILESIZE_GB
+Skips imports above this file size in GB (0=disabled). Default: 0.
+.TP
+.B MAX_FILES
+Maximum number of files per run. Default: 10.
+.TP
+.B PAUSE_WORK
+Pause between work steps (seconds). Default: 30.
+.TP
+.B PAUSE_CHECK
+Pause between file checks (seconds). Default: 2.
 .TP
 .B USE_TVSCRAPER
 Enables integration with the VDR tvscraper plugin (1=On, 0=Off). Default: 0.
