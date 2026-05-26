@@ -1,4 +1,8 @@
 <?php
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $msg = '';
 $save_success = false;
@@ -10,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_put_contents($conf_file, $new_data) !== false) {
         $new_lang = 'de';
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
-        @exec('nohup /usr/bin/vdr-rectools refresh ' . escapeshellarg($new_lang) . ' </dev/null >/tmp/rectools_web.log 2>&1 &');
-        usleep(750000); // 0.75 Sekunden warten, damit der Hintergrund-Prozess Zeit hat!
+        // Dashboard zwingend SYNCHRON aktualisieren, bevor die Seite neu laedt! Keine Hintergrund-Jobs mehr.
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' >/dev/null 2>&1');
         header('Location: config.php?saved=1&t=' . time());
         exit;
     } else {
@@ -22,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
 
 $save_success = isset($_GET['saved']);
 $save_error = isset($_GET['error']);
+
+// Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
+clearstatcache();
 
 // 2. DANN die (nun möglicherweise aktualisierte) Config auslesen
 $language = 'de';

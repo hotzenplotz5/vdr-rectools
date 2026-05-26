@@ -1,4 +1,8 @@
 <?php
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $import_dir = '/srv/vdr/import';
 $language = 'de';
@@ -225,8 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        @exec('nohup /usr/bin/vdr-rectools refresh ' . escapeshellarg($language) . ' </dev/null >/tmp/rectools_web.log 2>&1 &');
-        usleep(750000); // 0.75 Sekunden warten, damit der Hintergrund-Prozess Zeit hat!
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
     }
 }
 
