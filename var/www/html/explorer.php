@@ -261,11 +261,6 @@ $dst_contents = get_dir_contents($dst);
                     <?php foreach ($src_contents['dirs'] as $d): ?>
                         <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
                             <a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
-                            <?php if ($d['name'] !== '⬅️ .. (Eine Ebene hoch)'): ?>
-                            <form method="POST" style="margin: 0;">
-                                <button type="submit" name="delete_dir" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diesen Ordner wirklich löschen? (Muss leer sein!)');">🗑️</button>
-                            </form>
-                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 
