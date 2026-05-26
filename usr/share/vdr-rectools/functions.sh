@@ -1185,7 +1185,7 @@ export_html_status() {
             PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>Der Film <b>$P_TITLE</b> erfordert einen Re-Encode. Starten?</div>"
             PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>✔️ JA, Starten</a>"
             PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>❌ NEIN, Überspringen</a>"
-            PROMPT_HTML+="<a href='rectools_confirm.php?action=manual' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px;' title='Bereitet die Datei für Handbrake via Netzwerk-Freigabe (Samba) vor'>🖥️ Am PC (Handbrake über SMB) bearbeiten</a>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=manual' onclick=\"return confirm('Handbrake Workflow:\\n\\n1. Bestaetige hier mit OK.\\n2. Oeffne Handbrake auf deinem PC.\\n3. Importiere die Datei ueber das Samba-Netzlaufwerk.\\n4. Lege das fertige Video danach wieder im Import-Ordner ab.\\n\\nJetzt fuer den PC delegieren?');\" style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px;' title='Bereitet die Datei für Handbrake via Netzwerk-Freigabe (Samba) vor'>🖥️ Am PC (Handbrake über SMB) bearbeiten</a>"
             PROMPT_HTML+="</div>"
         fi
     fi

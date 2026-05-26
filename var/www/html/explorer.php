@@ -193,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $target .= '.' . $info['extension'];
                 }
                 if (@rename($file, $target)) {
-                    $msg = "<div class='msg msg-ok'>✅ Datei für den PC delegiert (.pc_encode)!</div>";
+                    $msg = "<div class='msg msg-ok'>✅ Datei für den PC delegiert (.pc_encode)!<br><span style='font-weight:normal; font-size:0.9em;'>Die Datei wird vom VDR nun ignoriert. Du kannst sie jetzt über deine Windows-Netzwerkfreigabe (Samba) in Handbrake ziehen und bearbeiten!</span></div>";
                 } else {
                     $msg = "<div class='msg msg-err'>❌ Fehler beim Delegieren an den PC.</div>";
                 }
@@ -310,7 +310,7 @@ $dst_contents = get_dir_contents($dst);
                         </label>
                         <?php if (strpos($f['name'], '.skipped') !== false): ?>
                             <button type="submit" name="recover_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white;" title="Freigeben">🔄</button>
-                            <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white;" title="An PC delegieren">🖥️</button>
+                            <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white;" title="An PC delegieren" onclick="return confirm('Handbrake Workflow:\n\n1. Bestätige hier mit OK.\n2. Öffne Handbrake auf deinem PC.\n3. Importiere die Datei über das Samba-Netzlaufwerk.\n4. Lege das fertige Video danach wieder hier ab.\n\nJetzt umbenennen (.pc_encode)?');">🖥️</button>
                         <?php endif; ?>
                         <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white;" formtarget="_blank" title="Herunterladen">⬇️</button>
                         <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('Diese Datei wirklich UNWIDERRUFLICH löschen?');">🗑️</button>
@@ -344,7 +344,7 @@ $dst_contents = get_dir_contents($dst);
                             <form method="POST" style="margin: 0;">
                                 <?php if (strpos($f['name'], '.skipped') !== false): ?>
                                     <button type="submit" name="recover_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white; padding: 2px 8px;" title="Für erneuten Import freigeben">🔄 Import</button>
-                                    <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white; padding: 2px 8px;" title="An PC delegieren (.pc_encode)">🖥️ PC</button>
+                                    <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white; padding: 2px 8px;" title="An PC delegieren (.pc_encode)" onclick="return confirm('Handbrake Workflow:\n\n1. Bestätige hier mit OK.\n2. Öffne Handbrake auf deinem PC.\n3. Importiere die Datei über das Samba-Netzlaufwerk.\n4. Lege das fertige Video danach wieder hier ab.\n\nJetzt umbenennen (.pc_encode)?');">🖥️ PC</button>
                                 <?php endif; ?>
                                 <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white; padding: 2px 8px;" formtarget="_blank" title="Herunterladen">⬇️</button>
                                 <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diese Datei im Zielordner UNWIDERRUFLICH löschen?');">🗑️</button>
