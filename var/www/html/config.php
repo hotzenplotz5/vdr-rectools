@@ -28,7 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_put_contents($conf_file, $new_data) !== false) {
         $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
         // HTML-Dashboard nach dem Speichern sofort neu rendern, damit Sprachänderungen greifen
-        @exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' </dev/null >/dev/null 2>&1 &');
+        $new_lang = $language;
+        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
+        @exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' </dev/null >/dev/null 2>&1 &');
     } else {
         $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
     }
