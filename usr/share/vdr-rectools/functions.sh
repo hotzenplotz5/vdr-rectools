@@ -23,6 +23,7 @@ AUDIO_NORMALIZE=0 # Neu: Audio-Downmix und Normalisierung auf Stereo (Night-Mode
 ASK_BEFORE_ENCODE=1 # Neu: Fragt per Status-Dashboard nach, bevor re-encodiert wird
 HTML_DASHBOARD=0
 HTML_PATH="/var/www/html/rectools.html"
+LANGUAGE="de" # Default language for Web-UI (de, en)
 MIN_COMPRESSION_RATIO_H264=70 # Max 70% of original size for H264 encodes
 MIN_COMPRESSION_RATIO_H265=50 # Max 50% of original size for H265 encodes
 MIN_COMPRESSION_RATIO_H264_FALLBACK=70 # Max 70% of original size for H264 fallback encodes
