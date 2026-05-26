@@ -1,11 +1,23 @@
 <?php
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $import_dir = '/srv/vdr/import';
+$language = 'de';
 if (file_exists($conf_file)) {
     $lines = file($conf_file);
     foreach ($lines as $line) {
         if (preg_match('/^IMPORT_DIR=["\']?(.*?)["\']?$/', trim($line), $m)) $import_dir = $m[1];
+        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
     }
+}
+
+$lang_file = __DIR__ . "/lang/{$language}.json";
+if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
+$translations = file_exists($lang_file) ? json_decode(file_get_contents($lang_file), true) : [];
+
+function __($key, ...$args) {
+    global $translations;
+    $text = isset($translations[$key]) ? $translations[$key] : $key;
+    return !empty($args) ? vsprintf($text, $args) : $text;
 }
 
 // Aktuelle Pfade auslesen (Standard: Quelle = Root, Ziel = Import_Dir)
@@ -39,28 +51,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fclose($handle);
                 exit;
             } else {
-                $msg = "<div class='msg msg-err'>❌ Datei konnte nicht gelesen werden!</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_read_file') . "</div>";
             }
         } else {
-            $msg = "<div class='msg msg-err'>❌ Datei nicht gefunden!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_file_not_found') . "</div>";
         }
     } elseif (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
-        $msg = "<div class='msg msg-err'>❌ Upload abgebrochen! Datei ist zu groß für den Webserver (Limit oder Arbeitsspeicher voll).</div>";
+        $msg = "<div class='msg msg-err'>" . __('err_upload_too_large') . "</div>";
     } elseif (isset($_POST['single_move'])) {
         $file = $_POST['single_move'];
         $filename = basename($file);
         $target = $dst . '/' . $filename;
         
         if (!file_exists($file)) {
-            $msg = "<div class='msg msg-err'>❌ Quelldatei nicht gefunden!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_src_not_found') . "</div>";
         } elseif (file_exists($target)) {
-            $msg = "<div class='msg msg-err'>❌ Datei '$filename' existiert im Ziel bereits!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_target_exists', $filename) . "</div>";
         } else {
             // Verschieben (kann bei großen Dateien über Partitionsgrenzen hinweg dauern)
             if (@rename($file, $target)) {
-                $msg = "<div class='msg msg-ok'>✅ '$filename' erfolgreich verschoben!</div>";
+                $msg = "<div class='msg msg-ok'>" . __('ok_file_moved', $filename) . "</div>";
             } else {
-                $msg = "<div class='msg msg-err'>❌ Fehler beim Verschieben (Fehlende Rechte?).</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_move_failed') . "</div>";
             }
         }
     } elseif (isset($_POST['bulk_move']) && !empty($_POST['files'])) {
@@ -75,11 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($success > 0 && $errors === 0) {
-            $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich verschoben!</div>";
+            $msg = "<div class='msg msg-ok'>" . __('ok_bulk_move', $success) . "</div>";
         } elseif ($success > 0 && $errors > 0) {
-            $msg = "<div class='msg msg-err'>⚠️ $success Datei(en) verschoben, $errors Fehler.</div>";
+            $msg = "<div class='msg msg-err'>" . __('warn_bulk_move', $success, $errors) . "</div>";
         } else {
-            $msg = "<div class='msg msg-err'>❌ Fehler beim Verschieben. Keine Dateien verschoben.</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_bulk_move') . "</div>";
         }
     } elseif (isset($_POST['bulk_delete']) && !empty($_POST['files'])) {
         $success = 0; $errors = 0;
@@ -93,26 +105,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($success > 0 && $errors === 0) {
-            $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich gelöscht!</div>";
+            $msg = "<div class='msg msg-ok'>" . __('ok_bulk_delete', $success) . "</div>";
         } elseif ($success > 0 && $errors > 0) {
-            $msg = "<div class='msg msg-err'>⚠️ $success Datei(en) gelöscht, $errors Fehler.</div>";
+            $msg = "<div class='msg msg-err'>" . __('warn_bulk_delete', $success, $errors) . "</div>";
         } else {
-            $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen. Keine Dateien gelöscht.</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_bulk_delete') . "</div>";
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
         $newdir = $dst . '/' . basename($_POST['dirname']);
         if (!file_exists($newdir)) {
             if (@mkdir($newdir, 0775)) {
-                $msg = "<div class='msg msg-ok'>✅ Ordner '" . basename($_POST['dirname']) . "' erstellt!</div>";
+                $msg = "<div class='msg msg-ok'>" . __('ok_dir_created', basename($_POST['dirname'])) . "</div>";
             } else {
-                $msg = "<div class='msg msg-err'>❌ Fehler beim Erstellen des Ordners.</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_dir_create') . "</div>";
             }
         } else {
-            $msg = "<div class='msg msg-err'>❌ Ordner existiert bereits!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_dir_exists') . "</div>";
         }
     } elseif (isset($_POST['action']) && $_POST['action'] === 'upload') {
         if (!isset($_FILES['upload_file'])) {
-            $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: Keine Datei empfangen.</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_upload_no_file') . "</div>";
         } else {
             $success = 0; $errors = 0; $err_details = [];
             $files = $_FILES['upload_file'];
@@ -142,34 +154,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if ($success > 0 && $errors === 0) {
-                $msg = "<div class='msg msg-ok'>✅ $success Datei(en) erfolgreich hochgeladen!</div>";
+                $msg = "<div class='msg msg-ok'>" . __('ok_upload', $success) . "</div>";
             } elseif ($success > 0 && $errors > 0) {
-                $msg = "<div class='msg msg-err'>⚠️ $success hochgeladen, $errors Fehler: " . htmlspecialchars(implode(', ', $err_details)) . "</div>";
+                $msg = "<div class='msg msg-err'>" . __('warn_upload', $success, $errors, htmlspecialchars(implode(', ', $err_details))) . "</div>";
             } elseif ($errors > 0) {
-                $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: " . htmlspecialchars(implode(', ', $err_details)) . "</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_upload', htmlspecialchars(implode(', ', $err_details))) . "</div>";
             }
         }
     } elseif (isset($_POST['delete_file'])) {
         $file = $_POST['delete_file'];
         if (file_exists($file) && is_file($file)) {
             if (@unlink($file)) {
-                $msg = "<div class='msg msg-ok'>✅ Datei '" . basename($file) . "' erfolgreich gelöscht!</div>";
+                $msg = "<div class='msg msg-ok'>" . __('ok_file_deleted', basename($file)) . "</div>";
             } else {
-                $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen (Fehlende Rechte?).</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_delete_failed') . "</div>";
             }
         } else {
-            $msg = "<div class='msg msg-err'>❌ Datei nicht gefunden oder es ist ein Ordner!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_not_file') . "</div>";
         }
     } elseif (isset($_POST['delete_dir'])) {
         $dir = $_POST['delete_dir'];
         if (is_dir($dir)) {
             if (@rmdir($dir)) {
-                $msg = "<div class='msg msg-ok'>✅ Ordner '" . basename($dir) . "' erfolgreich gelöscht!</div>";
+                $msg = "<div class='msg msg-ok'>" . __('ok_dir_deleted', basename($dir)) . "</div>";
             } else {
-                $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen! (Ist der Ordner nicht leer oder fehlen Rechte?)</div>";
+                $msg = "<div class='msg msg-err'>" . __('err_dir_delete_failed') . "</div>";
             }
         } else {
-            $msg = "<div class='msg msg-err'>❌ Ordner nicht gefunden!</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_dir_not_found') . "</div>";
         }
         } elseif (isset($_POST['recover_file'])) {
             $file = $_POST['recover_file'];
@@ -177,9 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $clean = preg_replace('/\.(skipped|pc_encode|duplicate)\./', '.', $file);
                 $clean = preg_replace('/\.(skipped|pc_encode|duplicate)$/', '', $clean);
                 if (@rename($file, $clean)) {
-                    $msg = "<div class='msg msg-ok'>✅ Status entfernt! Datei erfolgreich für den VDR freigegeben.</div>";
+                    $msg = "<div class='msg msg-ok'>" . __('ok_status_removed') . "</div>";
                 } else {
-                    $msg = "<div class='msg msg-err'>❌ Fehler beim Freigeben der Datei.</div>";
+                    $msg = "<div class='msg msg-err'>" . __('err_status_remove') . "</div>";
                 }
             }
         } elseif (isset($_POST['manual_skipped'])) {
@@ -193,9 +205,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $target .= '.' . $info['extension'];
                 }
                 if (@rename($file, $target)) {
-                    $msg = "<div class='msg msg-ok'>✅ Datei für den PC delegiert (.pc_encode)!<br><span style='font-weight:normal; font-size:0.9em;'>Die Datei wird vom VDR nun ignoriert. Du kannst sie jetzt über deine Windows-Netzwerkfreigabe (Samba) in Handbrake ziehen und bearbeiten!</span></div>";
+                    $msg = "<div class='msg msg-ok'>" . __('ok_pc_delegate') . "</div>";
                 } else {
-                    $msg = "<div class='msg msg-err'>❌ Fehler beim Delegieren an den PC.</div>";
+                    $msg = "<div class='msg msg-err'>" . __('err_pc_delegate') . "</div>";
                 }
             }
     }
@@ -214,7 +226,7 @@ function get_dir_contents($dir) {
             if ($item === '.') continue;
             $path = rtrim($dir, '/') . '/' . $item;
             if ($item === '..') {
-                if ($dir !== '/') $dirs[] = ['name' => '⬅️ .. (Eine Ebene hoch)', 'path' => dirname($dir)];
+                if ($dir !== '/') $dirs[] = ['name' => __('dir_up'), 'path' => dirname($dir)];
                 continue;
             }
             if (is_dir($path)) $dirs[] = ['name' => '📁 ' . $item, 'path' => $path];
@@ -236,7 +248,7 @@ $dst_contents = get_dir_contents($dst);
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📁 VDR-Rectools Explorer</title>
+    <title><?= __('title_explorer') ?></title>
     <style>
         body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
@@ -265,25 +277,25 @@ $dst_contents = get_dir_contents($dst);
 </head>
 <body>
     <div class="container">
-        <h2>📁 VDR-Rectools Explorer</h2>
+        <h2><?= __('title_explorer') ?></h2>
         <?= $msg ?>
         
         <div class="split-view">
             <!-- LINKE SEITE (Quelle) -->
             <div class="pane">
-                <h3>🔍 Quelle (Auswählen & Verschieben)</h3>
+                <h3><?= __('header_source') ?></h3>
                 
                 <div style="background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h4 style="margin-top:0; color:#2196F3; margin-bottom: 10px;">📤 Von Deinem PC hochladen</h4>
+                    <h4 style="margin-top:0; color:#2196F3; margin-bottom: 10px;"><?= __('header_upload') ?></h4>
                     <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap: wrap; gap:10px; align-items: center;">
                         <input type="hidden" name="action" value="upload">
                         <input type="file" id="uploadFile" name="upload_file[]" multiple required style="color:#fff; flex-grow: 1;">
-                        <button type="submit" id="uploadBtn" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;">🚀 Hochladen</button>
+                        <button type="submit" id="uploadBtn" class="btn btn-move" style="margin:0; padding: 8px 15px; font-size: 14px;"><?= __('btn_upload') ?></button>
                     </form>
                     <div id="progressContainer" style="display:none; margin-top: 15px; background: #333; border-radius: 5px; width: 100%; height: 25px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
                         <div id="progressBar" style="background: #2196F3; width: 0%; height: 100%; text-align: center; color: white; line-height: 25px; font-size: 14px; font-weight: bold; white-space: nowrap;">0%</div>
                     </div>
-                    <div style="color:#aaa; font-size: 0.85em; margin-top: 8px;">Lädt eine Datei von diesem Computer direkt in den Zielordner (Rechts) hoch.</div>
+                    <div style="color:#aaa; font-size: 0.85em; margin-top: 8px;"><?= __('desc_upload') ?></div>
                 </div>
                 
                 <div class="path-bar"><?= htmlspecialchars($src) ?></div>
@@ -291,10 +303,10 @@ $dst_contents = get_dir_contents($dst);
                 <?php if (!empty($src_contents['files'])): ?>
                 <form method="POST" style="margin: 0;">
                     <div style="background: rgba(20, 20, 20, 0.95); padding: 12px 10px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: -10px; z-index: 10; border-bottom: 1px solid #444; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">
-                        <label style="cursor: pointer;"><input type="checkbox" id="selectAllChk" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked); if(typeof updateSelectionStorage === 'function') updateSelectionStorage();"> <strong>Alle auswählen</strong></label>
+                        <label style="cursor: pointer;"><input type="checkbox" id="selectAllChk" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked); if(typeof updateSelectionStorage === 'function') updateSelectionStorage();"> <strong><?= __('lbl_select_all') ?></strong></label>
                         <div>
-                            <button type="submit" name="bulk_delete" value="1" class="btn btn-move" style="margin: 0; background: #F44336; color: white;" onclick="return confirm('Alle markierten Dateien WIRKLICH UNWIDERRUFLICH löschen?');">🗑️ Markierte löschen</button>
-                            <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
+                            <button type="submit" name="bulk_delete" value="1" class="btn btn-move" style="margin: 0; background: #F44336; color: white;" onclick="return confirm('<?= __('confirm_bulk_delete') ?>');"><?= __('btn_bulk_delete') ?></button>
+                            <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('<?= __('confirm_bulk_move') ?>');"><?= __('btn_bulk_move') ?></button>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -314,14 +326,14 @@ $dst_contents = get_dir_contents($dst);
                             </span>
                         </label>
                         <?php if (preg_match('/\.(skipped|pc_encode|duplicate)(\.|$)/i', $f['name'])): ?>
-                            <button type="submit" name="recover_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white;" title="Status entfernen & für VDR freigeben">🔄</button>
+                            <button type="submit" name="recover_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white;" title="<?= __('title_recover') ?>"><?= __('btn_recover') ?></button>
                         <?php endif; ?>
                         <?php if (strpos($f['name'], '.skipped') !== false): ?>
-                            <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white;" title="An PC delegieren" onclick="return confirm('Handbrake Workflow:\n\n1. Bestätige hier mit OK.\n2. Öffne Handbrake auf deinem PC.\n3. Importiere die Datei über das Samba-Netzlaufwerk.\n4. Lege das fertige Video danach wieder hier ab.\n\nJetzt umbenennen (.pc_encode)?');">🖥️</button>
+                            <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white;" title="<?= __('title_delegate') ?>" onclick="return confirm('<?= __('confirm_delegate') ?>');"><?= __('btn_delegate') ?></button>
                         <?php endif; ?>
-                        <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white;" formtarget="_blank" title="Herunterladen">⬇️</button>
-                        <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('Diese Datei wirklich UNWIDERRUFLICH löschen?');">🗑️</button>
-                        <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('Diese Datei nach Rechts verschieben?');">➡️ Rüber</button>
+                        <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white;" formtarget="_blank" title="<?= __('title_download') ?>"><?= __('btn_download') ?></button>
+                        <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white;" onclick="return confirm('<?= __('confirm_delete_file') ?>');"><?= __('btn_delete') ?></button>
+                        <button type="submit" name="single_move" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" onclick="return confirm('<?= __('confirm_single_move') ?>');"><?= __('btn_single_move') ?></button>
                         </div>
                     <?php endforeach; ?>
                 <?php if (!empty($src_contents['files'])): ?>
@@ -332,15 +344,15 @@ $dst_contents = get_dir_contents($dst);
             
             <!-- RECHTE SEITE (Ziel) -->
             <div class="pane">
-                <h3>🎯 Ziel (IMPORT_DIR)</h3>
+                <h3><?= __('header_target') ?></h3>
                 <div class="path-bar"><?= htmlspecialchars($dst) ?></div>
                 <div class="list">
                     <?php foreach ($dst_contents['dirs'] as $d): ?>
                         <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
                             <a href="?src=<?= urlencode($src) ?>&dst=<?= urlencode($d['path']) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
-                            <?php if ($d['name'] !== '⬅️ .. (Eine Ebene hoch)'): ?>
+                            <?php if ($d['name'] !== __('dir_up')): ?>
                             <form method="POST" style="margin: 0;">
-                                <button type="submit" name="delete_dir" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diesen Ordner im Zielordner wirklich löschen? (Muss leer sein!)');">🗑️</button>
+                                <button type="submit" name="delete_dir" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('<?= __('confirm_delete_dir') ?>');"><?= __('btn_delete') ?></button>
                             </form>
                             <?php endif; ?>
                         </div>
@@ -350,26 +362,26 @@ $dst_contents = get_dir_contents($dst);
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($f['name']) ?> <span style="color: #555; font-size: 0.85em; margin-left: 5px;">(<?= $f['size'] ?>)</span></span>
                             <form method="POST" style="margin: 0;">
                                 <?php if (preg_match('/\.(skipped|pc_encode|duplicate)(\.|$)/i', $f['name'])): ?>
-                                    <button type="submit" name="recover_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white; padding: 2px 8px;" title="Status entfernen & für VDR freigeben">🔄 Import</button>
+                                    <button type="submit" name="recover_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #2196F3; color: white; padding: 2px 8px;" title="<?= __('title_recover') ?>"><?= __('btn_recover_text') ?></button>
                                 <?php endif; ?>
                                 <?php if (strpos($f['name'], '.skipped') !== false): ?>
-                                    <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white; padding: 2px 8px;" title="An PC delegieren (.pc_encode)" onclick="return confirm('Handbrake Workflow:\n\n1. Bestätige hier mit OK.\n2. Öffne Handbrake auf deinem PC.\n3. Importiere die Datei über das Samba-Netzlaufwerk.\n4. Lege das fertige Video danach wieder hier ab.\n\nJetzt umbenennen (.pc_encode)?');">🖥️ PC</button>
+                                    <button type="submit" name="manual_skipped" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #9C27B0; color: white; padding: 2px 8px;" title="<?= __('title_delegate') ?>" onclick="return confirm('<?= __('confirm_delegate') ?>');"><?= __('btn_delegate_text') ?></button>
                                 <?php endif; ?>
-                                <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white; padding: 2px 8px;" formtarget="_blank" title="Herunterladen">⬇️</button>
-                                <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('Diese Datei im Zielordner UNWIDERRUFLICH löschen?');">🗑️</button>
+                                <button type="submit" name="download_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #4CAF50; color: white; padding: 2px 8px;" formtarget="_blank" title="<?= __('title_download') ?>"><?= __('btn_download') ?></button>
+                                <button type="submit" name="delete_file" value="<?= htmlspecialchars($f['raw_path']) ?>" class="btn btn-move" style="background: #F44336; color: white; padding: 2px 8px;" onclick="return confirm('<?= __('confirm_delete_file_dst') ?>');"><?= __('btn_delete') ?></button>
                             </form>
                         </div>
                     <?php endforeach; ?>
                 </div>
                 <form method="POST" class="mkdir-form">
                     <input type="hidden" name="action" value="mkdir">
-                    <input type="text" name="dirname" placeholder="Neuer Ordnername..." required>
-                    <button type="submit" class="btn" style="margin-top: 0;">Ordner erstellen</button>
+                    <input type="text" name="dirname" placeholder="<?= __('placeholder_new_dir') ?>" required>
+                    <button type="submit" class="btn" style="margin-top: 0;"><?= __('btn_mkdir') ?></button>
                 </form>
             </div>
         </div>
         
-        <a href="rectools.html" class="btn btn-back">⬅️ Zurück zum Dashboard</a>
+        <a href="rectools.html" class="btn btn-back"><?= __('btn_back') ?></a>
     </div>
     <script>
         const EXPLORER_STORAGE_KEY = 'vdr_rectools_explorer_selection';
@@ -407,7 +419,7 @@ $dst_contents = get_dir_contents($dst);
                     var fileInput = document.getElementById('uploadFile');
                     if(fileInput.files.length === 0) return;
 
-                    document.getElementById('uploadBtn').innerText = '⏳ Bitte warten...';
+                    document.getElementById('uploadBtn').innerText = '<?= __('upload_wait') ?>';
                     document.getElementById('uploadBtn').style.background = '#555';
                     document.getElementById('uploadBtn').style.cursor = 'not-allowed';
                     document.getElementById('uploadBtn').disabled = true;
@@ -423,12 +435,13 @@ $dst_contents = get_dir_contents($dst);
                     xhr.upload.onprogress = function(e) {
                         if (e.lengthComputable) {
                             var percent = Math.round((e.loaded / e.total) * 100);
+                            var upload_text = '<?= __('upload_running', 'PERCENT_PLACEHOLDER') ?>';
                             pBar.style.width = percent + '%';
-                            pBar.innerHTML = percent + '% (Upload läuft)';
+                            pBar.innerHTML = upload_text.replace('PERCENT_PLACEHOLDER', percent);
                         }
                     };
                     xhr.onload = function() { document.open(); document.write(xhr.responseText); document.close(); };
-                    xhr.onerror = function() { alert('Netzwerkfehler beim Upload!'); window.location.reload(); };
+                    xhr.onerror = function() { alert('<?= __('upload_network_err') ?>'); window.location.reload(); };
                     xhr.send(formData);
                 });
             }
