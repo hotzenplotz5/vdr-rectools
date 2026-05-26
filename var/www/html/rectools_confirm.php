@@ -12,7 +12,13 @@ if (isset($_GET['action'])) {
             $content = trim(file_get_contents($prompt_file));
             $parts = explode('|', $content);
             if (isset($parts[0]) && $parts[0] === 'WAIT') {
-                $action = $_GET['action'] === 'yes' ? 'YES' : 'NO';
+                if ($_GET['action'] === 'yes') {
+                    $action = 'YES';
+                } elseif ($_GET['action'] === 'manual') {
+                    $action = 'MANUAL';
+                } else {
+                    $action = 'NO';
+                }
                 $new_content = $action . '|' . $parts[1] . '|' . (isset($parts[2]) ? $parts[2] : '') . "\n";
                 $fp = fopen($prompt_file, 'w');
                 if ($fp) { fwrite($fp, $new_content); fclose($fp); }

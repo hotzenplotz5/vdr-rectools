@@ -537,6 +537,11 @@ confirm_encoding() {
             echo "[$(date +%T)] Nutzer hat Re-Encode für '$TITLE' abgelehnt. Datei wird übersprungen (.skipped)." >> "$LOG_FILE"
             mv -f "$SRC_FILE" "${SRC_FILE}.skipped" 2>/dev/null
             return 1
+        elif [[ "$STATUS" == "MANUAL" ]]; then
+            rm -f "$PROMPT_FILE"
+            echo "[$(date +%T)] Nutzer encodiert '$TITLE' extern (Handbrake/Samba). Datei wird umbenannt (.pc_encode)." >> "$LOG_FILE"
+            mv -f "$SRC_FILE" "${SRC_FILE}.pc_encode" 2>/dev/null
+            return 1
         fi
         sleep 2
     done
@@ -1176,6 +1181,7 @@ export_html_status() {
             PROMPT_HTML+="<div style='margin-bottom: 15px; margin-top: 5px; color: #fff;'>Der Film <b>$P_TITLE</b> erfordert einen Re-Encode. Starten?</div>"
             PROMPT_HTML+="<a href='rectools_confirm.php?action=yes' style='display: inline-block; background: #4CAF50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-right: 10px;'>✔️ JA, Starten</a>"
             PROMPT_HTML+="<a href='rectools_confirm.php?action=no' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;'>❌ NEIN, Überspringen</a>"
+            PROMPT_HTML+="<a href='rectools_confirm.php?action=manual' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px;' title='Bereitet die Datei für Handbrake via Netzwerk-Freigabe (Samba) vor'>🖥️ Am PC (Handbrake über SMB) bearbeiten</a>"
             PROMPT_HTML+="</div>"
         fi
     fi
