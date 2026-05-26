@@ -282,6 +282,10 @@ case "$1" in
         ;;
         
     update-html)
+        # Sprach-Override aus PHP akzeptieren, um Race-Conditions zu umgehen
+        if [[ -n "$2" ]]; then
+            export LANGUAGE_OVERRIDE="$2"
+        fi
         export_html_status
         ;;
 
