@@ -99,8 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Fehler beim Löschen. Keine Dateien gelöscht.</div>";
         }
-    } elseif (isset($_POST['action'])) {
-        if ($_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'mkdir' && !empty($_POST['dirname'])) {
         $newdir = $dst . '/' . basename($_POST['dirname']);
         if (!file_exists($newdir)) {
             if (@mkdir($newdir, 0775)) {
@@ -111,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Ordner existiert bereits!</div>";
         }
-    } elseif ($_POST['action'] === 'upload') {
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'upload') {
         if (!isset($_FILES['upload_file'])) {
             $msg = "<div class='msg msg-err'>❌ Upload fehlgeschlagen: Keine Datei empfangen.</div>";
         } else {
@@ -172,7 +171,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $msg = "<div class='msg msg-err'>❌ Ordner nicht gefunden!</div>";
         }
-    }
     }
 }
 
