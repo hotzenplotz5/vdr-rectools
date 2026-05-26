@@ -37,6 +37,25 @@ if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     systemctl enable vdr-rectools.timer || true
     systemctl start vdr-rectools.timer || true
+
+    # Worker Service anlegen und starten
+    cat <<EOFW > /etc/systemd/system/vdr-rectools-worker.service
+[Unit]
+Description=VDR-Rectools Web-UI Worker
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/vdr-rectools-worker
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOFW
+    systemctl daemon-reload
+    systemctl enable vdr-rectools-worker.service || true
+    systemctl restart vdr-rectools-worker.service || true
 fi
 
 # 4. VDR OSD-Befehle (drop-in)

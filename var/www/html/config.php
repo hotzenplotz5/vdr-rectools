@@ -16,15 +16,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         // WICHTIG: Den LETZTEN Eintrag lesen, da Bash (source) immer den letzten verwendet!
         if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $language = trim(end($m[1])); }
 
-        // Dashboard SYNCHRON aktualisieren und abwarten
-        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
+        // Dashboard ueber den neuen Worker aktualisieren und auf Abschluss warten
+        require_once __DIR__ . '/job_dispatcher.php';
+        dispatch_job('update-html', $language);
+        clearstatcache(true); // Verhindert PHP File-Cache Probleme
         $save_success = true;
     } else {
         $save_error = true;
     }
 } else {
     // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
-    clearstatcache();
+    clearstatcache(true);
     // 2. Kein POST-Request: Config von der Festplatte auslesen
     if (file_exists($conf_file)) {
         $current_conf = (string)@file_get_contents($conf_file);
