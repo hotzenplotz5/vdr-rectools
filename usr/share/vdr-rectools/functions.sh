@@ -1130,6 +1130,12 @@ export_html_status() {
     # --- NEU: Sprache live neu laden ---
     # Verhindert, dass laufende Hintergrund-Jobs Änderungen aus config.php wieder überschreiben!
     if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then . "/etc/vdr/conf.d/vdr-rectools.conf"; fi
+
+    # Sprach-Override aus dem CLI-Aufruf (PHP) priorisieren
+    if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
+        LANGUAGE="$LANGUAGE_OVERRIDE"
+    fi
+
     local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
     if [ -f "$L_FILE" ]; then . "$L_FILE"; elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then . "/usr/share/vdr-rectools/lang/de.sh"; fi
     # -----------------------------------
