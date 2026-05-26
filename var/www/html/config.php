@@ -8,14 +8,39 @@ $msg = '';
 $language = 'de';
 $current_conf = '';
 
-// 1. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
-    $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
+// 1. Sauberes KV-Datenmodell (Parser & Serializer)
+function parseConfig($text) {
+    $out = [];
+    foreach (explode("\n", str_replace("\r\n", "\n", $text)) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        // First-Wins Prinzip: Der erste Treffer (oben) zaehlt.
+        if (preg_match('/^([A-Z0-9_]+)=(.*)$/', $line, $m)) {
+            $key = trim($m[1]);
+            if (!isset($out[$key])) {
+                $out[$key] = trim(trim($m[2]), "\"'");
+            }
+        }
+    }
+    return $out;
+}
 
-    // Fix: Nur den ersten Intent des Users nehmen und Duplikate rigoros loeschen
-    if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $language = trim($m[1][0]); }
-    $new_data = preg_replace('/^LANGUAGE=.*(\r?\n)?/m', '', $new_data);
-    $new_data = rtrim($new_data) . "\nLANGUAGE=\"" . $language . "\"\n";
+function serializeConfig($config) {
+    $out = "";
+    foreach ($config as $k => $v) {
+        $out .= $k . "=\"" . $v . "\"\n";
+    }
+    return $out;
+}
+
+// 2. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
+    // Datenmodell aus dem POST-Input aufbauen (eliminiert Duplikate automatisch)
+    $configMap = parseConfig($_POST['config_data']);
+    $language = isset($configMap['LANGUAGE']) ? $configMap['LANGUAGE'] : 'de';
+    
+    // Sauberen State serialisieren
+    $new_data = serializeConfig($configMap);
 
     if (file_put_contents($conf_file, $new_data) !== false) {
         $current_conf = $new_data;
@@ -31,10 +56,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
 } else {
     // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
     clearstatcache(true);
-    // 2. Kein POST-Request: Config von der Festplatte auslesen
+    // 3. Kein POST-Request: Config von der Festplatte auslesen
     if (file_exists($conf_file)) {
-        $current_conf = (string)@file_get_contents($conf_file);
-        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim($m[1][0]); }
+        $raw_text = (string)@file_get_contents($conf_file);
+        $configMap = parseConfig($raw_text);
+        $language = isset($configMap['LANGUAGE']) ? $configMap['LANGUAGE'] : 'de';
+        $current_conf = serializeConfig($configMap); // Zeige immer den sauberen KV-State im Editor
     }
 }
 
