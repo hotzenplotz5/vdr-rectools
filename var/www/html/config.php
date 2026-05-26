@@ -5,42 +5,31 @@ header("Pragma: no-cache");
 header("Expires: 0");
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
 $msg = '';
-$save_success = false;
-$save_error = false;
+$language = 'de';
+$current_conf = '';
 
 // 1. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
     if (file_put_contents($conf_file, $new_data) !== false) {
-        $new_lang = 'de';
+        $current_conf = $new_data;
         // WICHTIG: Den LETZTEN Eintrag lesen, da Bash (source) immer den letzten verwendet!
-        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim(end($m[1])); }
-
-        clearstatcache();
-        usleep(300000); // 300ms warten, damit das OS die Datei flusht
+        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $language = trim(end($m[1])); }
 
         // Dashboard SYNCHRON aktualisieren und abwarten
-        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' >/dev/null 2>&1');
-        header('Location: config.php?saved=1&t=' . time());
-        exit;
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
+        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>⚙️ Gespeichert / Saved!</div>";
     } else {
-        header('Location: config.php?error=1&t=' . time());
-        exit;
+        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>❌ Fehler / Error!</div>";
     }
-}
-
-// Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
-clearstatcache();
-
-$save_success = isset($_GET['saved']);
-$save_error = isset($_GET['error']);
-
-// 2. DANN die (nun möglicherweise aktualisierte) Config auslesen
-$language = 'de';
-$current_conf = '';
-if (file_exists($conf_file)) {
-    $current_conf = (string)@file_get_contents($conf_file);
-    if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim(end($m[1])); }
+} else {
+    // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
+    clearstatcache();
+    // 2. Kein POST-Request: Config von der Festplatte auslesen
+    if (file_exists($conf_file)) {
+        $current_conf = (string)@file_get_contents($conf_file);
+        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim(end($m[1])); }
+    }
 }
 
 // 3. DANN das richtige Wörterbuch basierend auf der aktuellen Sprache laden
@@ -56,13 +45,6 @@ function __($key, ...$args) {
     global $translations;
     $text = isset($translations[$key]) ? $translations[$key] : $key;
     return !empty($args) ? vsprintf($text, $args) : $text;
-}
-
-// 4. JETZT ERST die korrekten, uebersetzten Meldungen generieren
-if ($save_success) {
-    $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
-} elseif ($save_error) {
-    $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
 }
 ?>
 <!DOCTYPE html>
