@@ -74,11 +74,17 @@ function dispatch_job($action, $param = '') {
     $idempotency_key = md5($action . '|' . $param . '|' . $sys_lang);
     $key_file = $job_dir . '/key_' . $idempotency_key;
     
+    clearstatcache(true, $key_file);
     if (file_exists($key_file)) {
-        $existing_job = trim((string)@file_get_contents($key_file));
-        // Deduplizieren, wenn der Job noch in der Warteschlange ist oder gerade laeuft
-        if (file_exists($job_dir . '/' . $existing_job . '.job') || file_exists($job_dir . '/' . $existing_job . '.lock')) {
-            return $existing_job;
+        // Enhancement 1 (Job TTL): "Haengende" Idempotency-Keys nach 10 Minuten verwerfen
+        if (time() - filemtime($key_file) > 600) {
+            @unlink($key_file);
+        } else {
+            $existing_job = trim((string)@file_get_contents($key_file));
+            // Deduplizieren, wenn der Job noch in der Warteschlange ist oder gerade laeuft
+            if (file_exists($job_dir . '/' . $existing_job . '.job') || file_exists($job_dir . '/' . $existing_job . '.lock')) {
+                return $existing_job;
+            }
         }
     }
     
@@ -100,7 +106,7 @@ function dispatch_job($action, $param = '') {
     // Atomisches Schreiben: Erst Temp-Datei, dann Rename
     @file_put_contents($tmp_file, $payload);
     @chmod($tmp_file, 0666);
-    @file_put_contents($key_file, $job_id); // Idempotency Key hinterlegen
+    @file_put_contents($key_file, $job_id, LOCK_EX); // Idempotency Key atomar absichern (LOCK_EX)
     @rename($tmp_file, $job_file);
     
     return $job_id;
