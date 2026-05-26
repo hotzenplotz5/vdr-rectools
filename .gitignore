@@ -8,9 +8,9 @@
 .pc/
 obj-*/
 debian/.debhelper/
+debian/debhelper-build-stamp
 debian/vdr-rectools/
 debian/files
 debian/*.substvars
 debian/*.debhelper.log
 *.1.gz
-

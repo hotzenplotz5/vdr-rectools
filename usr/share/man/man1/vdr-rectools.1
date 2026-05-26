@@ -1,135 +1,135 @@
-.TH VDR-RECTOOLS 1 "April 2026" "vdr-rectools" "User Commands"
+.TH VDR-RECTOOLS 1 "May 2026" "vdr-rectools" "User Commands"
 .SH NAME
-vdr-rectools \- Suite zur Verwaltung, Reparatur und Konvertierung von VDR-Aufnahmen
+vdr-rectools \- Suite for managing, repairing and converting VDR recordings
 .SH SYNOPSIS
 .B vdr-rectools
 [\fICOMMAND\fR] [\fIARGUMENT\fR]
 .SH DESCRIPTION
 .B vdr-rectools
-ist eine modulare, vollautomatisierte Bash-Suite für den Video Disk Recorder (VDR). Sie dient zur Verwaltung, Reparatur, Konvertierung und nahtlosen Integration von VDR-Aufnahmen sowie externen Videodateien in Media-Center wie Plex oder Kodi.
+is a modular, fully automated Bash suite for the Video Disk Recorder (VDR). It is used for managing, repairing, converting and seamlessly integrating VDR recordings and external video files into media centers like Plex or Kodi.
 .P
-Die Hauptfunktionen umfassen einen intelligenten Import von Videodateien (MKV, MP4 etc.), eine zweistufige Reparatur defekter Aufnahmen, die Konvertierung in platzsparende Formate (H.265/HEVC) und die automatische Erstellung von Metadaten und Symlinks für externe Mediaplayer.
+The main functions include intelligent import of video files (MKV, MP4 etc.), a two-stage repair of broken recordings, conversion to space-saving formats (H.265/HEVC) and the automatic generation of metadata and symlinks for external media players.
 .SH COMMANDS
-Die folgenden Befehle können direkt im Terminal ausgeführt werden:
+The following commands can be executed directly in the terminal:
 .TP
 .B start
-Startet einen vollständigen Scan (Import & Cleanup) im Hintergrund.
+Starts a full scan (import & cleanup) in the background.
 .TP
 .B import
-Startet gezielt nur den Import-Prozess für Dateien im konfigurierten Import-Verzeichnis.
+Starts only the import process for files in the configured import directory.
 .TP
 .B repair
-Startet einen Reparatur-Lauf für alle vorhandenen VDR-Aufnahmen.
+Starts a repair run for all existing VDR recordings.
 .TP
 .B status
-Zeigt die Prozess-ID (PID), die bisherige Laufzeit und die letzten Log-Einträge eines laufenden Prozesses an.
+Shows the process ID (PID), runtime, and the latest log entries of a running process.
 .TP
 .B stop
-Beendet laufende Hintergrundprozesse sauber.
+Stops running background processes cleanly.
 .TP
 .B cron
-Simuliert den nächtlichen Timer-Aufruf und prüft, ob die Automatik in der Konfiguration aktiviert ist.
+Simulates the nightly timer call and checks if automation is enabled in the configuration.
 .TP
-.B repair_single \fI<Pfad zur .rec>\fR
-Repariert gezielt eine einzelne Aufnahme.
+.B repair_single \fI<Path to .rec>\fR
+Repairs a single recording specifically.
 .TP
-.B check_single \fI<Pfad zur .rec>\fR
-Prüft die Aufnahme im angegebenen Verzeichnis auf Stream-Fehler, ohne sie zu verändern. Das Ergebnis wird in die Log-Datei geschrieben.
+.B check_single \fI<Path to .rec>\fR
+Checks the recording in the specified directory for stream errors without modifying it. The result is written to the log file.
 .SH IMPORT-WORKFLOW
-Der Import ist das Herzstück von
+The import process is the core of
 .B vdr-rectools
-. Wenn eine Videodatei im Import-Verzeichnis gefunden wird, führt das Skript eine intelligente Analyse des Video-Codecs durch und wählt die passende Strategie:
-.IP "1. \fBKompatible Formate (h264, hevc, mpeg2video)\fR"
-Die Datei wird ohne Qualitätsverlust und sehr schnell in einen VDR-kompatiblen Transport-Stream-Container umgepackt (Remuxing).
-.IP "2. \fBWeb-Formate (vp8, vp9, av1)\fR"
-Die Datei wird in das moderne und platzsparende H.265 (HEVC) Format umkodiert.
-.IP "3. \fBMiniDV-Format (dvvideo)\fR"
-Die Datei wird unter Anwendung eines Deinterlace-Filters (yadif) nach H.264 umkodiert, um Bildartefakte zu entfernen.
-.IP "4. \fBAndere/Unbekannte Formate\fR"
-Als Fallback wird die Datei sicherheitshalber nach H.264 umkodiert.
+. When a video file is found in the import directory, the script performs an intelligent analysis of the video codec and chooses the appropriate strategy:
+.IP "1. \fBCompatible Formats (h264, hevc, mpeg2video)\fR"
+The file is repackaged into a VDR-compatible transport stream container without quality loss and very quickly (Remuxing).
+.IP "2. \fBWeb Formats (vp8, vp9, av1)\fR"
+The file is transcoded into the modern and space-saving H.265 (HEVC) format.
+.IP "3. \fBMiniDV Format (dvvideo)\fR"
+The file is transcoded to H.264 using a deinterlace filter (yadif) to remove image artifacts.
+.IP "4. \fBOther/Unknown Formats\fR"
+As a fallback, the file is transcoded to H.264 to ensure compatibility.
 .P
-Dieser automatische Umkodier-Prozess kann über die Konfigurationsdatei deaktiviert werden, um CPU-intensive Operationen auf leistungsschwachen Systemen zu verhindern.
+This automatic transcoding process can be disabled via the configuration file to prevent CPU-intensive operations on low-power systems.
 .SH KONFIGURATION
-Die Konfiguration erfolgt über die Datei
+The configuration is done via the file
 .BR /etc/vdr/conf.d/vdr-rectools.conf .
-Die wichtigsten Variablen sind:
+The most important variables are:
 .TP
 .B AUTO_START_NIGHT
-Erlaubt den nächtlichen automatischen Scan (1=An, 0=Aus). Standard: 0.
+Enables the nightly automatic scan (1=On, 0=Off). Default: 0.
 .TP
 .B IMPORT_DIR
-Verzeichnis, in dem nach zu importierenden Videodateien gesucht wird.
+Directory to scan for video files to import.
 .TP
 .B AUTO_ENCODE_IMPORT
-Erlaubt das automatische Re-Encoding beim Import, falls ein inkompatibler Codec erkannt wird (1=An, 0=Aus). Bei 0 wird der Import abgelehnt. Standard: 1.
+Enables automatic re-encoding during import if an incompatible codec is detected (1=On, 0=Off). If 0, the import is rejected. Default: 1.
 .TP
 .B CRF_H264_DEFAULT
-Constant Rate Factor (CRF) für H.264-Encodierung. Ein niedrigerer Wert bedeutet bessere Qualität, aber größere Dateigröße. Standard: 23.
+Constant Rate Factor (CRF) for H.264 encoding. A lower value means better quality but larger file size. Default: 23.
 .TP
 .B PRESET_H264_DEFAULT
-Preset für H.264-Encodierung (z.B. `medium`, `fast`, `slow`). Beeinflusst Geschwindigkeit und Effizienz. Standard: `medium`.
+Preset for H.264 encoding (e.g., `medium`, `fast`, `slow`). Affects speed and efficiency. Default: `medium`.
 .TP
 .B CRF_H265_DEFAULT
-CRF für H.265-Encodierung. Standard: 23.
+CRF for H.265 encoding. Default: 23.
 .TP
 .B PRESET_H265_DEFAULT
-Preset für H.265-Encodierung. Standard: `medium`.
+Preset for H.265 encoding. Default: `medium`.
 .TP
 .B CRF_H264_FALLBACK
-CRF für Fallback-Encodierung. Standard: 23.
+CRF for fallback encoding. Default: 23.
 .TP
 .B PRESET_H264_FALLBACK
-Preset für Fallback-Encodierung. Standard: `fast`.
+Preset for fallback encoding. Default: `fast`.
 .TP
 .B AUTO_SUB_DOWNLOAD
-Aktiviert den automatischen Download von Untertiteln via Subliminal (1=An, 0=Aus). Standard: 1.
+Enables automatic download of subtitles via Subliminal (1=On, 0=Off). Default: 1.
 .TP
 .B SUB_LANG
-Bevorzugte Sprache für Untertitel (z.B. de, en). Standard: "de".
+Preferred language for subtitles (e.g., de, en). Default: "de".
 .TP
 .B MAIL_NOTIFY
-E-Mail-Adresse für Status- und Fehlerberichte. Wenn leer, werden keine Mails versendet.
+E-mail address for status and error reports. If empty, no mails are sent.
 .TP
 .B MIN_FREE_GB
-Mindestfreispeicher (in GB) auf dem Video-Laufwerk. Unterschreitung führt zum Abbruch. Standard: 50.
+Minimum free disk space (in GB) on the video drive. Undercutting leads to abort. Default: 50.
 .TP
 .B USE_TVSCRAPER
-Aktiviert die Integration mit dem tvscraper-Plugin des VDR (1=An, 0=Aus). Standard: 0.
+Enables integration with the VDR tvscraper plugin (1=On, 0=Off). Default: 0.
 .TP
 .B TVSCRAPER_MODE
-Legt den Modus für den Scrape fest ("immediate" für sofort, "batch" für den nächsten nächtlichen Lauf). Standard: "immediate".
+Sets the mode for the scrape ("immediate" for now, "batch" for the next nightly run). Default: "immediate".
 .TP
 .B SNAPSHOT_TIME
-Zeitstempel (HH:MM:SS) für die Erstellung von Vorschaubildern. Standard: "00:05:00".
+Timestamp (HH:MM:SS) for the generation of preview images. Default: "00:05:00".
 .SH VDR OSD-INTEGRATION
-Das Paket installiert automatisch Befehle in das VDR-Aufnahmemenü (`reccmds.conf`), die direkt über die Fernbedienung aufgerufen werden können:
-.IP "• \fBAufnahme reparieren (Rectools)\fR"
-.IP "• \fBWerbung schneiden (Rectools)\fR"
-.IP "• \fBPlatz sparen H.265 (Rectools)\fR"
+The package automatically installs commands in the VDR recording menu (`reccmds.conf`) which can be accessed via the remote control:
+.IP "• \fBRepair recording (Rectools)\fR"
+.IP "• \fBCut commercials (Rectools)\fR"
+.IP "• \fBSave space H.265 (Rectools)\fR"
 .IP "• \fBPlex/Kodi Sync (Rectools)\fR"
 .SH FILES
 .TP
 .B /etc/vdr/conf.d/vdr-rectools.conf
-Hauptkonfigurationsdatei.
+Main configuration file.
 .TP
 .B /var/log/vdr-rectools.log
-Logdatei, in der alle Operationen detailliert protokolliert werden.
+Log file in which all operations are logged in detail.
 .TP
 .B /usr/share/vdr-rectools/
-Verzeichnis mit den Kernskripten (functions.sh, media_tools.sh).
+Directory containing the core scripts (functions.sh, media_tools.sh).
 .TP
 .B /etc/vdr/reccmds.conf
-Konfigurationsdatei für das VDR-Befehlsmenü.
+Configuration file for the VDR command menu.
 .TP
 .B /lib/systemd/system/vdr-rectools.timer
-Systemd-Timer für die automatische, nächtliche Ausführung.
+Systemd timer for automatic, nightly execution.
 .TP
 .B /usr/share/man/man1/vdr-rectools.1.gz
-Diese Manpage.
-.SH DIAGNOSE
-Alle Aktionen, Entscheidungen der Import-Weiche und Fehler werden in die Logdatei
+This manpage.
+.SH DIAGNOSTICS
+All actions, decisions of the import switch and errors are written to the log file
 .B /var/log/vdr-rectools.log
-geschrieben. Dies ist die primäre Quelle zur Fehleranalyse. Bei konfiguriertem E-Mail-Versand werden kritische Fehler und eine Zusammenfassung des Laufs per Mail zugestellt.
+. This is the primary source for troubleshooting. If email dispatch is configured, critical errors and a summary of the run are delivered by mail.
 .SH AUTHOR
 Holger Schvestka <hotzenplotz5@gmx.de>
 .SH SEE ALSO
