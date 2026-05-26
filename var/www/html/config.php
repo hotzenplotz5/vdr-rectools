@@ -23,9 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     if (file_put_contents($conf_file, $new_data) !== false) {
         $current_conf = $new_data;
 
-        // Dashboard zwingend SYNCHRON aktualisieren!
-        // Der async-Worker schlaeft 0.5s - klickt der User sofort auf "Zurueck", sieht er das alte Dashboard!
-        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
+        // Dashboard asynchron ueber den Worker aktualisieren (Fire & Forget)
+        dispatch_job('update-html', $language);
         clearstatcache(true); // Verhindert PHP Cache Probleme
         $save_success = true;
     } else {
