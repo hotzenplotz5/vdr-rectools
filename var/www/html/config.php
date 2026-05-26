@@ -15,14 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         $new_lang = 'de';
         // WICHTIG: Den LETZTEN Eintrag lesen, da Bash (source) immer den letzten verwendet!
         if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim(end($m[1])); }
+
+        clearstatcache();
+        usleep(300000); // 300ms warten, damit das OS die Datei flusht
+
         // Dashboard SYNCHRON aktualisieren und abwarten
-        exec('nohup /bin/bash -c "/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . '" </dev/null >/tmp/rectools_web.log 2>&1');
-        
-        // Harter JS-Reload (Hack vom Kumpel), um POST-Cache und State-Fehler restlos zu besiegen
-        echo "<html><body style='background:#121212; color:#4CAF50; font-family:sans-serif; text-align:center; padding:100px;'><h2>⚙️ Gespeichert!</h2><p>Lade neue Sprache...</p><script>window.location.replace('config.php?saved=1&t=' + new Date().getTime());</script></body></html>";
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' >/dev/null 2>&1');
+        header('Location: config.php?saved=1&t=' . time());
         exit;
     } else {
-        echo "<html><body style='background:#121212; color:#F44336; font-family:sans-serif; text-align:center; padding:100px;'><h2>❌ Fehler!</h2><p>Lade neu...</p><script>window.location.replace('config.php?error=1&t=' + new Date().getTime());</script></body></html>";
+        header('Location: config.php?error=1&t=' . time());
         exit;
     }
 }

@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        exec('nohup /bin/bash -c "/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . '" </dev/null >/tmp/rectools_web.log 2>&1');
+        exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
     }
 }
 
