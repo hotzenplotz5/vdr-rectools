@@ -1,5 +1,24 @@
-﻿etc/* etc/
-lib/* lib/
-usr/* usr/
-var/* var/
+﻿# Skripte und Libraries
+usr/bin/vdr-rectools usr/bin/
+usr/share/vdr-rectools/functions.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/media_tools.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/html_template.sh usr/share/vdr-rectools/
 
+# Die unkomprimierte Manpage
+usr/share/man/man1/vdr-rectools.1 usr/share/man/man1/
+
+# Systemd Units
+lib/systemd/system/vdr-rectools.service lib/systemd/system/
+lib/systemd/system/vdr-rectools.timer lib/systemd/system/
+
+# Konfigurationsdatei
+debian/vdr-rectools.conf etc/vdr/conf.d/
+
+# VDR OSD Menüs
+debian/commands.vdr-rectools.conf etc/vdr/command-hooks/
+
+# Web-Dashboard und Sprachen
+var/www/html/explorer.php var/www/html/
+var/www/html/config.php var/www/html/
+var/www/html/log_viewer.php var/www/html/
+var/www/html/lang/* var/www/html/lang/
