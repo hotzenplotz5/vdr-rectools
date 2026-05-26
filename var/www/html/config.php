@@ -8,14 +8,20 @@ $save_error = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
     if (file_put_contents($conf_file, $new_data) !== false) {
-        $save_success = true;
         $new_lang = 'de';
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
         @exec('nohup /usr/bin/vdr-rectools refresh ' . escapeshellarg($new_lang) . ' </dev/null >/tmp/rectools_web.log 2>&1 &');
+        usleep(750000); // 0.75 Sekunden warten, damit der Hintergrund-Prozess Zeit hat!
+        header('Location: config.php?saved=1&t=' . time());
+        exit;
     } else {
-        $save_error = true;
+        header('Location: config.php?error=1&t=' . time());
+        exit;
     }
 }
+
+$save_success = isset($_GET['saved']);
+$save_error = isset($_GET['error']);
 
 // 2. DANN die (nun möglicherweise aktualisierte) Config auslesen
 $language = 'de';

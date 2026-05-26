@@ -226,6 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
         @exec('nohup /usr/bin/vdr-rectools refresh ' . escapeshellarg($language) . ' </dev/null >/tmp/rectools_web.log 2>&1 &');
+        usleep(750000); // 0.75 Sekunden warten, damit der Hintergrund-Prozess Zeit hat!
     }
 }
 
