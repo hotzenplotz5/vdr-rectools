@@ -18,9 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
 
         // Dashboard SYNCHRON aktualisieren und abwarten
         exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
-        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>⚙️ Gespeichert / Saved!</div>";
+        $save_success = true;
     } else {
-        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>❌ Fehler / Error!</div>";
+        $save_error = true;
     }
 } else {
     // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
@@ -45,6 +45,15 @@ function __($key, ...$args) {
     global $translations;
     $text = isset($translations[$key]) ? $translations[$key] : $key;
     return !empty($args) ? vsprintf($text, $args) : $text;
+}
+
+// 4. Erfolgsmeldung in der NEUEN Sprache generieren
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($save_success)) {
+        $msg = "<div style='color: #4CAF50; padding: 15px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_saved') . "</div>";
+    } elseif (isset($save_error)) {
+        $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
+    }
 }
 ?>
 <!DOCTYPE html>
