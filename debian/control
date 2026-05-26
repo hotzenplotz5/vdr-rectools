@@ -7,7 +7,7 @@ Standards-Version: 4.5.0
 
 Package: vdr-rectools
 Architecture: all
-Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo, curl
+Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo, curl, php-cli, php-json
 Conflicts: vdr-reccleaner
 Replaces: vdr-reccleaner
 Description: VDR Media-Suite: Join, Import, Repair, Auto-Subtitles & Systemd.

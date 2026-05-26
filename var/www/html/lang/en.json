@@ -61,5 +61,12 @@
     "btn_back": "⬅️ Back to Dashboard",
     "upload_wait": "⏳ Please wait...",
     "upload_running": "%s%% (Upload running)",
-    "upload_network_err": "Network error during upload!"
+    "upload_network_err": "Network error during upload!",
+    "cfg_saved": "✅ Configuration successfully saved!",
+    "cfg_err": "❌ Error saving! (Missing permissions?)",
+    "cfg_title": "⚙️ Settings (vdr-rectools.conf)",
+    "cfg_btn_save": "💾 Save configuration",
+    "log_not_found": "No log file found.",
+    "log_title": "📋 VDR-Rectools Logfile Viewer",
+    "log_btn_refresh": "🔄 Refresh Log"
 }
