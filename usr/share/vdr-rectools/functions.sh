@@ -574,6 +574,10 @@ handle_osd_confirm() {
         sed -i 's/^WAIT/NO/' "$PROMPT_FILE"
         echo "-> Re-Encode fuer '$P_TITLE' ABGELEHNT."
         /usr/bin/svdrpsend MESG "Rectools: Import uebersprungen" >/dev/null 2>&1 || true
+    elif [[ "$ANSWER" == "manual" ]]; then
+        sed -i 's/^WAIT/MANUAL/' "$PROMPT_FILE"
+        echo "-> Re-Encode fuer '$P_TITLE' an PC delegiert."
+        /usr/bin/svdrpsend MESG "Rectools: Fuer PC-Bearbeitung markiert" >/dev/null 2>&1 || true
     fi
 }
 
@@ -1193,6 +1197,7 @@ export_html_status() {
         # Nutze <span> statt <a>, damit die Buttons im inaktiven Zustand nicht angeklickt werden können
         PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-right: 10px; cursor: not-allowed;'>✔️ JA, Starten</span>"
         PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>❌ NEIN, &Uuml;berspringen</span>"
+        PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px; cursor: not-allowed;'>🖥️ Am PC bearbeiten</span>"
         PROMPT_HTML+="</div>"
     fi
     
