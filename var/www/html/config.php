@@ -1,13 +1,31 @@
 <?php
 $conf_file = '/etc/vdr/conf.d/vdr-rectools.conf';
-$language = 'de';
-if (file_exists($conf_file)) {
-    $lines = @file($conf_file) ?: [];
-    foreach ($lines as $line) {
-        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/', trim($line), $m)) $language = $m[1];
+$msg = '';
+$save_success = false;
+$save_error = false;
+
+// 1. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
+    $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
+    if (file_put_contents($conf_file, $new_data) !== false) {
+        $save_success = true;
+        $new_lang = 'de';
+        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
+        @exec('nohup /usr/bin/vdr-rectools refresh ' . escapeshellarg($new_lang) . ' </dev/null >/tmp/rectools_web.log 2>&1 &');
+    } else {
+        $save_error = true;
     }
 }
 
+// 2. DANN die (nun möglicherweise aktualisierte) Config auslesen
+$language = 'de';
+$current_conf = '';
+if (file_exists($conf_file)) {
+    $current_conf = (string)@file_get_contents($conf_file);
+    if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim($m[1]); }
+}
+
+// 3. DANN das richtige Wörterbuch basierend auf der aktuellen Sprache laden
 $lang_file = __DIR__ . "/lang/{$language}.json";
 if (!file_exists($lang_file)) $lang_file = __DIR__ . "/lang/de.json";
 $translations = [];
