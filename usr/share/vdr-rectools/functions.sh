@@ -1200,6 +1200,30 @@ export_html_status() {
         PROMPT_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; margin-left: 10px; margin-top: 10px; cursor: not-allowed;'>🖥️ Am PC bearbeiten</span>"
         PROMPT_HTML+="</div>"
     fi
+
+    local SKIPPED_HTML=""
+    if [[ -d "$IMPORT_DIR" ]]; then
+        local SKIPPED_FILES=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && SKIPPED_FILES+=("$line")
+        done < <(find "$IMPORT_DIR" -type f -name "*.skipped*" 2>/dev/null | sort)
+        
+        if [[ ${#SKIPPED_FILES[@]} -gt 0 ]]; then
+            SKIPPED_HTML="<div style='margin-top: 15px; background: rgba(244, 67, 54, 0.1); color: #F44336; padding: 15px; border-radius: 8px; border: 1px solid rgba(244, 67, 54, 0.5);'>"
+            SKIPPED_HTML+="<strong style='font-size: 1.1em;'>⚠️ Abgelehnte Dateien (.skipped)</strong><br>"
+            SKIPPED_HTML+="<div style='margin-bottom: 10px; margin-top: 5px; color: #ddd;'>Folgende Filme wurden in der Vergangenheit uebersprungen:</div>"
+            SKIPPED_HTML+="<ul style='color: #fff; margin-bottom: 15px; padding-left: 20px;'>"
+            for f in "${SKIPPED_FILES[@]}"; do
+                local CLEAN_F="$(echo "$f" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
+                local F_NAME="$(basename "$CLEAN_F")"
+                local SAFE_NAME="$(echo "$F_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+                SKIPPED_HTML+="<li>$SAFE_NAME</li>"
+            done
+            SKIPPED_HTML+="</ul>"
+            SKIPPED_HTML+="<div style='color: #aaa; font-size: 0.9em;'>👉 Nutze das Terminal (<code style='background: #000; padding: 2px 5px; border-radius: 3px; color: #4CAF50;'>vdr-rectools confirm</code>), um sie freizugeben oder an den PC zu delegieren.</div>"
+            SKIPPED_HTML+="</div>"
+        fi
+    fi
     
     local SESSION_HTML=""
     if [[ -s "$SESSION_FILE" ]]; then
