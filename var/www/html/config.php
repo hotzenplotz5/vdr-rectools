@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
         // HTML-Dashboard nach dem Speichern sofort neu rendern, damit Sprachänderungen greifen
         $new_lang = $language;
         if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
-        @exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang));
+        @exec('/bin/bash /usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . ' >/dev/null 2>&1');
     } else {
         $msg = "<div style='color: #F44336; padding: 15px; background: rgba(244, 67, 54, 0.2); border: 1px solid #F44336; border-radius: 8px; margin-bottom: 20px; font-weight: bold;'>" . __('cfg_err') . "</div>";
     }
@@ -61,7 +61,7 @@ $current_conf = (string)@file_get_contents($conf_file);
         <form method="POST">
             <textarea name="config_data" spellcheck="false"><?= htmlspecialchars($current_conf) ?></textarea>
             <div>
-                <a href="rectools.html" class="btn btn-back"><?= __('btn_back') ?></a>
+                <a href="rectools.html?t=<?= time() ?>" class="btn btn-back"><?= __('btn_back') ?></a>
                 <button type="submit" class="btn"><?= __('cfg_btn_save') ?></button>
             </div>
         </form>

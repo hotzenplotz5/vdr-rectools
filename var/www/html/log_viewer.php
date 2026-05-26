@@ -54,7 +54,7 @@ $log_content = file_exists($log_file) ? htmlspecialchars((string)@file_get_conte
         <h2><?= __('log_title') ?></h2>
         <div class="log-area" id="log-area"><?= $log_content ?></div>
         <div>
-            <a href="rectools.html" class="btn"><?= __('btn_back') ?></a>
+            <a href="rectools.html?t=<?= time() ?>" class="btn"><?= __('btn_back') ?></a>
             <a href="log_viewer.php" class="btn btn-refresh"><?= __('log_btn_refresh') ?></a>
         </div>
     </div>

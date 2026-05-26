@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        @exec('/usr/bin/vdr-rectools update-html ' . escapeshellarg($language));
+        @exec('/bin/bash /usr/bin/vdr-rectools update-html ' . escapeshellarg($language) . ' >/dev/null 2>&1');
     }
 }
 
@@ -392,7 +392,7 @@ $dst_contents = get_dir_contents($dst);
             </div>
         </div>
         
-        <a href="rectools.html" class="btn btn-back"><?= __('btn_back') ?></a>
+        <a href="rectools.html?t=<?= time() ?>" class="btn btn-back"><?= __('btn_back') ?></a>
     </div>
     <script>
         const EXPLORER_STORAGE_KEY = 'vdr_rectools_explorer_selection';

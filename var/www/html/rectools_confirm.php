@@ -27,6 +27,6 @@ if (isset($_GET['action'])) {
     }
 }
     usleep(750000); // 0.75 Sekunden warten, damit das Bash-Skript Zeit hat, das Dashboard neu zu zeichnen
-header('Location: rectools.html');
+header('Location: rectools.html?t=' . time());
 exit;
 ?>
