@@ -1127,6 +1127,10 @@ export_html_status() {
     local HTML="${HTML_PATH:-/var/www/html/rectools.html}"
     [[ -z "$HTML" ]] && return
     
+    # --- DEBUGGING-Block (Vorschlag vom Kumpel) ---
+    echo "===== HTML-EXPORT $(date) =====" >> /tmp/rectools_debug.log
+    echo "LANGUAGE_OVERRIDE (aus PHP): ${LANGUAGE_OVERRIDE}" >> /tmp/rectools_debug.log
+    
     # --- NEU: Sprache live neu laden ---
     # Verhindert, dass laufende Hintergrund-Jobs Änderungen aus config.php wieder überschreiben!
     if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then . "/etc/vdr/conf.d/vdr-rectools.conf"; fi
@@ -1134,11 +1138,14 @@ export_html_status() {
     # Sprach-Override aus dem CLI-Aufruf (PHP) priorisieren
     if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
         LANGUAGE="$LANGUAGE_OVERRIDE"
+        echo "LANGUAGE (nach Override): ${LANGUAGE}" >> /tmp/rectools_debug.log
     fi
 
     local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
     if [ -f "$L_FILE" ]; then . "$L_FILE"; elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then . "/usr/share/vdr-rectools/lang/de.sh"; fi
     # -----------------------------------
+
+    echo "FINAL LANGUAGE (fuer HTML): ${LANGUAGE}" >> /tmp/rectools_debug.log
 
     local PID=""
     local IS_RUNNING=0

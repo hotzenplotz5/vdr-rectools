@@ -75,7 +75,11 @@ chmod 664 /var/log/vdr-rectools.log
 touch /var/www/html/rectools.html
 chmod 666 /var/www/html/rectools.html
 
+# Debug-Logfile für den Sprachwechsel-Bug anlegen
+touch /tmp/rectools_debug.log
+chown vdr:vdr /tmp/rectools_debug.log
+chmod 666 /tmp/rectools_debug.log
+
 db_stop
 #DEBHELPER#
 exit 0
-
