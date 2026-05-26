@@ -13,4 +13,5 @@ var/www/html/config.php var/www/html/
 var/www/html/log_viewer.php var/www/html/
 var/www/html/router.php var/www/html/
 var/www/html/rectools_confirm.php var/www/html/
+usr/share/vdr-rectools/lang/* usr/share/vdr-rectools/lang/
 var/www/html/lang/* var/www/html/lang/

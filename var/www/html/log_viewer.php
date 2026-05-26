@@ -26,7 +26,7 @@ $log_file = '/var/log/vdr-rectools.log';
 $log_content = file_exists($log_file) ? htmlspecialchars((string)@file_get_contents($log_file)) : __('log_not_found');
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars($language) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

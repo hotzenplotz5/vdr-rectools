@@ -255,7 +255,7 @@ $src_contents = get_dir_contents($src);
 $dst_contents = get_dir_contents($dst);
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars($language) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
