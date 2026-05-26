@@ -92,10 +92,10 @@ for job in "$JOB_DIR"/*.job; do
     export LANGUAGE_OVERRIDE="$LANGUAGE"
     
     if [ "$ACTION" == "update-html" ]; then
-        /usr/bin/vdr-rectools update-html >/dev/null 2>&1
+        /usr/bin/vdr-rectools update-html "$LANGUAGE" >/dev/null 2>&1
         SUCCESS=$?
     elif [ "$ACTION" == "import" ]; then
-        /usr/bin/vdr-rectools import >/dev/null 2>&1
+        /usr/bin/vdr-rectools import_sync >/dev/null 2>&1
         SUCCESS=$?
     elif [ "$ACTION" == "stop" ]; then
         /usr/bin/vdr-rectools stop >/dev/null 2>&1

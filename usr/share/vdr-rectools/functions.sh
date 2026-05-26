@@ -45,6 +45,11 @@ if [ -f "$CONFIG_FILE" ]; then
     . "$CONFIG_FILE"
 fi
 
+# Override zwingend priorisieren (verhindert Dashboard-Sprachen-Glitches durch alte Config-Dateien)
+if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
+    export LANGUAGE="$LANGUAGE_OVERRIDE"
+fi
+
 # 3. SPRACHDATEIEN LADEN
 LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE:-de}.sh"
 if [ -f "$LANG_FILE" ]; then

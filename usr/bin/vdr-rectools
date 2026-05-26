@@ -31,6 +31,7 @@ is_running() {
 # 2. Funktionen laden
 # Laden der Funktionen (wird nun auch für 'status' benötigt, um show_status aufzurufen)
 if [[ "$1" != "stop" && "$1" != "check_running" ]]; then
+    export LANGUAGE_OVERRIDE="${LANGUAGE_OVERRIDE:-de}"
     if [ -f /usr/share/vdr-rectools/functions.sh ]; then
         source /usr/share/vdr-rectools/functions.sh
     else
@@ -110,6 +111,30 @@ case "$1" in
         (
             run_scan "normal"
         ) &
+        ;;
+
+    start_sync)
+        if is_running; then
+            echo "vdr-rectools läuft bereits."
+            exit 1
+        fi
+        run_scan "normal"
+        ;;
+
+    import_sync)
+        if is_running; then
+            echo "vdr-rectools läuft bereits."
+            exit 1
+        fi
+        run_scan "import"
+        ;;
+
+    repair_sync)
+        if is_running; then
+            echo "vdr-rectools läuft bereits."
+            exit 1
+        fi
+        run_scan "repair"
         ;;
 
     import)
