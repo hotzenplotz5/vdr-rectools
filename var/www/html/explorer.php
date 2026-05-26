@@ -258,21 +258,23 @@ $dst_contents = get_dir_contents($dst);
                 
                 <div class="path-bar"><?= htmlspecialchars($src) ?></div>
                 <div class="list">
-                    <?php foreach ($src_contents['dirs'] as $d): ?>
-                        <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
-                            <a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
-                        </div>
-                    <?php endforeach; ?>
-                
                 <?php if (!empty($src_contents['files'])): ?>
                 <form method="POST" style="margin: 0;">
-                    <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="background: rgba(20, 20, 20, 0.95); padding: 12px 10px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: -10px; z-index: 10; border-bottom: 1px solid #444; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">
                         <label style="cursor: pointer;"><input type="checkbox" id="selectAllChk" onclick="document.querySelectorAll('.file-chk').forEach(c => c.checked = this.checked); if(typeof updateSelectionStorage === 'function') updateSelectionStorage();"> <strong>Alle auswählen</strong></label>
                         <div>
                             <button type="submit" name="bulk_delete" value="1" class="btn btn-move" style="margin: 0; background: #F44336; color: white;" onclick="return confirm('Alle markierten Dateien WIRKLICH UNWIDERRUFLICH löschen?');">🗑️ Markierte löschen</button>
                             <button type="submit" name="bulk_move" value="1" class="btn btn-move" style="margin: 0; background: #FF9800; color: #000;" onclick="return confirm('Alle markierten Dateien nach Rechts verschieben?');">➡️ Markierte verschieben</button>
                         </div>
                     </div>
+                <?php endif; ?>
+
+                    <?php foreach ($src_contents['dirs'] as $d): ?>
+                        <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
+                        </div>
+                    <?php endforeach; ?>
+                
                     <?php foreach ($src_contents['files'] as $f): ?>
                         <div class="item">
                         <label style="display: flex; align-items: center; cursor: pointer; flex-grow: 1; overflow: hidden;">
