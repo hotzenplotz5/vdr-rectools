@@ -13,24 +13,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     $new_data = str_replace("\r\n", "\n", $_POST['config_data']);
     if (file_put_contents($conf_file, $new_data) !== false) {
         $new_lang = 'de';
-        if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim($m[1]); }
-        // Dashboard-Update explizit als Bash-Hintergrundprozess (identisch zum Import-Button)
-        exec('nohup /bin/bash -c "/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . '" </dev/null >/dev/null 2>&1 &');
-        $save_success = true;
+        // WICHTIG: Den LETZTEN Eintrag lesen, da Bash (source) immer den letzten verwendet!
+        if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $new_data, $m)) { $new_lang = trim(end($m[1])); }
+        // Dashboard SYNCHRON aktualisieren und abwarten
+        exec('/bin/bash -c "/usr/bin/vdr-rectools update-html ' . escapeshellarg($new_lang) . '" >/dev/null 2>&1');
+        header('Location: config.php?saved=1&t=' . time());
+        exit;
     } else {
-        $save_error = true;
+        header('Location: config.php?error=1&t=' . time());
+        exit;
     }
 }
 
 // Dateisystem-Cache leeren, um sicherzustellen, dass die gerade gespeicherte Konfiguration gelesen wird
 clearstatcache();
 
+$save_success = isset($_GET['saved']);
+$save_error = isset($_GET['error']);
+
 // 2. DANN die (nun möglicherweise aktualisierte) Config auslesen
 $language = 'de';
 $current_conf = '';
 if (file_exists($conf_file)) {
     $current_conf = (string)@file_get_contents($conf_file);
-    if (preg_match('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim($m[1]); }
+    if (preg_match_all('/^LANGUAGE=["\']?(.*?)["\']?$/m', $current_conf, $m)) { $language = trim(end($m[1])); }
 }
 
 // 3. DANN das richtige Wörterbuch basierend auf der aktuellen Sprache laden
