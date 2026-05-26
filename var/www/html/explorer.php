@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // HTML-Dashboard nach jeder Datei-Operation zwingend sofort neu rendern
     if (!isset($_POST['download_file'])) {
-        @exec('bash -c "source /etc/vdr/conf.d/vdr-rectools.conf 2>/dev/null; source /usr/share/vdr-rectools/functions.sh 2>/dev/null && export_html_status" > /dev/null 2>&1');
+        @exec('nohup /usr/bin/vdr-rectools update-html > /dev/null 2>&1 &');
     }
 }
 

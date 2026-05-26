@@ -227,7 +227,7 @@ case "$1" in
         SKIPPED_FILES=()
         while IFS= read -r line; do
             [[ -n "$line" ]] && SKIPPED_FILES+=("$line")
-        done < <(find "$I_DIR" -type f -name "*.skipped*" 2>/dev/null | sort)
+        done < <(find "$I_DIR" -type f -name "*.skipped" 2>/dev/null | sort)
         
         if [[ ${#SKIPPED_FILES[@]} -gt 0 ]]; then
             echo -e "\n\033[1;36m========================================================\033[0m"
@@ -237,58 +237,30 @@ case "$1" in
             
             IDX=1
             for f in "${SKIPPED_FILES[@]}"; do
-                CLEAN_F="$(echo "$f" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
-                F_NAME=$(basename "$CLEAN_F")
-                echo -e " [\033[1;32m$IDX\033[0m] $F_NAME"
+                F_NAME=$(basename "$f")
+                echo -e " [\033[1;32m$IDX\033[0m] ${F_NAME%.skipped}"
                 ((IDX++))
             done
             echo -e " [\033[1;32mA\033[0m] Alle freigeben/wiederherstellen"
-            echo -e " [\033[1;34mM\033[0m] Alle an PC delegieren (.pc_encode)"
             echo -e " [\033[1;31mQ\033[0m] Menue beenden"
             echo -e "\033[1;36m--------------------------------------------------------\033[0m"
             
             while true; do
-                read -p " Eingabe (Nummer, A, M oder Q): " rest_choice
+                read -p " Eingabe (Nummer, A oder Q): " rest_choice
                 case "$rest_choice" in
                     q|Q) break ;;
                     a|A)
-                        for f in "${SKIPPED_FILES[@]}"; do
-                            CLEAN_F="$(echo "$f" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
-                            mv "$f" "$CLEAN_F"
-                        done
+                        for f in "${SKIPPED_FILES[@]}"; do mv "$f" "${f%.skipped}"; done
                         echo -e "\n\033[1;32mAlle Dateien wurden erfolgreich freigegeben!\033[0m"
                         echo "Fuehren Sie 'vdr-rectools import' aus, um den Import erneut zu starten."
-                        break ;;
-                    m|M)
-                        for f in "${SKIPPED_FILES[@]}"; do
-                            CLEAN_F="$(echo "$f" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
-                            mv "$f" "${CLEAN_F%.*}.pc_encode.${CLEAN_F##*.}"
-                        done
-                        echo -e "\n\033[1;34mAlle Dateien wurden fuer den PC delegiert (.pc_encode)!\033[0m"
                         break ;;
                     *)
                         if [[ "$rest_choice" =~ ^[0-9]+$ ]] && [ "$rest_choice" -ge 1 ] && [ "$rest_choice" -le ${#SKIPPED_FILES[@]} ]; then
                             SEL_IDX=$((rest_choice - 1))
                             SEL_FILE="${SKIPPED_FILES[$SEL_IDX]}"
-                            CLEAN_F="$(echo "$SEL_FILE" | sed -e 's/\.skipped\././' -e 's/\.skipped$//')"
-                            echo -e "\n Was moechten Sie mit '\033[1;37m$(basename "$CLEAN_F")\033[0m' tun?"
-                            echo -e " [\033[1;32m1\033[0m] Freigeben (Wiederherstellen fuer erneuten VDR Import)"
-                            echo -e " [\033[1;34m2\033[0m] An PC delegieren (umbenennen in .pc_encode)"
-                            echo -e " [\033[1;31mQ\033[0m] Abbrechen"
-                            read -p " Auswahl: " action_choice
-                            case "$action_choice" in
-                                1)
-                                    mv "$SEL_FILE" "$CLEAN_F"
-                                    echo -e "\n\033[1;32mDatei freigegeben!\033[0m Fuehren Sie 'vdr-rectools import' aus."
-                                    ;;
-                                2)
-                                    mv "$SEL_FILE" "${CLEAN_F%.*}.pc_encode.${CLEAN_F##*.}"
-                                    echo -e "\n\033[1;34mAn PC delegiert!\033[0m Die Datei heisst nun .pc_encode"
-                                    ;;
-                                *)
-                                    echo "Abgebrochen."
-                                    ;;
-                            esac
+                            mv "$SEL_FILE" "${SEL_FILE%.skipped}"
+                            echo -e "\n\033[1;32mDatei '$(basename "${SEL_FILE%.skipped}")' freigegeben!\033[0m"
+                            echo "Fuehren Sie 'vdr-rectools import' aus, um den Import erneut zu starten."
                             break
                         else
                             echo " Ungueltige Eingabe."
@@ -307,6 +279,10 @@ case "$1" in
 
     osd-status)
         show_osd_status
+        ;;
+        
+    update-html)
+        export_html_status
         ;;
 
     osd-confirm)
