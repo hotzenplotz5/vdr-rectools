@@ -28,11 +28,19 @@ for stale_lock in "$JOB_DIR"/*.lock; do
     [ -e "$stale_lock" ] || continue
     
     W_PID=$(grep -E "^WORKER_PID=" "$stale_lock" 2>/dev/null | cut -d'=' -f2)
+    W_START=$(grep -E "^WORKER_START=" "$stale_lock" 2>/dev/null | cut -d'=' -f2)
     # Soft-TTL Fallback: Wenn PID recycelt wurde, greift nach >24h die Soft-TTL (stundenlange FFmpeg-Jobs!)
     AGE=$(( $(date +%s) - $(stat -c %Y "$stale_lock" 2>/dev/null || echo $(date +%s)) ))
     
     IS_ZOMBIE=0
-    if [ -n "$W_PID" ] && ! kill -0 "$W_PID" 2>/dev/null; then IS_ZOMBIE=1; fi
+    if [ -n "$W_PID" ]; then
+        if ! kill -0 "$W_PID" 2>/dev/null; then
+            IS_ZOMBIE=1
+        elif [ -n "$W_START" ]; then
+            PROC_START=$(stat -c %Y /proc/"$W_PID" 2>/dev/null)
+            if [ "$PROC_START" != "$W_START" ]; then IS_ZOMBIE=1; fi
+        fi
+    fi
     if [ "$AGE" -gt 86400 ]; then IS_ZOMBIE=1; fi
     
     if [ $IS_ZOMBIE -eq 1 ]; then
@@ -54,6 +62,7 @@ for job in "$JOB_DIR"/*.job; do
     
     # 2. Hard Guard: Eigene PID in die Lock-Datei schreiben
     echo "WORKER_PID=$$" >> "$LOCK_FILE"
+    echo "WORKER_START=$(stat -c %Y /proc/$$ 2>/dev/null)" >> "$LOCK_FILE"
     
     # 3. Variablen initialisieren und sicher einlesen (Safe-Parsing statt source)
     ACTION=""
@@ -61,6 +70,7 @@ for job in "$JOB_DIR"/*.job; do
     LANGUAGE=""
     IDEMPOTENCY_KEY=""
     WORKER_PID=""
+    WORKER_START=""
     while IFS='=' read -r key value; do
         value="${value%\"}"
         value="${value#\"}"
@@ -70,6 +80,7 @@ for job in "$JOB_DIR"/*.job; do
             LANGUAGE) LANGUAGE="$value" ;;
             IDEMPOTENCY_KEY) IDEMPOTENCY_KEY="$value" ;;
             WORKER_PID) WORKER_PID="$value" ;;
+            WORKER_START) WORKER_START="$value" ;;
         esac
     done < "$LOCK_FILE"
     
