@@ -2,8 +2,12 @@ vdr-rectools (3.7.0-1) unstable; urgency=medium
 
   * Release Version 3.7.0 - The "Legacy Migration" Update
   * FEAT: PES zu TS Konvertierung ('pes2ts') für alte VDR-Aufnahmen hinzugefügt.
-  * FEAT: Automatische Portierung der Metadaten (summary.vdr -> info) und Ordnernamen.
-  * FEAT: Neues Kommando 'pes2ts' in CLI und VDR-Verzeichnis-Scanner integriert.
+  * FEAT: Perl-kompatible Metadaten-Portierung (T/S/D/L/P) von summary.vdr zu info.
+  * FEAT: Neues Kommando 'pes2ts' (Global) und 'pes2ts_single' (Einzeln) in der CLI.
+  * FEAT: Neuer PES-Explorer (pes2ts_explorer.php) im Web-Dashboard für gezielte Migrationen.
+  * FIX: Sicherer Directory-Level Atomic Swap verhindert Datenverlust bei IO-Fehlern.
+  * FIX: Erweitertes DVB Stream-Mapping (-map 0:v/a/s/d) rettet Teletext und Untertitel.
+  * FIX: ffmpeg Pipeline durch set -o pipefail und -ignore_unknown abgesichert.
 
  -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 27 May 2026 07:39:31 +0000
 

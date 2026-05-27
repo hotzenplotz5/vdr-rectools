@@ -21,7 +21,7 @@
 * **📱 Push-Benachrichtigungen:** Optionaler Versand von Statusberichten via Telegram direkt aufs Smartphone.
 * **🧹 Auto-Cleanup:** Findet und löscht leere Aufnahmeordner im Video-Verzeichnis.
 * **📊 Live-Dashboard:** Ein interaktives, farbiges Konsolen-Dashboard (`vdr-rectools status`) mit Fortschrittsbalken, Echtzeit-Logs und Speicherplatz-Monitoring.
-* **🌐 Web-Dashboard (HTML):** Optionale, auto-refreshende Web-Oberfläche für Browser (Desktop & Smartphone) zur Live-Überwachung inkl. integriertem Datei-Explorer.
+* **🌐 Web-Dashboard (HTML):** Optionale, auto-refreshende Web-Oberfläche für Browser zur Live-Überwachung inkl. Datei-Explorer und dediziertem **PES-Migrations-Tool**.
 * **⚡ Event-Driven Architektur:** Komplett asynchrones Job-System (via `systemd.path`) für verzögerungsfreie Web-UIs, Status-Feedback in Echtzeit und 0% CPU-Overhead im Leerlauf.
 * **🖥️ PC-Delegierung (Handbrake):** Filme, die einen Re-Encode benötigen, können für die bequeme externe Bearbeitung über eine Netzwerkfreigabe (Samba) markiert werden, ohne den VDR-Import zu blockieren.
 
@@ -148,6 +148,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools cron` - Simuliert den Timer-Aufruf (prüft `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <Pfad>` - Repariert gezielt eine einzelne Aufnahme (Pfad zum .rec Ordner).
 * `vdr-rectools pes2ts` - Sucht rekursiv nach alten PES-Aufnahmen (`.vdr`) und konvertiert sie in das moderne TS-Format (`.ts`).
+* `vdr-rectools pes2ts_single <Pfad>` - Konvertiert gezielt eine einzelne PES-Aufnahme in das TS-Format.
 
 ### Systemd-Timer (Automatik)
 Der Timer ist standardmäßig aktiv und triggert den Scan (meist nachts). Er führt die Arbeit aber nur aus, wenn `AUTO_START_NIGHT=1` gesetzt ist.

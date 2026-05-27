@@ -45,6 +45,12 @@ Simulates the nightly timer call and checks if automation is enabled in the conf
 .B repair_single \fI<Path to .rec>\fR
 Repairs a single recording specifically.
 .TP
+.B pes2ts
+Recursively searches the VDR video directory for outdated PES recordings (*.vdr) and safely converts them to the modern TS format via an atomic swap. Metadata, VDR cut marks, and DVB subtitles are preserved.
+.TP
+.B pes2ts_single \fI<Path to .rec>\fR
+Specifically converts a single PES recording (specifying the absolute path to the .rec directory) to the TS format.
+.TP
 .B check_single \fI<Path to .rec>\fR
 Checks the recording in the specified directory for stream errors without modifying it. The result is written to the log file.
 .SH IMPORT-WORKFLOW
