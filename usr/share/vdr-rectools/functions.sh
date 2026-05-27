@@ -944,48 +944,46 @@ convert_pes2ts() {
         fi
     fi
     if [[ -f "$STAGING_REC/summary.vdr" && ! -f "$STAGING_REC/info" ]]; then
+        local -a SUMMARY_LINES
+        mapfile -t SUMMARY_LINES < "$STAGING_REC/summary.vdr"
+
+        local TITLE=""
+        local SHORT=""
+        local DESC=""
+        local section=0
+
+        for line in "${SUMMARY_LINES[@]}"; do
+            # Leerzeilen trennen die Bereiche
+            if [[ -z "$line" ]]; then
+                ((section++))
+                continue
+            fi
+            case $section in
+                0) [[ -n "$TITLE" ]] && TITLE+="|" ; TITLE+="$line" ;;
+                1) [[ -n "$SHORT" ]] && SHORT+="|" ; SHORT+="$line" ;;
+                *) [[ -n "$DESC"  ]] && DESC+="|"  ; DESC+="$line"  ;;
+            esac
+        done
+
+        # Perl-Kompatibilitaet: Falls keine Beschreibung existiert, verschiebe SHORT -> DESC
+        if [[ -z "$DESC" ]]; then
+            DESC="$SHORT"
+            SHORT=""
+        fi
+
+        # Falls SHORT zu lang ist, ist es vermutlich bereits die Langbeschreibung
+        if [[ ${#SHORT} -gt 80 ]]; then
+            if [[ -n "$DESC" ]]; then DESC="${SHORT}|${DESC}"; else DESC="$SHORT"; fi
+            SHORT=""
+        fi
+
         {
-            local -a SUMMARY_LINES
-            mapfile -t SUMMARY_LINES < "$STAGING_REC/summary.vdr"
-
-            local TITLE=""
-            local SHORT=""
-            local DESC=""
-            local section=0
-
-            for line in "${SUMMARY_LINES[@]}"; do
-                # Leerzeilen trennen die Bereiche
-                if [[ -z "$line" ]]; then
-                    ((section++))
-                    continue
-                fi
-                case $section in
-                    0) [[ -n "$TITLE" ]] && TITLE+="|" ; TITLE+="$line" ;;
-                    1) [[ -n "$SHORT" ]] && SHORT+="|" ; SHORT+="$line" ;;
-                    *) [[ -n "$DESC"  ]] && DESC+="|"  ; DESC+="$line"  ;;
-                esac
-            done
-
-            # Perl-Kompatibilitaet: Falls keine Beschreibung existiert, verschiebe SHORT -> DESC
-            if [[ -z "$DESC" ]]; then
-                DESC="$SHORT"
-                SHORT=""
-            fi
-
-            # Falls SHORT zu lang ist, ist es vermutlich bereits die Langbeschreibung
-            if [[ ${#SHORT} -gt 80 ]]; then
-                if [[ -n "$DESC" ]]; then DESC="${SHORT}|${DESC}"; else DESC="$SHORT"; fi
-                SHORT=""
-            fi
-
-            {
-                [[ -n "$TITLE"    ]] && echo "T $TITLE"
-                [[ -n "$SHORT"    ]] && echo "S $SHORT"
-                [[ -n "$DESC"     ]] && echo "D $DESC"
-                [[ -n "$LIFETIME" ]] && echo "L $LIFETIME"
-                [[ -n "$PRIORITY" ]] && echo "P $PRIORITY"
-            } > "$STAGING_REC/info"
-        }
+            [[ -n "$TITLE"    ]] && echo "T $TITLE"
+            [[ -n "$SHORT"    ]] && echo "S $SHORT"
+            [[ -n "$DESC"     ]] && echo "D $DESC"
+            [[ -n "$LIFETIME" ]] && echo "L $LIFETIME"
+            [[ -n "$PRIORITY" ]] && echo "P $PRIORITY"
+        } > "$STAGING_REC/info"
     fi
     # Gezielt alte VDR-Hilfsdateien wegraeumen, statt blind *.vdr zu loeschen
     rm -f "$STAGING_REC/summary.vdr" "$STAGING_REC/info.vdr" "$STAGING_REC/marks.vdr" 2>/dev/null
