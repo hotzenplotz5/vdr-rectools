@@ -9,7 +9,7 @@ if (isset($_GET['action'])) {
         if (!empty($_GET['path'])) {
             $real = realpath($_GET['path']);
             $base = realpath('/srv/vdr/video');
-            if ($real && strpos($real, $base) === 0 && is_dir($real)) {
+            if ($real && $base && strpos($real, $base . '/') === 0 && is_dir($real)) {
                 $path = $real;
             } else {
                 exit('Zugriff verweigert oder ungueltiger Pfad.');
