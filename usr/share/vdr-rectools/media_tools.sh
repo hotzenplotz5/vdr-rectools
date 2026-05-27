@@ -21,7 +21,7 @@ get_audio_map() {
     # Nimmt Video und Audio, wirft aber Spuren mit "visual_impaired" (Audio-Description) ab
     # HINWEIS: Bei negativen Maps (-0) führt ein angehängtes '?' zu Fehlverhalten in FFmpeg!
     if [[ "${AUDIO_NORMALIZE:-0}" -eq 1 ]]; then
-        echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c:v copy -c:a aac -b:a 192k -ac 2 -af loudnorm -c:s copy"
+        echo "-map 0:v? -map 0:a? -map 0:s? -map -0:a:m:disposition:visual_impaired -c:v copy -c:a aac -b:a 192k -ac 2 -af loudnorm -c:s copy"
     else
         echo "-map 0:v? -map 0:a? -map 0:s? -map -0:a:m:disposition:visual_impaired -c copy"
     fi
@@ -271,14 +271,14 @@ extract_images() {
     ffmpeg -y -i "$VIDEO_FILE" -map 0:v -map -0:V -c copy "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
 
     # 2. Versuch: Falls poster.jpg fehlt oder zu klein ist (< 10kb), Snapshot erstellen
-    if [ ! -f "$DEST_DIR/poster.jpg" ] || [ $(stat -c%s "$DEST_DIR/poster.jpg" 2>/dev/null || echo 0) -lt 10000 ]; then
+    if [ ! -s "$DEST_DIR/poster.jpg" ] || [ $(stat -c%s "$DEST_DIR/poster.jpg" 2>/dev/null || echo 0) -lt 10000 ]; then
         # -update 1 sorgt dafür, dass ein einzelnes Bild geschrieben wird
         echo "[$(date +%T)] Erstelle Poster-Snapshot bei $SEEK_POINT..." >> "$LOG_FILE"
         ffmpeg -y -ss "$SEEK_POINT" -i "$VIDEO_FILE" -frames:v 1 -update 1 -q:v 2 "$DEST_DIR/poster.jpg" </dev/null >/dev/null 2>&1
     fi
 
     # Fanart kopieren, falls poster.jpg erfolgreich war
-    if [ -f "$DEST_DIR/poster.jpg" ]; then
+    if [ -s "$DEST_DIR/poster.jpg" ]; then
         cp "$DEST_DIR/poster.jpg" "$DEST_DIR/fanart.jpg"
         chown vdr:vdr "$DEST_DIR/poster.jpg" "$DEST_DIR/fanart.jpg" 2>/dev/null || true
     fi
