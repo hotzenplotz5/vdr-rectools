@@ -541,6 +541,11 @@ process_folder() {
             local NFO_TITLE=$(grep "^T " info | head -n 1 | cut -c3- | tr -d '\r' | sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             local NFO_DESC=$(grep "^D " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g')
             
+            # Fallback auf die Kurzbeschreibung (S), falls keine Langbeschreibung (D) existiert
+            if [[ -z "$NFO_DESC" ]]; then
+                NFO_DESC=$(grep "^S " info | cut -c3- | tr -d '\r' | sed 's/|/\n/g; s/&/&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            fi
+
             # Plex/Kodi-Sabotage verhindern: NFO nur generieren, wenn echter Text (z.B. EPG) vorhanden ist
             if [[ ! "$NFO_DESC" =~ ^Importiert\ am\  ]]; then
                 echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<movie>\n  <title>${NFO_TITLE}</title>\n  <plot>${NFO_DESC}</plot>\n</movie>" > "$NFO_FILE"
@@ -634,6 +639,11 @@ handle_osd_confirm() {
     fi
 }
 
+# XML-Entities decodieren, damit das VDR-OSD nicht mit "&quot;" etc. zugemuellt wird
+decode_xml() {
+    echo "$1" | sed 's/&quot;/"/g; s/&apos;/'\''/g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g'
+}
+
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
@@ -653,12 +663,8 @@ process_import() {
         META_DESC=$(awk -v RS='</plot>' '/<plot>/{gsub(/.*<plot>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r' | awk 'NF{gsub(/^[ \t]+/,""); gsub(/[ \t]+$/,""); print}' | paste -sd '|' -)
         META_SHORT=$(awk -v RS='</outline>' '/<outline>/{gsub(/.*<outline>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr '\r\n' ' ' | sed 's/^[ \t]*//;s/[ \t]*$//')
         META_YEAR=$(awk -v RS='</year>' '/<year>/{gsub(/.*<year>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
-        META_GENRE=$(awk -v RS='</genre>' '/<genre>/{gsub(/.*<genre>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
+        META_GENRE=$(awk -v RS='</genre>' '/<genre>/{gsub(/.*<genre>/, ""); gsub(/\r|\n/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); if(length) print}' "$NFO_SOURCE" 2>/dev/null | paste -sd '|' -)
 
-        # XML-Entities decodieren, damit das VDR-OSD nicht mit "&quot;" etc. zugemuellt wird
-        decode_xml() {
-            echo "$1" | sed 's/&quot;/"/g; s/&apos;/'\''/g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g'
-        }
         META_TITLE=$(decode_xml "$META_TITLE")
         META_DESC=$(decode_xml "$META_DESC")
         META_SHORT=$(decode_xml "$META_SHORT")
