@@ -999,7 +999,19 @@ convert_pes2ts() {
     
     # Um moegliche Timecode-Brueche sauber zu behandeln, -fflags +genpts+igndts nutzen
     set -o pipefail
-    cat "${pes_files[@]}" | ffmpeg -y -hide_banner -i pipe:0 -map 0:v? -map 0:a? -map 0:s? -c copy -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    cat "${pes_files[@]}" | ffmpeg \
+        -y \
+        -hide_banner \
+        -fflags +genpts+igndts \
+        -i pipe:0 \
+        -map 0 \
+        -ignore_unknown \
+        -c copy \
+        -f mpegts \
+        -mpegts_flags +resend_headers \
+        -max_muxing_queue_size 4000 \
+        "$STAGING_REC/00001.ts" \
+        </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     local FF_STATUS=$?
     set +o pipefail
 
