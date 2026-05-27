@@ -11,7 +11,7 @@ PID_FILE="/tmp/vdr-rectools.pid"
 # Stellt sicher, dass das Skript nicht bereits läuft
 is_running() {
     local V_DIR="/srv/vdr/video"
-    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
     local L_FILE="$V_DIR/.vdr-rectools.lock"
     
@@ -93,7 +93,7 @@ interactive_status() {
     trap 'tput cnorm; exit' INT # Cursor bei Abbruch wiederherstellen
     tput civis # Cursor ausblenden
     local V_DIR="/srv/vdr/video"
-    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
 
     while true; do
@@ -153,6 +153,10 @@ case "$1" in
         ;;
     
     pes2ts_single)
+        if is_running; then
+            echo "vdr-rectools läuft bereits."
+            exit 1
+        fi
         shift
         convert_pes2ts "$1"
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
@@ -208,7 +212,7 @@ case "$1" in
     confirm)
         V_DIR="/srv/vdr/video"
         I_DIR="/srv/vdr/import"
-        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         [ -n "${IMPORT_DIR}" ] && I_DIR="${IMPORT_DIR}"
         PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
@@ -326,7 +330,7 @@ case "$1" in
         echo "Stoppe vdr-rectools und alle Kindprozesse..."
         
         V_DIR="/srv/vdr/video"
-        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && . "/etc/vdr/conf.d/vdr-rectools.conf"
+        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         L_FILE="$V_DIR/.vdr-rectools.lock"
         P_PROMPT="$V_DIR/.vdr-rectools.prompt"
