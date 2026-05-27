@@ -883,10 +883,8 @@ convert_pes2ts() {
     # Pruefe, ob ueberhaupt PES-Dateien (*.vdr) existieren
     local pes_files=( [0-9][0-9][0-9].vdr )
     if [[ ! -e "${pes_files[0]}" ]]; then
-        return 0
+        return 2
     fi
-
-    PES_CONVERSIONS_STARTED=$((PES_CONVERSIONS_STARTED + 1))
 
     local FILM_TITLE=$(basename "$(dirname "$REC_DIR")" | sed 's/_/ /g')
     echo "[$(date +%T)] Starte PES->TS Konvertierung fuer: $FILM_TITLE ($REC_DIR)" >> "$LOG_FILE"
@@ -1030,15 +1028,21 @@ run_scan() {
     
     if [[ "$MODE" == "pes2ts" ]]; then
         set_state "Scanne nach alten PES-Aufnahmen..."
-        PES_CONVERSIONS_STARTED=0
+        PES_CONVERSIONS_DONE=0
+        PES_CONVERSIONS_FAILED=0
         while read -r DIR; do
             convert_pes2ts "$DIR"
+            case $? in
+                0) PES_CONVERSIONS_DONE=$((PES_CONVERSIONS_DONE + 1)) ;;
+                1) PES_CONVERSIONS_FAILED=$((PES_CONVERSIONS_FAILED + 1)) ;;
+                2) ;; # keine PES-Dateien, ignorieren
+            esac
         done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
         
-        if [[ $PES_CONVERSIONS_STARTED -eq 0 ]]; then
+        if [[ $PES_CONVERSIONS_DONE -eq 0 && $PES_CONVERSIONS_FAILED -eq 0 ]]; then
             echo "[$(date +%T)] INFO: PES->TS Scan beendet. Keine alten PES-Aufnahmen gefunden." >> "$LOG_FILE"
         else
-            echo "[$(date +%T)] INFO: PES->TS Scan beendet. $PES_CONVERSIONS_STARTED Aufnahme(n) verarbeitet." >> "$LOG_FILE"
+            echo "[$(date +%T)] INFO: PES->TS Scan beendet. Erfolgreich: $PES_CONVERSIONS_DONE, Fehler: $PES_CONVERSIONS_FAILED." >> "$LOG_FILE"
         fi
     elif [[ "$MODE" != "import" ]]; then
         set_state "Scanne VDR-Verzeichnis..."
