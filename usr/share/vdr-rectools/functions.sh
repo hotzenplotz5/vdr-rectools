@@ -984,6 +984,12 @@ convert_pes2ts() {
             [[ -n "$LIFETIME" ]] && echo "L $LIFETIME"
             [[ -n "$PRIORITY" ]] && echo "P $PRIORITY"
         } > "$STAGING_REC/info"
+
+        if [[ ! -s "$STAGING_REC/info" ]]; then
+            echo "[$(date +%T)] FEHLER: info konnte aus summary.vdr nicht erzeugt werden." >> "$LOG_FILE"
+            rm -rf "$STAGING_REC"
+            return 1
+        fi
     fi
     # Gezielt alte VDR-Hilfsdateien wegraeumen, statt blind *.vdr zu loeschen
     rm -f "$STAGING_REC/summary.vdr" "$STAGING_REC/info.vdr" "$STAGING_REC/marks.vdr" 2>/dev/null
