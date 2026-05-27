@@ -231,7 +231,7 @@ recode_stream() {
 
     # DER RICHTIGE AUFRUF (NUCLEAR):
     # Wir nutzen hier die Fallback-Parameter, da es ein Reparatur-Versuch ist.
-    ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -map 0:d? -ignore_unknown -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+    ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -ignore_unknown -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
         -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
         -vsync cfr -r 25 \
         -c:a aac -b:a 192k \
@@ -243,7 +243,7 @@ recode_stream() {
     # Automatischer Fallback auf Software-Decoding/Encoding, falls Hardware-Beschleunigung fehlschlägt
     if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
         echo "[$(date +%T)] WARNUNG: Hardware-beschleunigtes Deep-Repair fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
-        ffmpeg -y -hide_banner -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -map 0:d? -ignore_unknown -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
+        ffmpeg -y -hide_banner -i "$FILE" -map 0:v? -map 0:a? -map 0:s? -ignore_unknown -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 \
             -c:v libx264 -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" \
             -vsync cfr -r 25 \
             -c:a aac -b:a 192k \
@@ -428,12 +428,12 @@ process_folder() {
 
                 local DURATION=$(get_duration "$STAGING_REC/joined.ts")
                 echo "$DURATION" > "$DURATION_FILE" 2>/dev/null
-                ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -map 0:d? -ignore_unknown $VF_OPT -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $AUDIO_OPTS -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -ignore_unknown $VF_OPT -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $AUDIO_OPTS -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                 local FF_STATUS=${PIPESTATUS[0]}
                 
                 if [[ $FF_STATUS -ne 0 && "$HW_ACCEL" != "none" ]]; then
                     echo "[$(date +%T)] WARNUNG: Hardware-beschleunigtes Shrinken fehlgeschlagen. Fallback auf Software (CPU)..." >> "$LOG_FILE"
-                    ffmpeg -y -hide_banner -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -map 0:d? -ignore_unknown $VF_OPT -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $AUDIO_OPTS -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+                    ffmpeg -y -hide_banner -i "$STAGING_REC/joined.ts" -map 0:v? -map 0:a? -map 0:s? -ignore_unknown $VF_OPT -c:v libx265 -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $AUDIO_OPTS -c:s copy -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
                     FF_STATUS=${PIPESTATUS[0]}
                 fi
                 
