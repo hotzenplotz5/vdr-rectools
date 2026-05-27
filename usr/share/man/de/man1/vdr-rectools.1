@@ -45,6 +45,12 @@ Simuliert den nächtlichen Timer-Aufruf und prüft, ob die Automatik in der Konf
 .B repair_single \fI<Pfad zur .rec>\fR
 Repariert gezielt eine einzelne Aufnahme.
 .TP
+.B pes2ts
+Sucht rekursiv im VDR-Videoverzeichnis nach veralteten PES-Aufnahmen (*.vdr) und konvertiert sie über einen atomaren Swap sicher in das moderne TS-Format. Hierbei bleiben Metadaten, VDR-Schnittmarken und DVB-Untertitel erhalten.
+.TP
+.B pes2ts_single \fI<Pfad zur .rec>\fR
+Konvertiert gezielt eine einzelne PES-Aufnahme (Angabe des absoluten Pfades zum .rec-Ordner) in das TS-Format.
+.TP
 .B check_single \fI<Pfad zur .rec>\fR
 Prüft die Aufnahme im angegebenen Verzeichnis auf Stream-Fehler, ohne sie zu verändern. Das Ergebnis wird in die Log-Datei geschrieben.
 .SH IMPORT-WORKFLOW
