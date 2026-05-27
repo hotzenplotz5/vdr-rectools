@@ -134,24 +134,25 @@ usort($recordings, function($a, $b) {
             </thead>
             <tbody>
                 <?php foreach ($recordings as $rec): ?>
+                    <?php $status = strtolower(trim((string)$rec['status'])); ?>
                     <tr>
                         <td>
                             <div class="title"><?php echo htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></div>
                             <div class="path">📂 <?php echo htmlspecialchars($rec['rel_path'], ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
-                            <?php if ($rec['status'] === 'pes'): ?>
+                            <?php if ($status === 'pes'): ?>
                                 <span class="status-pes">Alte PES-Aufnahme</span>
-                            <?php elseif ($rec['status'] === 'ts'): ?>
+                            <?php elseif ($status === 'ts'): ?>
                                 <span class="status-ts">TS-Aufnahme</span>
                             <?php else: ?>
                                 <span class="status-unknown">Unbekannt</span>
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if ($rec['status'] === 'pes'): ?>
+                            <?php if ($status === 'pes'): ?>
                                 <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
-                            <?php elseif ($rec['status'] === 'ts'): ?>
+                            <?php elseif ($status === 'ts'): ?>
                                 <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                                     <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn shrink" onclick="return confirm('Diese Aufnahme in H.265 schrumpfen?');">Shrink</a>
                                     <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn cut" onclick="return confirm('Werbung aus dieser Aufnahme schneiden?');">Cut</a>
