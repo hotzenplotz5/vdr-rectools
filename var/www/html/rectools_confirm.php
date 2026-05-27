@@ -23,9 +23,10 @@ function load_video_dir() {
 $video_dir = load_video_dir();
 
 if (isset($_GET['action'])) {
-    if ($_GET['action'] === 'import') {
+    $action_req = trim((string)$_GET['action']);
+    if ($action_req === 'import') {
         dispatch_job('import');
-    } elseif (in_array($_GET['action'], ['pes2ts', 'shrink', 'repair', 'cut', 'check'])) {
+    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
@@ -37,10 +38,10 @@ if (isset($_GET['action'])) {
                 exit('Zugriff verweigert oder ungueltiger Pfad.');
             }
         }
-        dispatch_job($_GET['action'], $path);
-    } elseif ($_GET['action'] === 'stop') {
+        dispatch_job($action_req, $path);
+    } elseif ($action_req === 'stop') {
         dispatch_job('stop');
-    } elseif ($_GET['action'] === 'restart_vdr') {
+    } elseif ($action_req === 'restart_vdr') {
         dispatch_job('restart_vdr');
     } else {
         $prompt_file = $video_dir . '/.vdr-rectools.prompt';
@@ -48,9 +49,9 @@ if (isset($_GET['action'])) {
             $content = trim(file_get_contents($prompt_file));
             $parts = explode('|', $content);
             if (isset($parts[0]) && $parts[0] === 'WAIT') {
-                if ($_GET['action'] === 'yes') {
+                if ($action_req === 'yes') {
                     $action = 'YES';
-                } elseif ($_GET['action'] === 'manual') {
+                } elseif ($action_req === 'manual') {
                     $action = 'MANUAL';
                 } else {
                     $action = 'NO';
