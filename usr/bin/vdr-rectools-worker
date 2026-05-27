@@ -97,7 +97,11 @@ for job in "$JOB_DIR"/*.job; do
         /usr/bin/vdr-rectools import >/dev/null 2>&1
         SUCCESS=$?
      elif [ "$ACTION" == "pes2ts" ]; then
-        /usr/bin/vdr-rectools pes2ts >/dev/null 2>&1
+    if [ -n "$PARAM" ]; then
+            /usr/bin/vdr-rectools pes2ts "$PARAM" >/dev/null 2>&1
+        else
+            /usr/bin/vdr-rectools pes2ts >/dev/null 2>&1
+        fi
         SUCCESS=$?   
     elif [ "$ACTION" == "stop" ]; then
         /usr/bin/vdr-rectools stop >/dev/null 2>&1

@@ -5,7 +5,17 @@ if (isset($_GET['action'])) {
     if ($_GET['action'] === 'import') {
         dispatch_job('import');
     } elseif ($_GET['action'] === 'pes2ts') {
-        dispatch_job('pes2ts');
+        $path = '';
+        if (!empty($_GET['path'])) {
+            $real = realpath($_GET['path']);
+            $base = realpath('/srv/vdr/video');
+            if ($real && strpos($real, $base) === 0 && is_dir($real)) {
+                $path = $real;
+            } else {
+                exit('Zugriff verweigert oder ungueltiger Pfad.');
+            }
+        }
+        dispatch_job('pes2ts', $path);
     } elseif ($_GET['action'] === 'stop') {
         dispatch_job('stop');
     } elseif ($_GET['action'] === 'restart_vdr') {
