@@ -642,15 +642,32 @@ process_import() {
     local NFO_SOURCE="${SOURCE_FILE%.*}.nfo"
     local META_TITLE=""
     local META_DESC=""
+    local META_SHORT=""
+    local META_YEAR=""
+    local META_GENRE=""
 
     if [[ -f "$NFO_SOURCE" ]]; then
         echo "[$(date +%T)] Metadaten-Datei gefunden: $NFO_SOURCE" >> "$LOG_FILE"
         # awk liest über mehrzeilige XML-Tags hinweg, was z.B. für TinyMediaManager NFOs zwingend nötig ist
         META_TITLE=$(awk -v RS='</title>' '/<title>/{gsub(/.*<title>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
         META_DESC=$(awk -v RS='</plot>' '/<plot>/{gsub(/.*<plot>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r' | awk 'NF{gsub(/^[ \t]+/,""); gsub(/[ \t]+$/,""); print}' | paste -sd '|' -)
+        META_SHORT=$(awk -v RS='</outline>' '/<outline>/{gsub(/.*<outline>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr '\r\n' ' ' | sed 's/^[ \t]*//;s/[ \t]*$//')
+        META_YEAR=$(awk -v RS='</year>' '/<year>/{gsub(/.*<year>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
+        META_GENRE=$(awk -v RS='</genre>' '/<genre>/{gsub(/.*<genre>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
+
+        # XML-Entities decodieren, damit das VDR-OSD nicht mit "&quot;" etc. zugemuellt wird
+        decode_xml() {
+            echo "$1" | sed 's/&quot;/"/g; s/&apos;/'\''/g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g'
+        }
+        META_TITLE=$(decode_xml "$META_TITLE")
+        META_DESC=$(decode_xml "$META_DESC")
+        META_SHORT=$(decode_xml "$META_SHORT")
+        META_GENRE=$(decode_xml "$META_GENRE")
     fi
 
-    local PRETTY_TITLE="${META_TITLE:-${FILENAME%.*}}"
+    # Fallback, falls <title> in der NFO existiert, aber komplett leer ist
+    [[ -z "${META_TITLE// }" ]] && META_TITLE="${FILENAME%.*}"
+    local PRETTY_TITLE="$META_TITLE"
     local CLEAN_NAME=$(echo "$PRETTY_TITLE" | sed 's/[\\/:"*?<>|]/_/g')
 
     local REL_PATH=$(dirname "${SOURCE_FILE#$IMPORT_DIR/}")
@@ -810,8 +827,17 @@ process_import() {
         fi
 
         # info-Datei erstellen: NFO-Daten haben Vorrang
-        echo "T $PRETTY_TITLE" > "$STAGING_REC/info"
-        echo "D ${META_DESC:-Importiert am $(date +"%d.%m.%Y")}" >> "$STAGING_REC/info"
+        {
+            echo "T $PRETTY_TITLE"
+            [[ -n "$META_SHORT" ]] && echo "S $META_SHORT"
+            if [[ -n "$META_DESC" ]]; then
+                echo "D $META_DESC"
+            else
+                echo "D Importiert am $(date +"%d.%m.%Y")"
+            fi
+            [[ -n "$META_YEAR" ]] && echo "X year: $META_YEAR"
+            [[ -n "$META_GENRE" ]] && echo "X genre: $META_GENRE"
+        } > "$STAGING_REC/info"
         echo "[$(date +%T)] info-Datei für '$PRETTY_TITLE' wurde mit Metadaten befüllt." >> "$LOG_FILE"
         # NFO-Datei für Plex/Kodi in den Aufnahmeordner kopieren
         local PLEX_NAME=$(echo "$CLEAN_NAME" | sed 's/_/ /g')
