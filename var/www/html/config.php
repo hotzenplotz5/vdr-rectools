@@ -16,13 +16,23 @@ require_once __DIR__ . '/job_dispatcher.php';
 
 // 2. ZUERST die Konfiguration speichern, falls ein POST-Request vorliegt!
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
-    // Datenmodell aus dem POST-Input aufbauen (eliminiert Duplikate automatisch)
-    $configMap = parseConfig($_POST['config_data']);
-    $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
-    $configMap['LANGUAGE'] = $language; // Garantiert, dass der saubere Wert auch gespeichert wird
-    
-    // Sauberen State serialisieren
-    $new_data = serializeConfig($configMap);
+// Originaltext unverändert übernehmen
+$new_data = (string)$_POST['config_data'];
+
+// LANGUAGE robust extrahieren
+if (preg_match('/^LANGUAGE="?([^"\r\n]+)"?/mi', $new_data, $m)) {
+    $language = normalizeLanguage($m[1]);
+} else {
+    $language = 'de';
+    $new_data .= "\nLANGUAGE=\"de\"\n";
+}
+
+// LANGUAGE sauber normalisieren/ersetzen
+$new_data = preg_replace(
+    '/^LANGUAGE="?([^"\r\n]+)"?/mi',
+    'LANGUAGE="' . $language . '"',
+    $new_data
+);
 
     if (file_put_contents($conf_file, $new_data) !== false) {
         $current_conf = $new_data;
@@ -40,10 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['config_data'])) {
     // 3. Kein POST-Request: Config von der Festplatte auslesen
     if (file_exists($conf_file)) {
         $raw_text = (string)@file_get_contents($conf_file);
-        $configMap = parseConfig($raw_text);
-        $language = normalizeLanguage($configMap['LANGUAGE'] ?? 'de');
-        $configMap['LANGUAGE'] = $language; // Garantiert, dass der saubere Wert im Editor angezeigt wird
-        $current_conf = serializeConfig($configMap); // Zeige immer den sauberen KV-State im Editor
+$current_conf = $raw_text;
+
+if (preg_match('/^LANGUAGE="?([^"\r\n]+)"?/mi', $raw_text, $m)) {
+    $language = normalizeLanguage($m[1]);
+}
     }
 }
 
