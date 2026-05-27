@@ -1,3 +1,12 @@
+vdr-rectools (3.7.0-1) unstable; urgency=medium
+
+  * Release Version 3.7.0 - The "Legacy Migration" Update
+  * FEAT: PES zu TS Konvertierung ('pes2ts') für alte VDR-Aufnahmen hinzugefügt.
+  * FEAT: Automatische Portierung der Metadaten (summary.vdr -> info) und Ordnernamen.
+  * FEAT: Neues Kommando 'pes2ts' in CLI und VDR-Verzeichnis-Scanner integriert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 27 May 2026 07:39:31 +0000
+
 vdr-rectools (3.6.0-1) unstable; urgency=medium
 
   * Release Version 3.6.0 - The "Handbrake & Usability" Update
