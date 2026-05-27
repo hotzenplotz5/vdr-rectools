@@ -482,24 +482,92 @@ process_folder() {
             check)
             local CHECK_FAILED=0
             local ALL_ERRORS=""
-            echo "[$(date +%T)] Starte read-only Stream-Check..." >> "$LOG_FILE"
+            local QA_REPORT=""
+            
+            echo "[$(date +%T)] Starte erweiterten QA-Scanner..." >> "$LOG_FILE"
+            QA_REPORT+="=== QA Diagnose-Report ===\n"
+            QA_REPORT+="Aufnahme: $CLEAN_NAME\n"
+            QA_REPORT+="Pfad: $REC_DIR\n\n"
+
+            # 1. Hilfsdateien pruefen
+            QA_REPORT+="[ Dateien ]\n"
+            [[ -f "info" ]] && QA_REPORT+=" - info:     Vorhanden\n" || QA_REPORT+=" - info:     FEHLT!\n"
+            [[ -f "marks" ]] && QA_REPORT+=" - marks:    Vorhanden\n" || QA_REPORT+=" - marks:    Fehlt (keine Schnittmarken)\n"
+            [[ -f "poster.jpg" ]] && QA_REPORT+=" - poster:   Vorhanden\n" || QA_REPORT+=" - poster:   Fehlt\n"
+            local srt_cnt=$(find . -maxdepth 1 -name "*.srt" 2>/dev/null | wc -l)
+            [[ "$srt_cnt" -gt 0 ]] && QA_REPORT+=" - subs:     $srt_cnt .srt Datei(en) vorhanden\n" || QA_REPORT+=" - subs:     Fehlen\n"
+            
+            # 2. Media-Metadaten analysieren
+            QA_REPORT+="\n[ Media-Info ]\n"
+            local first_ts=$(ls 000*.ts 2>/dev/null | head -n 1)
+            if [[ -n "$first_ts" ]]; then
+                local V_CODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                local V_WIDTH=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                local V_HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                local V_FPS_RAW=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                
+                local V_FPS="Unbekannt"
+                if [[ "$V_FPS_RAW" =~ ^[0-9]+/[0-9]+$ ]]; then
+                    local num=$(echo "$V_FPS_RAW" | cut -d/ -f1)
+                    local den=$(echo "$V_FPS_RAW" | cut -d/ -f2)
+                    [[ "$den" -gt 0 ]] && V_FPS=$(awk -v n="$num" -v d="$den" 'BEGIN {printf "%.2f", n/d}')
+                elif [[ "$V_FPS_RAW" =~ ^[0-9]+$ ]]; then
+                    V_FPS="$V_FPS_RAW"
+                fi
+
+                local COLOR_TRC=$(ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                local HDR_SDR="SDR"
+                [[ "$COLOR_TRC" =~ smpte2084|arib-std-b67 ]] && HDR_SDR="HDR"
+
+                local BITRATE=$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | head -n 1)
+                if [[ -n "$BITRATE" && "$BITRATE" =~ ^[0-9]+$ ]]; then
+                    BITRATE="$(( BITRATE / 1000 )) kbps"
+                else
+                    BITRATE="Unbekannt (VBR)"
+                fi
+
+                local A_CODECS=$(ffprobe -v error -select_streams a -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$first_ts" 2>/dev/null | paste -sd ", " -)
+                
+                QA_REPORT+=" - Video:    ${V_CODEC:-?} | ${V_WIDTH:-?}x${V_HEIGHT:-?} | ${V_FPS} fps | $HDR_SDR\n"
+                QA_REPORT+=" - Bitrate:  $BITRATE\n"
+                QA_REPORT+=" - Audio:    ${A_CODECS:-keine Audiospur}\n"
+            else
+                QA_REPORT+=" - FEHLER:   Keine Videodateien (000*.ts) gefunden!\n"
+                CHECK_FAILED=1
+            fi
+
+            # 3. Stream-Integrität prüfen
+            QA_REPORT+="\n[ Stream-Integritaet ]\n"
             for ts in 000*.ts; do
                 [[ -f "$ts" ]] || continue
                 local ERR_OUT
                 if ! ERR_OUT=$(check_stream "$ts"); then
                     CHECK_FAILED=1
                     ALL_ERRORS+="$ts:\n$ERR_OUT\n\n"
+                    QA_REPORT+=" - $ts: BESCHAEDIGT\n"
+                else
+                    QA_REPORT+=" - $ts: OK\n"
                 fi
             done
+            
+            # Ausgabe ins Log
+            echo -e "$QA_REPORT" >> "$LOG_FILE"
+
             if [[ $CHECK_FAILED -eq 0 ]]; then
-                    local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_OK_BODY:-Die Aufnahme '%s' ist fehlerfrei.}" "$CLEAN_NAME"
-                    local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_OK_SUBJ:-Prüfung erfolgreich}"
-                    send_mail "$M_BODY" "$M_SUBJ"
-                else
+                rm -f ".vdr-rectools.broken" 2>/dev/null || true
+                local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_OK_BODY:-Die Aufnahme '%s' ist fehlerfrei.}" "$CLEAN_NAME"
+                M_BODY+="\n\n${QA_REPORT}"
+                local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_OK_SUBJ:-Prüfung erfolgreich}"
+                send_mail "$M_BODY" "$M_SUBJ"
+            else
+                touch ".vdr-rectools.broken" 2>/dev/null || true
+                chown vdr:vdr ".vdr-rectools.broken" 2>/dev/null || true
                 local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_ERR_BODY:-In der Aufnahme '%s' wurden Fehler gefunden.\n\nFehlerdetails:\n%s}" "$CLEAN_NAME" "$ALL_ERRORS"
-                    local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_ERR_SUBJ:-Prüfung fehlgeschlagen: %s}" "$CLEAN_NAME"
-                    send_mail "$M_BODY" "$M_SUBJ"
-                fi
+                M_BODY+="\n\n${QA_REPORT}"
+                local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_ERR_SUBJ:-Prüfung fehlgeschlagen: %s}" "$CLEAN_NAME"
+                send_mail "$M_BODY" "$M_SUBJ"
+            fi
+            
             rm -rf "$STAGING_REC"
             cd "$OLD_PWD" 2>/dev/null || true
             return "$CHECK_FAILED"
