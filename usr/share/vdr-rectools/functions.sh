@@ -183,10 +183,8 @@ set_dashboard_bg() {
     local SRC="$1"
     local BG_IMG="$VIDEO_DIR/.vdr-rectools-bg.jpg"
     if [[ -f "$SRC" ]]; then
-        (
-            ffmpeg -hide_banner -y -ss "${SNAPSHOT_TIME:-00:05:00}" -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1 || \
-            ffmpeg -hide_banner -y -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1
-        ) &
+        ffmpeg -hide_banner -y -ss "${SNAPSHOT_TIME:-00:05:00}" -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1 || \
+        ffmpeg -hide_banner -y -i "$SRC" -frames:v 1 -q:v 5 -vf scale=1280:-2 "$BG_IMG" </dev/null >/dev/null 2>&1
     else
         rm -f "$BG_IMG" 2>/dev/null
     fi
@@ -205,7 +203,9 @@ sanitize_stream() {
     echo "[$(date +%T)] Sanitize: Header-Fix fuer $FILE" >> "$LOG_FILE"
     ffmpeg -y -hide_banner -i "$FILE" -c copy -map 0:v? -map 0:a? -map 0:s? -ignore_unknown -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     if [[ $? -eq 0 && -s "$tmp_file" ]]; then
-        mv "$tmp_file" "$FILE"
+        mv -T "$FILE" "${FILE}.bak" 2>/dev/null || true
+        mv -T "$tmp_file" "$FILE"
+        rm -f "${FILE}.bak"
         return 0
     fi
     return 1
@@ -253,7 +253,9 @@ recode_stream() {
     fi
 
     if [[ $FF_STATUS -eq 0 && -s "$tmp_file" ]]; then
-        mv "$tmp_file" "$FILE"
+        mv -T "$FILE" "${FILE}.bak" 2>/dev/null || true
+        mv -T "$tmp_file" "$FILE"
+        rm -f "${FILE}.bak"
         echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
         return 0
     fi
