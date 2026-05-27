@@ -131,8 +131,8 @@ usort($recordings, function($a, $b) {
                 <?php foreach ($recordings as $rec): ?>
                     <tr>
                         <td>
-                            <div class="title"><?php echo htmlspecialchars($rec['title']); ?></div>
-                            <div class="path">📂 <?php echo htmlspecialchars($rec['rel_path']); ?></div>
+                            <div class="title"><?php echo htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div class="path">📂 <?php echo htmlspecialchars($rec['rel_path'], ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
                             <?php if ($rec['status'] === 'pes'): ?>

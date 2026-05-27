@@ -1,21 +1,26 @@
 <?php
 require_once __DIR__ . '/job_dispatcher.php';
 
-$video_dir = '/srv/vdr/video';
-$config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
-if (file_exists($config_file)) {
-    $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (strpos($line, 'VIDEO_DIR=') === 0) {
-            $val = substr($line, 10);
-            $val = trim($val, "\"' \r\n");
-            if (!empty($val)) {
-                $video_dir = $val;
+function load_video_dir() {
+    $video_dir = '/srv/vdr/video';
+    $config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+    if (file_exists($config_file)) {
+        $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (strpos($line, 'VIDEO_DIR=') === 0) {
+                $val = substr($line, 10);
+                $val = trim($val, "\"' \r\n");
+                if (!empty($val)) {
+                    $video_dir = $val;
+                }
             }
         }
     }
+    return $video_dir;
 }
+
+$video_dir = load_video_dir();
 
 if (isset($_GET['action'])) {
     if ($_GET['action'] === 'import') {
