@@ -886,6 +886,8 @@ convert_pes2ts() {
         return 0
     fi
 
+    PES_CONVERSIONS_STARTED=$((PES_CONVERSIONS_STARTED + 1))
+
     local FILM_TITLE=$(basename "$(dirname "$REC_DIR")" | sed 's/_/ /g')
     echo "[$(date +%T)] Starte PES->TS Konvertierung fuer: $FILM_TITLE ($REC_DIR)" >> "$LOG_FILE"
     set_state "Konvertiere PES->TS: $FILM_TITLE"
@@ -1028,9 +1030,16 @@ run_scan() {
     
     if [[ "$MODE" == "pes2ts" ]]; then
         set_state "Scanne nach alten PES-Aufnahmen..."
+        PES_CONVERSIONS_STARTED=0
         while read -r DIR; do
             convert_pes2ts "$DIR"
         done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+        
+        if [[ $PES_CONVERSIONS_STARTED -eq 0 ]]; then
+            echo "[$(date +%T)] INFO: PES->TS Scan beendet. Keine alten PES-Aufnahmen gefunden." >> "$LOG_FILE"
+        else
+            echo "[$(date +%T)] INFO: PES->TS Scan beendet. $PES_CONVERSIONS_STARTED Aufnahme(n) verarbeitet." >> "$LOG_FILE"
+        fi
     elif [[ "$MODE" != "import" ]]; then
         set_state "Scanne VDR-Verzeichnis..."
         while read -r DIR; do
