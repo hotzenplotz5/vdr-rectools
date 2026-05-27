@@ -389,6 +389,7 @@ process_folder() {
     local REC_DIR="$1"
     local MODE="$2"
     [[ ! -d "$REC_DIR" ]] && return 1
+    local OLD_PWD="$PWD"
     cd "$REC_DIR" || return 1
     local FILM_TITLE=$(grep "^T " info 2>/dev/null | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[\\/:"*?<>|]/_/g')
     [[ -z "$FILM_TITLE" ]] && FILM_TITLE=$(basename "$(dirname "$REC_DIR")")
@@ -409,7 +410,8 @@ process_folder() {
         local FIRST_FILE=$(ls 000*.ts 2>/dev/null | head -n 1)
         [[ -n "$FIRST_FILE" ]] && set_dashboard_bg "$FIRST_FILE"
 
-        local STAGING_REC="$REPAIR_STAGING/${MODE}_${FILM_TITLE}_${RANDOM}_$$"
+        local JOB_ID="$(date +%s)_$$_$RANDOM"
+        local STAGING_REC="$REPAIR_STAGING/${MODE}_${JOB_ID}"
         mkdir -p "$STAGING_REC"
         case "$MODE" in
             repair)
@@ -478,19 +480,29 @@ process_folder() {
                 fi
                 ;;
             check)
-                local CHECK_ERRORS
-                echo "[$(date +%T)] Starte Stream-Check via Pipe..." >> "$LOG_FILE"
-                CHECK_ERRORS=$(cat 000*.ts | ffmpeg -v error -i pipe:0 -f null - 2>&1 | filter_ffmpeg_log)
-                if [[ -z "$CHECK_ERRORS" ]]; then
+            local CHECK_FAILED=0
+            local ALL_ERRORS=""
+            echo "[$(date +%T)] Starte read-only Stream-Check..." >> "$LOG_FILE"
+            for ts in 000*.ts; do
+                [[ -f "$ts" ]] || continue
+                local ERR_OUT
+                if ! ERR_OUT=$(check_stream "$ts"); then
+                    CHECK_FAILED=1
+                    ALL_ERRORS+="$ts:\n$ERR_OUT\n\n"
+                fi
+            done
+            if [[ $CHECK_FAILED -eq 0 ]]; then
                     local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_OK_BODY:-Die Aufnahme '%s' ist fehlerfrei.}" "$CLEAN_NAME"
                     local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_OK_SUBJ:-Prüfung erfolgreich}"
                     send_mail "$M_BODY" "$M_SUBJ"
                 else
-                    local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_ERR_BODY:-In der Aufnahme '%s' wurden Fehler gefunden.\n\nFehlerdetails:\n%s}" "$CLEAN_NAME" "$CHECK_ERRORS"
+                local M_BODY; printf -v M_BODY "${TXT_MAIL_CHECK_ERR_BODY:-In der Aufnahme '%s' wurden Fehler gefunden.\n\nFehlerdetails:\n%s}" "$CLEAN_NAME" "$ALL_ERRORS"
                     local M_SUBJ; printf -v M_SUBJ "${TXT_MAIL_CHECK_ERR_SUBJ:-Prüfung fehlgeschlagen: %s}" "$CLEAN_NAME"
                     send_mail "$M_BODY" "$M_SUBJ"
                 fi
-                return
+            rm -rf "$STAGING_REC"
+            cd "$OLD_PWD" 2>/dev/null || true
+            return "$CHECK_FAILED"
                 ;;
         esac
         if [ -f "$STAGING_REC/00001.ts" ]; then
@@ -705,7 +717,8 @@ process_import() {
     [[ "$MODE" == "dryrun" ]] && { echo "[DRY-RUN] Import $FILENAME -> $TARGET_SUBDIR"; return 0; }
     check_disk_space || { echo "[$(date +%T)] FEHLER: Zu wenig Speicherplatz" >> "$LOG_FILE"; return 1; }
     local DATE_STR=$(date +"%Y-%m-%d.%H.%M.1-0.rec")
-    local STAGING_REC="$REPAIR_STAGING/import_${CLEAN_NAME}_${RANDOM}_$$"
+    local JOB_ID="$(date +%s)_$$_$RANDOM"
+    local STAGING_REC="$REPAIR_STAGING/import_${JOB_ID}"
     local FINAL_DEST="$VIDEO_DIR/${TARGET_SUBDIR}$CLEAN_NAME/$DATE_STR"
     mkdir -p "$STAGING_REC"
 
@@ -974,7 +987,8 @@ convert_pes2ts() {
     local TARGET_DIR="$PARENT_DIR/$NEW_DIR_NAME"
 
     # 1. Komplettes Staging-Verzeichnis vorbereiten (Klon der Struktur, ohne Videos)
-    local STAGING_REC="$PARENT_DIR/.pes2ts_${RANDOM}_$$"
+    local JOB_ID="$(date +%s)_$$_$RANDOM"
+    local STAGING_REC="$PARENT_DIR/.pes2ts_${JOB_ID}"
     mkdir -p "$STAGING_REC"
 
     # Metadaten (Cover, NFOs, etc.) ins Staging kopieren, ohne Videodaten zu duplizieren
