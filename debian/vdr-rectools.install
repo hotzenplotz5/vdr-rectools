@@ -15,3 +15,4 @@ var/www/html/router.php var/www/html/
 var/www/html/rectools_confirm.php var/www/html/
 usr/share/vdr-rectools/lang/* usr/share/vdr-rectools/lang/
 var/www/html/lang/* var/www/html/lang/
+debian/nginx/vdr-rectools-php.conf etc/nginx/snippets/
