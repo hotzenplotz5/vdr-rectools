@@ -8,6 +8,9 @@ vdr-rectools (3.7.0-1) unstable; urgency=medium
   * FIX: Sicherer Directory-Level Atomic Swap verhindert Datenverlust bei IO-Fehlern.
   * FIX: Erweitertes DVB Stream-Mapping (-map 0:v/a/s/d) rettet Teletext und Untertitel.
   * FIX: ffmpeg Pipeline durch set -o pipefail und -ignore_unknown abgesichert.
+  * FEAT: Import-Parser liest nun auch Kurzbeschreibung, Jahr und (mehrere) Genres aus NFOs.
+  * FEAT: NFO-Export (für Plex/Kodi) nutzt nun die Kurzbeschreibung (S) als Fallback.
+  * FIX: XML-Entities (&amp;, &quot;, etc.) werden bei Importen nun sauber in Klartext umgewandelt.
 
  -- Holger Schvestka <hotzenplotz5@gmx.de>  Wed, 27 May 2026 07:39:31 +0000
 
