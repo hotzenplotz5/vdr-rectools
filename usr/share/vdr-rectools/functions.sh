@@ -42,7 +42,8 @@ TVSCRAPER_MODE="batch"
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
 if [ -f "$CONFIG_FILE" ]; then
-    . "$CONFIG_FILE"
+    # Windows CRLF on-the-fly entfernen, falls Config per Samba (Windows) bearbeitet wurde
+    source <(sed 's/\r$//' "$CONFIG_FILE")
 fi
 
 export LANGUAGE="${LANGUAGE:-de}"
@@ -53,9 +54,9 @@ if [[ -n "$LANGUAGE_OVERRIDE" ]]; then export LANGUAGE="$LANGUAGE_OVERRIDE"; fi
 # 3. SPRACHDATEIEN LADEN
 LANG_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
 if [ -f "$LANG_FILE" ]; then
-    . "$LANG_FILE"
+    source <(sed 's/\r$//' "$LANG_FILE")
 elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then
-    . "/usr/share/vdr-rectools/lang/de.sh"
+    source <(sed 's/\r$//' "/usr/share/vdr-rectools/lang/de.sh")
 fi
 
 # 3. LIBRARIES & TEMPLATES LADEN
@@ -1438,7 +1439,7 @@ export_html_status() {
 unset LANGUAGE
 
 if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-    . "/etc/vdr/conf.d/vdr-rectools.conf"
+    source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
 fi
 
 # HARD OVERRIDE hat IMMER Priorität
@@ -1452,9 +1453,9 @@ LANGUAGE="${LANGUAGE:-de}"
 local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
 
 if [ -f "$L_FILE" ]; then
-    . "$L_FILE"
+    source <(sed 's/\r$//' "$L_FILE")
 elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then
-    . "/usr/share/vdr-rectools/lang/de.sh"
+    source <(sed 's/\r$//' "/usr/share/vdr-rectools/lang/de.sh")
 fi 
 
     local PID=""
