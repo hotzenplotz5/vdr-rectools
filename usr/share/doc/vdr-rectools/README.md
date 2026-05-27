@@ -11,7 +11,8 @@
 * **📝 Plex & Kodi Integration:** Erstellt vollautomatisch saubere Symlinks (ohne die Dateien zu duplizieren) und generiert standardisierte `.nfo`-XML-Dateien für eine perfekte Erkennung in externen Media-Centern.
 * **💬 Auto-Subtitles:** Sucht beim Importvorgang über OpenSubtitles/Subliminal automatisch nach passenden (deutschen) Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
 * **🛠️ Sichere Reparatur:** Repariert kaputte Timestamps oder defekte Header via `ffmpeg`. Inklusive Sicherheits-Checks: Die Originaldatei wird nur überschrieben, wenn die neue Datei mindestens 98 % der Ursprungsgröße besitzt und der MD5-Hash nach dem Verschieben exakt übereinstimmt.
-* **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
+* **🔄 PES zu TS Migration:** Findet veraltete VDR-Aufnahmen im PES-Format (`.vdr`), konvertiert sie nahtlos ins moderne TS-Format, passt Metadaten an und benennt die Aufnahmeordner VDR-konform um.
+* **�️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
 * **✂️ Werbeschnitt (In-Place):** Schneidet Aufnahmen vollautomatisch und verlustfrei (`-c copy`) anhand der VDR-Schnittmarken. Die Originaldatei wird direkt überschrieben, um sofort Speicherplatz freizugeben.
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen sofortigen Metadaten-Scrape im VDR (tvscraper-Plugin).
 * **📺 VDR OSD-Integration:** Klinkt sich automatisch in das `reccmds.conf` Befehlsmenü des VDR ein (inkl. Workaround für yaVDR-Ansible-Umgebungen).

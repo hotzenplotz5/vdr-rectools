@@ -11,6 +11,7 @@
 * **🎬 TVScraper Integration:** Triggert nach dem Import optional einen Metadaten-Scrape im VDR (Modi: `immediate` oder `batch`).
 * **🛠️ Smart Repair:** Repariert defekte Aufnahmen in einem zweistufigen Verfahren: Zuerst ein schneller Header-Fix, bei Bedarf gefolgt von einem kompletten Re-Encoding.
 * **💬 Auto-Subtitles:** Sucht beim Import automatisch nach passenden Untertiteln und legt sie als `.srt` direkt zur Aufnahme.
+* **🔄 PES zu TS Migration:** Findet veraltete VDR-Aufnahmen im PES-Format (`.vdr`), konvertiert sie nahtlos ins moderne TS-Format, passt Metadaten an und benennt die Aufnahmeordner VDR-konform um.
 * **🔖 MKV-Kapitel Support:** Konvertiert eingebettete Kapitel-Metadaten aus MKV/MP4-Dateien beim Import vollautomatisch in VDR-Schnittmarken (`marks`), wodurch perfektes Navigieren per Fernbedienung möglich wird.
 * **🗜️ H.265 Shrink-Modus:** Komprimiert große Aufnahmen auf Knopfdruck in den platzsparenden HEVC-Codec (H.265).
 * **🔊 Night-Mode (Audio-Normalize):** Mischt 5.1/7.1 Tonspuren (DTS/TrueHD) auf TV-kompatibles Stereo herunter und normalisiert die Lautstärke (Night-Mode) vollautomatisch beim Import/Shrink.
@@ -146,6 +147,7 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools stop` - Beendet laufende Hintergrundprozesse sauber.
 * `vdr-rectools cron` - Simuliert den Timer-Aufruf (prüft `AUTO_START_NIGHT`).
 * `vdr-rectools repair_single <Pfad>` - Repariert gezielt eine einzelne Aufnahme (Pfad zum .rec Ordner).
+* `vdr-rectools pes2ts` - Sucht rekursiv nach alten PES-Aufnahmen (`.vdr`) und konvertiert sie in das moderne TS-Format (`.ts`).
 
 ### Systemd-Timer (Automatik)
 Der Timer ist standardmäßig aktiv und triggert den Scan (meist nachts). Er führt die Arbeit aber nur aus, wenn `AUTO_START_NIGHT=1` gesetzt ist.

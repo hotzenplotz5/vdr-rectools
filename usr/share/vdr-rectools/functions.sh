@@ -873,6 +873,79 @@ process_import() {
     fi
 }
 
+# --- NEU: Veraltete PES-Aufnahmen (*.vdr) in TS konvertieren ---
+convert_pes2ts() {
+    local REC_DIR="$1"
+    [[ ! -d "$REC_DIR" ]] && return 1
+    
+    # Pruefe, ob ueberhaupt PES-Dateien (*.vdr) existieren
+    if ! find "$REC_DIR" -maxdepth 1 -name "[0-9][0-9][0-9].vdr" -print -quit | grep -q .; then
+        return 0
+    fi
+
+    cd "$REC_DIR" || return 1
+
+    local FILM_TITLE=$(basename "$(dirname "$REC_DIR")" | sed 's/_/ /g')
+    echo "[$(date +%T)] Starte PES->TS Konvertierung fuer: $FILM_TITLE ($REC_DIR)" >> "$LOG_FILE"
+    set_state "Konvertiere PES->TS: $FILM_TITLE"
+
+    # 1. Metadaten & Hilfsdateien anpassen
+    [[ -f marks.vdr ]] && mv marks.vdr marks
+    [[ -f info.vdr ]] && mv info.vdr info
+    if [[ -f summary.vdr && ! -f info ]]; then
+        # Simple conversion: summary.vdr als Description uebernehmen
+        echo "T $FILM_TITLE" > info
+        echo -n "D " >> info
+        tr '\n' '|' < summary.vdr | sed 's/|$//' >> info
+        echo "" >> info
+    fi
+    rm -f resume.vdr index.vdr summary.vdr
+
+    # 2. VDR-Dateien konvertieren
+    local STAGING_REC="$REPAIR_STAGING/pes2ts_${RANDOM}_$$"
+    mkdir -p "$STAGING_REC"
+
+    echo "[$(date +%T)] INFO: Fasse alte .vdr Dateien zusammen und wandle in .ts um..." >> "$LOG_FILE"
+    
+    # Um moegliche Timecode-Brueche sauber zu behandeln, -fflags +genpts+igndts nutzen
+    cat [0-9][0-9][0-9].vdr | ffmpeg -y -hide_banner -i pipe:0 -map 0:v? -map 0:a? -map 0:s? -c copy -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
+    local FF_STATUS=${PIPESTATUS[1]}
+
+    if [[ $FF_STATUS -eq 0 && -s "$STAGING_REC/00001.ts" ]]; then
+        mv "$STAGING_REC/00001.ts" .
+        rm -f [0-9][0-9][0-9].vdr
+        echo "[$(date +%T)] ERFOLG: .vdr nach .ts konvertiert." >> "$LOG_FILE"
+    else
+        echo "[$(date +%T)] FEHLER: ffmpeg Konvertierung fehlgeschlagen (Status $FF_STATUS)." >> "$LOG_FILE"
+        rm -rf "$STAGING_REC"
+        return 1
+    fi
+    rm -rf "$STAGING_REC"
+
+    # 3. Verzeichnis umbenennen (DATAFORMATPES vs DATAFORMATTS)
+    local DIR_NAME=$(basename "$REC_DIR")
+    local PARENT_DIR=$(dirname "$REC_DIR")
+    local NEW_DIR_NAME=$(echo "$DIR_NAME" | sed -E 's/\.([0-9]+)\.([0-9]+)\.rec$/.\1-\2.rec/')
+    local TARGET_DIR="$REC_DIR"
+
+    if [[ "$DIR_NAME" != "$NEW_DIR_NAME" ]]; then
+        cd "$PARENT_DIR" || return 1
+        mv "$DIR_NAME" "$NEW_DIR_NAME"
+        TARGET_DIR="$PARENT_DIR/$NEW_DIR_NAME"
+        echo "[$(date +%T)] INFO: Aufnahme-Verzeichnis umbenannt zu $NEW_DIR_NAME" >> "$LOG_FILE"
+    fi
+
+    # 4. Index neu erzeugen
+    echo "[$(date +%T)] INFO: Generiere VDR-Index neu..." >> "$LOG_FILE"
+    /usr/bin/vdr --genindex="$TARGET_DIR" >/dev/null 2>&1
+    chown -R vdr:vdr "$TARGET_DIR" 2>/dev/null || true
+    
+    # VDR-Cache zwingend leeren
+    touch "$VIDEO_DIR/.update" 2>/dev/null || true
+    
+    echo "[$(date +%T)] ERFOLG: PES->TS Konvertierung fuer $FILM_TITLE abgeschlossen." >> "$LOG_FILE"
+}
+
 # --- Orphan-Sweeper: Räumt alte Crash-Ordner auf ---
 cleanup_orphans() {
     if [[ -d "$REPAIR_STAGING" ]]; then
@@ -899,8 +972,12 @@ run_scan() {
         done
     fi
     
-    # Den aufwendigen Komplett-Scan des VDR-Verzeichnisses überspringen, wenn nur "import" aufgerufen wurde
-    if [[ "$MODE" != "import" ]]; then
+    if [[ "$MODE" == "pes2ts" ]]; then
+        set_state "Scanne nach alten PES-Aufnahmen..."
+        while read -r DIR; do
+            convert_pes2ts "$DIR"
+        done < <(find -L "$VIDEO_DIR" -type d -name "*.rec" | sort)
+    elif [[ "$MODE" != "import" ]]; then
         set_state "Scanne VDR-Verzeichnis..."
         while read -r DIR; do
             process_folder "$DIR" "$MODE"
