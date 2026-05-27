@@ -634,11 +634,6 @@ handle_osd_confirm() {
     fi
 }
 
-# XML-Entities decodieren, damit das VDR-OSD nicht mit "&quot;" etc. zugemuellt wird
-decode_xml() {
-    echo "$1" | sed 's/&quot;/"/g; s/&apos;/'\''/g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g'
-}
-
 process_import() {
     local SOURCE_FILE="$1"
     local MODE="$2"
@@ -660,6 +655,10 @@ process_import() {
         META_YEAR=$(awk -v RS='</year>' '/<year>/{gsub(/.*<year>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
         META_GENRE=$(awk -v RS='</genre>' '/<genre>/{gsub(/.*<genre>/, ""); print; exit}' "$NFO_SOURCE" 2>/dev/null | tr -d '\r\n' | sed 's/^[ \t]*//;s/[ \t]*$//')
 
+        # XML-Entities decodieren, damit das VDR-OSD nicht mit "&quot;" etc. zugemuellt wird
+        decode_xml() {
+            echo "$1" | sed 's/&quot;/"/g; s/&apos;/'\''/g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g'
+        }
         META_TITLE=$(decode_xml "$META_TITLE")
         META_DESC=$(decode_xml "$META_DESC")
         META_SHORT=$(decode_xml "$META_SHORT")
