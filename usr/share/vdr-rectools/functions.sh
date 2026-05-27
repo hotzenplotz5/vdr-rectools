@@ -1136,18 +1136,28 @@ export_html_status() {
     local HTML="${HTML_PATH:-/var/www/html/rectools.html}"
     [[ -z "$HTML" ]] && return
     
-    # --- NEU: Sprache live neu laden ---
-    # Verhindert, dass laufende Hintergrund-Jobs Änderungen aus config.php wieder überschreiben!
-    if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then . "/etc/vdr/conf.d/vdr-rectools.conf"; fi
+       # Sprache frisch aus Config laden
+unset LANGUAGE
 
-    export LANGUAGE="${LANGUAGE:-de}"
-    
-    # HARD OVERRIDE (Letzte Instanz gewinnt IMMER)
-    if [[ -n "$LANGUAGE_OVERRIDE" ]]; then export LANGUAGE="$LANGUAGE_OVERRIDE"; fi
+if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+    . "/etc/vdr/conf.d/vdr-rectools.conf"
+fi
 
-    local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
-    if [ -f "$L_FILE" ]; then . "$L_FILE"; elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then . "/usr/share/vdr-rectools/lang/de.sh"; fi
-    # -----------------------------------
+# HARD OVERRIDE hat IMMER Priorität
+if [[ -n "$LANGUAGE_OVERRIDE" ]]; then
+    LANGUAGE="$LANGUAGE_OVERRIDE"
+fi
+
+# Fallback
+LANGUAGE="${LANGUAGE:-de}"
+
+local L_FILE="/usr/share/vdr-rectools/lang/${LANGUAGE}.sh"
+
+if [ -f "$L_FILE" ]; then
+    . "$L_FILE"
+elif [ -f "/usr/share/vdr-rectools/lang/de.sh" ]; then
+    . "/usr/share/vdr-rectools/lang/de.sh"
+fi 
 
     local PID=""
     local IS_RUNNING=0
