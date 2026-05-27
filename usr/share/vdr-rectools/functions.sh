@@ -203,8 +203,8 @@ sanitize_stream() {
     local FILE="$1"
     local tmp_file="${FILE}.san"
     echo "[$(date +%T)] Sanitize: Header-Fix fuer $FILE" >> "$LOG_FILE"
-    ffmpeg -y -hide_banner -i "$FILE" -c copy -map 0:v? -map 0:a? -map 0:s? -map 0:d? -ignore_unknown -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
-    if [[ $? -eq 0 && -f "$tmp_file" ]]; then
+    ffmpeg -y -hide_banner -i "$FILE" -c copy -map 0:v? -map 0:a? -map 0:s? -ignore_unknown -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
+    if [[ $? -eq 0 && -s "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         return 0
     fi
@@ -878,11 +878,13 @@ convert_pes2ts() {
     local REC_DIR="$1"
     [[ ! -d "$REC_DIR" ]] && return 1
     
+    local OLD_PWD="$PWD"
     cd "$REC_DIR" || return 1
 
     # Pruefe, ob ueberhaupt PES-Dateien (*.vdr) existieren
     local pes_files=( [0-9][0-9][0-9].vdr )
     if [[ ! -e "${pes_files[0]}" ]]; then
+        cd "$OLD_PWD" || true
         return 2
     fi
 
@@ -892,6 +894,7 @@ convert_pes2ts() {
 
     if [[ -f 00001.ts ]]; then
         echo "[$(date +%T)] WARNUNG: Ziel-Datei 00001.ts existiert bereits in $REC_DIR. Breche ab, um Ueberschreiben zu verhindern." >> "$LOG_FILE"
+        cd "$OLD_PWD" || true
         return 1
     fi
 
@@ -915,6 +918,8 @@ convert_pes2ts() {
     mkdir -p "$STAGING_REC"
 
     # Metadaten (Cover, NFOs, etc.) ins Staging kopieren, ohne Videodaten zu duplizieren
+    local OLD_DOTGLOB
+    OLD_DOTGLOB=$(shopt -p dotglob)
     shopt -s dotglob
     for file in *; do
         if [[ ! "$file" =~ ^[0-9]{3}\.vdr$ && ! "$file" =~ \.(ts|TS|m2ts|mts)$ ]]; then
@@ -923,7 +928,7 @@ convert_pes2ts() {
             fi
         fi
     done
-    shopt -u dotglob
+    eval "$OLD_DOTGLOB"
 
     # Veraltete Caches im Staging entfernen
     rm -f "$STAGING_REC"/index.vdr "$STAGING_REC"/resume.vdr 2>/dev/null
@@ -988,6 +993,7 @@ convert_pes2ts() {
         if [[ ! -s "$STAGING_REC/info" ]]; then
             echo "[$(date +%T)] FEHLER: info konnte aus summary.vdr nicht erzeugt werden." >> "$LOG_FILE"
             rm -rf "$STAGING_REC"
+            cd "$OLD_PWD" || true
             return 1
         fi
     fi
@@ -998,6 +1004,8 @@ convert_pes2ts() {
     echo "[$(date +%T)] INFO: Fasse alte .vdr Dateien zusammen und wandle in .ts um..." >> "$LOG_FILE"
     
     # Um moegliche Timecode-Brueche sauber zu behandeln, -fflags +genpts+igndts nutzen
+    local OLD_PIPEFAIL
+    OLD_PIPEFAIL=$(set +o | grep pipefail)
     set -o pipefail
     cat "${pes_files[@]}" | ffmpeg \
         -y \
@@ -1016,7 +1024,7 @@ convert_pes2ts() {
         "$STAGING_REC/00001.ts" \
         </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     local FF_STATUS=$?
-    set +o pipefail
+    eval "$OLD_PIPEFAIL"
 
     if [[ $FF_STATUS -eq 0 && -s "$STAGING_REC/00001.ts" ]]; then
         echo "[$(date +%T)] INFO: .vdr nach .ts konvertiert. Generiere Index..." >> "$LOG_FILE"
@@ -1027,12 +1035,13 @@ convert_pes2ts() {
         if [[ -f "$STAGING_REC/index" ]]; then
             # 4. Directory-Level Atomic Swap
             echo "[$(date +%T)] INFO: Führe atomaren Verzeichnis-Swap aus..." >> "$LOG_FILE"
-            cd "$PARENT_DIR" || return 1
+            cd "$PARENT_DIR" || { cd "$OLD_PWD" || true; return 1; }
 
             # Prüfen, ob das Zielverzeichnis durch eine abweichende Benennung schon kollidiert
             if [[ "$DIR_NAME" != "$NEW_DIR_NAME" && -d "$NEW_DIR_NAME" ]]; then
                 echo "[$(date +%T)] FEHLER: Zielverzeichnis $NEW_DIR_NAME existiert bereits! Swap abgebrochen." >> "$LOG_FILE"
                 rm -rf "$STAGING_REC"
+                cd "$OLD_PWD" || true
                 return 1
             fi
 
@@ -1049,27 +1058,32 @@ convert_pes2ts() {
                     
                     # VDR-Cache zwingend leeren
                     touch "$VIDEO_DIR/.update" 2>/dev/null || true
+                    cd "$OLD_PWD" || true
                     return 0
                 else
                     # Rollback bei Fehler im zweiten Swap-Schritt
                     echo "[$(date +%T)] KRITISCH: Swap fehlgeschlagen. Starte Rollback..." >> "$LOG_FILE"
                     mv "${DIR_NAME}.bak" "$DIR_NAME"
                     rm -rf "$STAGING_REC"
+                    cd "$OLD_PWD" || true
                     return 1
                 fi
             else
                 echo "[$(date +%T)] FEHLER: Konnte Original-Verzeichnis nicht umbenennen. Breche ab." >> "$LOG_FILE"
                 rm -rf "$STAGING_REC"
+                cd "$OLD_PWD" || true
                 return 1
             fi
         else
             echo "[$(date +%T)] FEHLER: VDR-Index konnte in Staging nicht erstellt werden. Breche ab (Original bleibt erhalten)." >> "$LOG_FILE"
             rm -rf "$STAGING_REC"
+            cd "$OLD_PWD" || true
             return 1
         fi
     else
         echo "[$(date +%T)] FEHLER: ffmpeg Konvertierung fehlgeschlagen (Status $FF_STATUS). Original bleibt erhalten." >> "$LOG_FILE"
         rm -rf "$STAGING_REC"
+        cd "$OLD_PWD" || true
         return 1
     fi
 }
@@ -1094,10 +1108,10 @@ run_scan() {
     
     if [[ "$MODE" == "normal" || "$MODE" == "import" ]]; then
         set_state "Scanne Import-Verzeichnis..."
-        find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) ! -name "*.skipped*" ! -name "*.pc_encode*" ! -name "*.duplicate*" | while read -r FILE; do
+        while read -r FILE; do
             [[ $COUNT -ge "$MAX_FILES" ]] && break
             process_import "$FILE" "$MODE" && ((COUNT++))
-        done
+        done < <(find "$IMPORT_DIR" -maxdepth 2 -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.ts" -o -name "*.avi" -o -name "*.mov" \) ! -name "*.skipped*" ! -name "*.pc_encode*" ! -name "*.duplicate*")
     fi
     
     if [[ "$MODE" == "pes2ts" ]]; then
