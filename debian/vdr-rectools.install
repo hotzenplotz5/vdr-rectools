@@ -16,3 +16,4 @@ var/www/html/rectools_confirm.php var/www/html/
 usr/share/vdr-rectools/lang/* usr/share/vdr-rectools/lang/
 var/www/html/lang/* var/www/html/lang/
 debian/nginx/vdr-rectools-php.conf etc/nginx/snippets/
+usr/bin/vdr-rectools-worker usr/bin/
