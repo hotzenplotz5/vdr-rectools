@@ -1,6 +1,11 @@
+# Standardverhalten
 * text=auto
+
+# Skripte und Konfigurationen zwingend mit Linux-Zeilenenden (LF) speichern
 *.sh text eol=lf
-usr/bin/* text eol=lf
-usr/share/vdr-rectools/lang/*.sh text eol=lf
-debian/* text eol=lf
 *.php text eol=lf
+*.conf text eol=lf
+
+# Ausfuehrbare Binaries ohne Dateiendung
+usr/bin/vdr-rectools text eol=lf
+usr/bin/vdr-rectools-worker text eol=lf
