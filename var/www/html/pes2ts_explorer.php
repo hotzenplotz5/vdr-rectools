@@ -88,6 +88,11 @@ usort($recordings, function($a, $b) {
         a.btn:hover { filter: brightness(1.1); }
         a.btn.global { background: #FF9800; margin-bottom: 20px; display: block; width: fit-content; }
         a.btn.back { background: #555; margin-bottom: 20px; }
+        a.btn.shrink { background: #2196F3; }
+        a.btn.repair { background: #FF9800; }
+        a.btn.check  { background: #4CAF50; }
+        a.btn.cut    { background: #9C27B0; }
+        a.btn.convert{ background: #F44336; }
         .stats { display: flex; gap: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
         .stat-box { flex: 1; text-align: center; }
         .stat-num { font-size: 1.5em; font-weight: bold; }
@@ -145,12 +150,13 @@ usort($recordings, function($a, $b) {
                         </td>
                         <td>
                             <?php if ($rec['status'] === 'pes'): ?>
-                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn">PES&rarr;TS konvertieren</a>
+                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
                             <?php elseif ($rec['status'] === 'ts'): ?>
                                 <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                                    <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #9C27B0;">H.265 Shrink</a>
-                                    <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #4CAF50;">Schneiden</a>
-                                    <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #F44336;" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Reparieren</a>
+                                    <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn shrink" onclick="return confirm('Diese Aufnahme in H.265 schrumpfen?');">Shrink</a>
+                                    <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn cut" onclick="return confirm('Werbung aus dieser Aufnahme schneiden?');">Cut</a>
+                                    <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?>" class="btn repair" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Repair</a>
+                                    <a href="rectools_confirm.php?action=check&path=<?php echo rawurlencode($rec['path']); ?>" class="btn check">Check</a>
                                 </div>
                             <?php endif; ?>
                         </td>
