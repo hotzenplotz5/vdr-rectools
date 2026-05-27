@@ -103,7 +103,7 @@ usort($recordings, function($a, $b) {
 </head>
 <body>
     <h2>🔄 PES-Aufnahmen Explorer</h2>
-    <p style="color: #ccc;">Hier werden alle veralteten VDR-Aufnahmen aufgelistet, die noch im alten PES-Format (*.vdr) vorliegen und in das moderne TS-Format migriert werden koennen.</p>
+    <p style="color: #ccc;">Hier werden alle VDR-Aufnahmen angezeigt. Alte PES-Aufnahmen k&ouml;nnen gezielt konvertiert werden.</p>
     
     <a href="rectools.html" class="btn back">🔙 Zurueck zum Dashboard</a>
     
@@ -145,7 +145,7 @@ usort($recordings, function($a, $b) {
                         </td>
                         <td>
                             <?php if ($rec['status'] === 'pes'): ?>
-                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo urlencode($rec['path']); ?>" class="btn">Diese Aufnahme konvertieren</a>
+                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn">Diese Aufnahme konvertieren</a>
                             <?php endif; ?>
                         </td>
                     </tr>
