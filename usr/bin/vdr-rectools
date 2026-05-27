@@ -18,7 +18,7 @@ is_running() {
     if [ -f "$L_FILE" ]; then
         local L_PID=$(cat "$L_FILE" 2>/dev/null)
         if [ -n "$L_PID" ] && kill -0 "$L_PID" 2>/dev/null; then
-            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q "vdr-rectools"; then
+            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q -E "vdr-rectools|ffmpeg"; then
                 return 0
             fi
         fi
