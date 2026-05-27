@@ -123,7 +123,7 @@ ensure_single_instance() {
     if [[ -f "$LOCK_FILE" ]]; then
         local L_PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -n "$L_PID" ]] && kill -0 "$L_PID" 2>/dev/null; then
-            if ps -p "$L_PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+            if ps -p "$L_PID" -o args= 2>/dev/null | grep -q "vdr-rectools"; then
                 echo "[$(date +%T)] INFO: vdr-rectools arbeitet bereits im Hintergrund. Breche diesen Lauf ab, um Konflikte zu vermeiden." >> "$LOG_FILE"
                 exit 0
             fi
@@ -1219,7 +1219,7 @@ show_status() {
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-            if ps -p "$PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+            if ps -p "$PID" -o args= 2>/dev/null | grep -q "vdr-rectools"; then
                 IS_RUNNING=1
             fi
         fi
@@ -1361,7 +1361,7 @@ show_osd_status() {
     if [[ -f "$LOCK_FILE" ]]; then
         PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-            if ps -p "$PID" -o comm= 2>/dev/null | grep -q -E "bash|sh|vdr-rectools|ffmpeg"; then
+            if ps -p "$PID" -o args= 2>/dev/null | grep -q "vdr-rectools"; then
                 IS_RUNNING=1
             fi
         fi
