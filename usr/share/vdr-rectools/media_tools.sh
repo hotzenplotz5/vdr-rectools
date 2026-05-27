@@ -36,7 +36,6 @@ shrink_video() {
         echo "[$(date +%T)] SHRINK: $1 ist bereits in H.265 (HEVC). Abbruch." >> "$LOG_FILE"
         return 0
     fi
-    local INPUT_FILE_SIZE=$(stat -c %s "$1" 2>/dev/null || echo 0)
 
     local FFMPEG_HW_OPTS=""
     local H265_ENC="libx265"
@@ -238,6 +237,8 @@ apply_vdr_marks() {
         if mv -T "$TARGET_FILE" "${TARGET_FILE}.bak"; then
             if mv -T "$OUT_FILE" "$TARGET_FILE"; then
                 rm -f "${TARGET_FILE}.bak"
+                /usr/bin/vdr --genindex="$(dirname "$TARGET_FILE")" >/dev/null 2>&1
+                touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
                 echo "[$(date +%T)] ERFOLG: Werbeschnitt abgeschlossen." >> "$LOG_FILE"
                 return 0
             else
