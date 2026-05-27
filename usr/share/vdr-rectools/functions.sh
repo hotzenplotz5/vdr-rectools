@@ -203,10 +203,15 @@ sanitize_stream() {
     echo "[$(date +%T)] Sanitize: Header-Fix fuer $FILE" >> "$LOG_FILE"
     ffmpeg -y -hide_banner -i "$FILE" -c copy -map 0:v? -map 0:a? -map 0:s? -ignore_unknown -f mpegts -fflags +genpts+igndts -avoid_negative_ts make_zero -max_muxing_queue_size 4000 "$tmp_file" </dev/null >/dev/null 2>&1
     if [[ $? -eq 0 && -s "$tmp_file" ]]; then
-        mv -T "$FILE" "${FILE}.bak" 2>/dev/null || true
-        mv -T "$tmp_file" "$FILE"
-        rm -f "${FILE}.bak"
-        return 0
+        if mv -T "$FILE" "${FILE}.bak"; then
+            if mv -T "$tmp_file" "$FILE"; then
+                rm -f "${FILE}.bak"
+                return 0
+            else
+                mv -T "${FILE}.bak" "$FILE"
+            fi
+        fi
+        rm -f "$tmp_file"
     fi
     return 1
 }
@@ -253,11 +258,16 @@ recode_stream() {
     fi
 
     if [[ $FF_STATUS -eq 0 && -s "$tmp_file" ]]; then
-        mv -T "$FILE" "${FILE}.bak" 2>/dev/null || true
-        mv -T "$tmp_file" "$FILE"
-        rm -f "${FILE}.bak"
-        echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
-        return 0
+        if mv -T "$FILE" "${FILE}.bak"; then
+            if mv -T "$tmp_file" "$FILE"; then
+                rm -f "${FILE}.bak"
+                echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
+                return 0
+            else
+                mv -T "${FILE}.bak" "$FILE"
+            fi
+        fi
+        rm -f "$tmp_file"
     fi
     return 1
 }
