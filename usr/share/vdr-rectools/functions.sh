@@ -252,7 +252,7 @@ recode_stream() {
         FF_STATUS=${PIPESTATUS[0]}
     fi
 
-    if [[ $FF_STATUS -eq 0 && -f "$tmp_file" ]]; then
+    if [[ $FF_STATUS -eq 0 && -s "$tmp_file" ]]; then
         mv "$tmp_file" "$FILE"
         echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
         return 0
@@ -914,7 +914,7 @@ convert_pes2ts() {
     local TARGET_DIR="$PARENT_DIR/$NEW_DIR_NAME"
 
     # 1. Komplettes Staging-Verzeichnis vorbereiten (Klon der Struktur, ohne Videos)
-    local STAGING_REC="$REPAIR_STAGING/pes2ts_${RANDOM}_$$"
+    local STAGING_REC="$PARENT_DIR/.pes2ts_${RANDOM}_$$"
     mkdir -p "$STAGING_REC"
 
     # Metadaten (Cover, NFOs, etc.) ins Staging kopieren, ohne Videodaten zu duplizieren
@@ -1045,13 +1045,20 @@ convert_pes2ts() {
                 return 1
             fi
 
+            if [[ -e "${DIR_NAME}.bak" ]]; then
+                echo "[$(date +%T)] FEHLER: Backup-Ziel ${DIR_NAME}.bak existiert bereits! Swap abgebrochen." >> "$LOG_FILE"
+                rm -rf "$STAGING_REC"
+                cd "$OLD_PWD" || true
+                return 1
+            fi
+
             # Backup anlegen (Atomarer Swap)
-            mv "$DIR_NAME" "${DIR_NAME}.bak"
+            mv -T "$DIR_NAME" "${DIR_NAME}.bak"
             local MV_STATUS=$?
 
             if [[ $MV_STATUS -eq 0 ]]; then
                 # Staging an Zielort verschieben
-                if mv "$STAGING_REC" "$NEW_DIR_NAME"; then
+                if mv -T "$STAGING_REC" "$NEW_DIR_NAME"; then
                     echo "[$(date +%T)] ERFOLG: Swap erfolgreich. Aufnahme in TS migriert. Entferne altes Backup..." >> "$LOG_FILE"
                     rm -rf "${DIR_NAME}.bak"
                     chown -R vdr:vdr "$TARGET_DIR" 2>/dev/null || true
@@ -1063,7 +1070,7 @@ convert_pes2ts() {
                 else
                     # Rollback bei Fehler im zweiten Swap-Schritt
                     echo "[$(date +%T)] KRITISCH: Swap fehlgeschlagen. Starte Rollback..." >> "$LOG_FILE"
-                    mv "${DIR_NAME}.bak" "$DIR_NAME"
+                    mv -T "${DIR_NAME}.bak" "$DIR_NAME"
                     rm -rf "$STAGING_REC"
                     cd "$OLD_PWD" || true
                     return 1
