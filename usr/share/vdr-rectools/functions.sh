@@ -206,12 +206,22 @@ sanitize_stream() {
         if mv -T "$FILE" "${FILE}.bak"; then
             if mv -T "$tmp_file" "$FILE"; then
                 rm -f "${FILE}.bak"
+                echo "[$(date +%T)] Sanitize: Atomic Replace erfolgreich fuer $FILE" >> "$LOG_FILE"
                 return 0
             else
-                mv -T "${FILE}.bak" "$FILE"
+                echo "[$(date +%T)] FEHLER: Sanitize: Neues File konnte nicht nach $FILE verschoben werden. Starte Rollback." >> "$LOG_FILE"
+                if mv -T "${FILE}.bak" "$FILE"; then
+                    echo "[$(date +%T)] Sanitize: Rollback erfolgreich fuer $FILE" >> "$LOG_FILE"
+                else
+                    echo "[$(date +%T)] KRITISCH: Sanitize: Rollback fehlgeschlagen! Backup liegt bei ${FILE}.bak" >> "$LOG_FILE"
+                fi
             fi
+        else
+            echo "[$(date +%T)] FEHLER: Sanitize: Konnte Original nicht nach ${FILE}.bak sichern." >> "$LOG_FILE"
         fi
         rm -f "$tmp_file"
+    else
+        echo "[$(date +%T)] WARNUNG: Sanitize: ffmpeg fehlgeschlagen oder Ergebnis leer fuer $FILE" >> "$LOG_FILE"
     fi
     return 1
 }
@@ -264,10 +274,19 @@ recode_stream() {
                 echo "[$(date +%T)] Deep-Repair erfolgreich" >> "$LOG_FILE"
                 return 0
             else
-                mv -T "${FILE}.bak" "$FILE"
+                echo "[$(date +%T)] FEHLER: Deep-Repair: Neues File konnte nicht nach $FILE verschoben werden. Starte Rollback." >> "$LOG_FILE"
+                if mv -T "${FILE}.bak" "$FILE"; then
+                    echo "[$(date +%T)] Deep-Repair: Rollback erfolgreich fuer $FILE" >> "$LOG_FILE"
+                else
+                    echo "[$(date +%T)] KRITISCH: Deep-Repair: Rollback fehlgeschlagen! Backup liegt bei ${FILE}.bak" >> "$LOG_FILE"
+                fi
             fi
+        else
+            echo "[$(date +%T)] FEHLER: Deep-Repair: Konnte Original nicht nach ${FILE}.bak sichern." >> "$LOG_FILE"
         fi
         rm -f "$tmp_file"
+    else
+        echo "[$(date +%T)] FEHLER: Deep-Repair fehlgeschlagen oder Ergebnis leer fuer $FILE (Status $FF_STATUS)." >> "$LOG_FILE"
     fi
     return 1
 }
