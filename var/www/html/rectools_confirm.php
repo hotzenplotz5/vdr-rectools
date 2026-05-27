@@ -25,18 +25,19 @@ $video_dir = load_video_dir();
 if (isset($_GET['action'])) {
     if ($_GET['action'] === 'import') {
         dispatch_job('import');
-    } elseif ($_GET['action'] === 'pes2ts') {
+    } elseif (in_array($_GET['action'], ['pes2ts', 'shrink', 'repair', 'cut', 'check'])) {
+        // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
             $real = realpath($_GET['path']);
             $base = realpath($video_dir);
-            if ($real && $base && strpos($real, $base . '/') === 0 && is_dir($real)) {
+            if ($real && $base && ($real === $base || strpos($real, $base . '/') === 0) && is_dir($real)) {
                 $path = $real;
             } else {
                 exit('Zugriff verweigert oder ungueltiger Pfad.');
             }
         }
-        dispatch_job('pes2ts', $path);
+        dispatch_job($_GET['action'], $path);
     } elseif ($_GET['action'] === 'stop') {
         dispatch_job('stop');
     } elseif ($_GET['action'] === 'restart_vdr') {

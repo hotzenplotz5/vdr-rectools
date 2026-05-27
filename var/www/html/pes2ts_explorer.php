@@ -22,7 +22,7 @@ $counts = ['total' => 0, 'pes' => 0, 'ts' => 0, 'unknown' => 0];
 
 if ($real_video_dir && is_dir($real_video_dir)) {
     try {
-        $dir_iterator = new RecursiveDirectoryIterator($real_video_dir, RecursiveDirectoryIterator::SKIP_DOTS | RecursiveDirectoryIterator::UNIX_PATHS);
+        $dir_iterator = new RecursiveDirectoryIterator($real_video_dir, RecursiveDirectoryIterator::SKIP_DOTS);
         $iterator = new RecursiveIteratorIterator($dir_iterator, RecursiveIteratorIterator::SELF_FIRST);
         
         foreach ($iterator as $file) {
@@ -81,7 +81,7 @@ usort($recordings, function($a, $b) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VDR-Rectools - PES Explorer</title>
+    <title>VDR-Rectools - Aufnahmen Explorer</title>
     <style>
         body { background-color: #121212; color: #fff; font-family: Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
         a.btn { display: inline-block; background: #00BCD4; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; text-align: center; font-size: 0.9em; }
@@ -102,8 +102,8 @@ usort($recordings, function($a, $b) {
     </style>
 </head>
 <body>
-    <h2>🔄 PES-Aufnahmen Explorer</h2>
-    <p style="color: #ccc;">Hier werden alle VDR-Aufnahmen angezeigt. Alte PES-Aufnahmen k&ouml;nnen gezielt konvertiert werden.</p>
+    <h2>🔄 VDR-Aufnahmen Explorer</h2>
+    <p style="color: #ccc;">Hier werden alle VDR-Aufnahmen angezeigt. Aktionen wie Konvertieren, Reparieren oder Schrumpfen (H.265) koennen gezielt gestartet werden.</p>
     
     <a href="rectools.html" class="btn back">🔙 Zurueck zum Dashboard</a>
     
@@ -145,7 +145,13 @@ usort($recordings, function($a, $b) {
                         </td>
                         <td>
                             <?php if ($rec['status'] === 'pes'): ?>
-                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn">Diese Aufnahme konvertieren</a>
+                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn">PES&rarr;TS konvertieren</a>
+                            <?php elseif ($rec['status'] === 'ts'): ?>
+                                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #9C27B0;">H.265 Shrink</a>
+                                    <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #4CAF50;">Schneiden</a>
+                                    <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?>" class="btn" style="background: #F44336;" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Reparieren</a>
+                                </div>
                             <?php endif; ?>
                         </td>
                     </tr>

@@ -103,6 +103,18 @@ for job in "$JOB_DIR"/*.job; do
             /usr/bin/vdr-rectools pes2ts >/dev/null 2>&1
         fi
         SUCCESS=$?   
+    elif [ "$ACTION" == "shrink" ]; then
+        /usr/bin/vdr-rectools shrink_single "$PARAM" >/dev/null 2>&1
+        SUCCESS=$?
+    elif [ "$ACTION" == "repair" ]; then
+        /usr/bin/vdr-rectools repair_single "$PARAM" >/dev/null 2>&1
+        SUCCESS=$?
+    elif [ "$ACTION" == "cut" ]; then
+        /usr/bin/vdr-rectools cut_single "$PARAM" >/dev/null 2>&1
+        SUCCESS=$?
+    elif [ "$ACTION" == "check" ]; then
+        /usr/bin/vdr-rectools check_single "$PARAM" >/dev/null 2>&1
+        SUCCESS=$?
     elif [ "$ACTION" == "stop" ]; then
         /usr/bin/vdr-rectools stop >/dev/null 2>&1
         SUCCESS=$?
