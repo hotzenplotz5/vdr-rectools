@@ -895,41 +895,94 @@ convert_pes2ts() {
         return 1
     fi
 
-    # 1. Metadaten & Hilfsdateien anpassen
-    [[ -f marks.vdr && ! -f marks ]] && mv marks.vdr marks
-    [[ -f info.vdr && ! -f info ]] && mv info.vdr info
-    if [[ -f summary.vdr && ! -f info ]]; then
-        # Simple conversion: summary.vdr als Description uebernehmen
-        echo "T $FILM_TITLE" > info
-        echo -n "D " >> info
-        tr '\n' '|' < summary.vdr | sed 's/|$//' >> info
-        echo "" >> info
-    fi
+    local DIR_NAME=$(basename "$REC_DIR")
+    local PARENT_DIR=$(dirname "$REC_DIR")
+    # Neues VDR-konformes Aufnahme-Verzeichnis (DATAFORMATPES vs DATAFORMATTS)
+    local NEW_DIR_NAME=$(echo "$DIR_NAME" | sed -E 's/\.([0-9]+)\.([0-9]+)\.rec$/.\1-\2.rec/')
+    local TARGET_DIR="$PARENT_DIR/$NEW_DIR_NAME"
 
-    # 2. VDR-Dateien konvertieren
+    # 1. Komplettes Staging-Verzeichnis vorbereiten (Klon der Struktur, ohne Videos)
     local STAGING_REC="$REPAIR_STAGING/pes2ts_${RANDOM}_$$"
     mkdir -p "$STAGING_REC"
 
+    # Metadaten (Cover, NFOs, etc.) ins Staging kopieren, ohne Videodaten zu duplizieren
+    for file in *; do
+        if [[ ! "$file" =~ ^[0-9]{3}\.vdr$ ]]; then
+            cp -a "$file" "$STAGING_REC/" 2>/dev/null || true
+        fi
+    done
+
+    # Veraltete Caches im Staging entfernen
+    rm -f "$STAGING_REC"/index.vdr "$STAGING_REC"/resume.vdr 2>/dev/null
+
+    # Metadaten portieren (falls noch im .vdr Format)
+    if [[ -f "$STAGING_REC/marks.vdr" && ! -f "$STAGING_REC/marks" ]]; then
+        mv "$STAGING_REC/marks.vdr" "$STAGING_REC/marks"
+    fi
+    if [[ -f "$STAGING_REC/info.vdr" && ! -f "$STAGING_REC/info" ]]; then
+        mv "$STAGING_REC/info.vdr" "$STAGING_REC/info"
+    fi
+    if [[ -f "$STAGING_REC/summary.vdr" && ! -f "$STAGING_REC/info" ]]; then
+        echo "T $FILM_TITLE" > "$STAGING_REC/info"
+        echo -n "D " >> "$STAGING_REC/info"
+        tr '\n' '|' < "$STAGING_REC/summary.vdr" | sed 's/|$//' >> "$STAGING_REC/info"
+        echo "" >> "$STAGING_REC/info"
+    fi
+    rm -f "$STAGING_REC"/*.vdr 2>/dev/null # Putzt restliche alte Hilfsdateien weg
+
+    # 2. VDR-Dateien konvertieren
     echo "[$(date +%T)] INFO: Fasse alte .vdr Dateien zusammen und wandle in .ts um..." >> "$LOG_FILE"
     
     # Um moegliche Timecode-Brueche sauber zu behandeln, -fflags +genpts+igndts nutzen
+    set -o pipefail
     cat "${pes_files[@]}" | ffmpeg -y -hide_banner -i pipe:0 -map 0:v? -map 0:a? -map 0:s? -c copy -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/00001.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
-    local FF_STATUS=${PIPESTATUS[1]}
+    local FF_STATUS=$?
+    set +o pipefail
 
     if [[ $FF_STATUS -eq 0 && -s "$STAGING_REC/00001.ts" ]]; then
         echo "[$(date +%T)] INFO: .vdr nach .ts konvertiert. Generiere Index..." >> "$LOG_FILE"
         
-        # 3. Index im Staging-Ordner erzeugen, BEVOR wir irgendwas loeschen
+        # 3. Index im Staging-Ordner erzeugen
         /usr/bin/vdr --genindex="$STAGING_REC" >/dev/null 2>&1
         
         if [[ -f "$STAGING_REC/index" ]]; then
-            # Atomic Swap: Erst rüberziehen, dann alte Dateien loeschen
-            mv "$STAGING_REC/00001.ts" .
-            mv "$STAGING_REC/index" .
-            
-            rm -f "${pes_files[@]}"
-            rm -f resume.vdr index.vdr summary.vdr marks.vdr info.vdr 2>/dev/null
-            echo "[$(date +%T)] ERFOLG: Alte .vdr Dateien restlos entfernt." >> "$LOG_FILE"
+            # 4. Directory-Level Atomic Swap
+            echo "[$(date +%T)] INFO: Führe atomaren Verzeichnis-Swap aus..." >> "$LOG_FILE"
+            cd "$PARENT_DIR" || return 1
+
+            # Prüfen, ob das Zielverzeichnis durch eine abweichende Benennung schon kollidiert
+            if [[ "$DIR_NAME" != "$NEW_DIR_NAME" && -d "$NEW_DIR_NAME" ]]; then
+                echo "[$(date +%T)] FEHLER: Zielverzeichnis $NEW_DIR_NAME existiert bereits! Swap abgebrochen." >> "$LOG_FILE"
+                rm -rf "$STAGING_REC"
+                return 1
+            fi
+
+            # Backup anlegen (Atomarer Swap)
+            mv "$DIR_NAME" "${DIR_NAME}.bak"
+            local MV_STATUS=$?
+
+            if [[ $MV_STATUS -eq 0 ]]; then
+                # Staging an Zielort verschieben
+                if mv "$STAGING_REC" "$NEW_DIR_NAME"; then
+                    echo "[$(date +%T)] ERFOLG: Swap erfolgreich. Aufnahme in TS migriert. Entferne altes Backup..." >> "$LOG_FILE"
+                    rm -rf "${DIR_NAME}.bak"
+                    chown -R vdr:vdr "$TARGET_DIR" 2>/dev/null || true
+                    
+                    # VDR-Cache zwingend leeren
+                    touch "$VIDEO_DIR/.update" 2>/dev/null || true
+                    return 0
+                else
+                    # Rollback bei Fehler im zweiten Swap-Schritt
+                    echo "[$(date +%T)] KRITISCH: Swap fehlgeschlagen. Starte Rollback..." >> "$LOG_FILE"
+                    mv "${DIR_NAME}.bak" "$DIR_NAME"
+                    rm -rf "$STAGING_REC"
+                    return 1
+                fi
+            else
+                echo "[$(date +%T)] FEHLER: Konnte Original-Verzeichnis nicht umbenennen. Breche ab." >> "$LOG_FILE"
+                rm -rf "$STAGING_REC"
+                return 1
+            fi
         else
             echo "[$(date +%T)] FEHLER: VDR-Index konnte in Staging nicht erstellt werden. Breche ab (Original bleibt erhalten)." >> "$LOG_FILE"
             rm -rf "$STAGING_REC"
@@ -940,27 +993,6 @@ convert_pes2ts() {
         rm -rf "$STAGING_REC"
         return 1
     fi
-    rm -rf "$STAGING_REC"
-
-    # 4. Verzeichnis umbenennen (DATAFORMATPES vs DATAFORMATTS)
-    local DIR_NAME=$(basename "$REC_DIR")
-    local PARENT_DIR=$(dirname "$REC_DIR")
-    local NEW_DIR_NAME=$(echo "$DIR_NAME" | sed -E 's/\.([0-9]+)\.([0-9]+)\.rec$/.\1-\2.rec/')
-    local TARGET_DIR="$REC_DIR"
-
-    if [[ "$DIR_NAME" != "$NEW_DIR_NAME" ]]; then
-        cd "$PARENT_DIR" || return 1
-        mv "$DIR_NAME" "$NEW_DIR_NAME"
-        TARGET_DIR="$PARENT_DIR/$NEW_DIR_NAME"
-        echo "[$(date +%T)] INFO: Aufnahme-Verzeichnis umbenannt zu $NEW_DIR_NAME" >> "$LOG_FILE"
-    fi
-
-    chown -R vdr:vdr "$TARGET_DIR" 2>/dev/null || true
-    
-    # VDR-Cache zwingend leeren
-    touch "$VIDEO_DIR/.update" 2>/dev/null || true
-    
-    echo "[$(date +%T)] ERFOLG: PES->TS Konvertierung fuer $FILM_TITLE abgeschlossen." >> "$LOG_FILE"
 }
 
 # --- Orphan-Sweeper: Räumt alte Crash-Ordner auf ---
