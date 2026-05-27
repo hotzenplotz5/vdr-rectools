@@ -4,6 +4,8 @@ require_once __DIR__ . '/job_dispatcher.php';
 if (isset($_GET['action'])) {
     if ($_GET['action'] === 'import') {
         dispatch_job('import');
+    } elseif ($_GET['action'] === 'pes2ts') {
+        dispatch_job('pes2ts');
     } elseif ($_GET['action'] === 'stop') {
         dispatch_job('stop');
     } elseif ($_GET['action'] === 'restart_vdr') {
