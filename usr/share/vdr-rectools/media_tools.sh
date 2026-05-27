@@ -10,6 +10,7 @@ extract_subtitles() {
         # Bild-basierte DVB-Untertitel lassen sich nicht in SRT wandeln und erzeugen 0-Byte Dateien. Diese sofort bereinigen.
         if [[ ! -s "${1%.ts}.srt" ]]; then
             rm -f "${1%.ts}.srt"
+            echo "[$(date +%T)] INFO: Kein konvertierbarer Text-Untertitel gefunden." >> "${LOG_FILE:-/var/log/vdr-rectools.log}"
         else
             chown vdr:vdr "${1%.ts}.srt" 2>/dev/null || true
         fi
@@ -22,7 +23,7 @@ get_audio_map() {
     if [[ "${AUDIO_NORMALIZE:-0}" -eq 1 ]]; then
         echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c:v copy -c:a aac -b:a 192k -ac 2 -af loudnorm -c:s copy"
     else
-        echo "-map 0:v? -map 0:a? -map -0:a:m:disposition:visual_impaired -c copy"
+        echo "-map 0:v? -map 0:a? -map 0:s? -map -0:a:m:disposition:visual_impaired -c copy"
     fi
 }
 
@@ -68,18 +69,34 @@ shrink_video() {
     ffmpeg -y $FFMPEG_HW_OPTS -i "$1" -map 0:v? -map 0:a? -map 0:s? $VF_OPT -c:v "$H265_ENC" -crf "${CRF_H265_DEFAULT:-23}" -preset "${PRESET_H265_DEFAULT:-medium}" $AUDIO_OPTS -c:s copy -max_muxing_queue_size 4000 "$OUT" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
     
     local FF_STATUS=${PIPESTATUS[0]}
-    if [[ $FF_STATUS -eq 0 && -f "$OUT" ]]; then
+    if [[ $FF_STATUS -eq 0 && -s "$OUT" ]]; then
         if ! check_size "$1" "$OUT" "${MIN_COMPRESSION_RATIO_H265:-50}" "Shrink"; then
             echo "[$(date +%T)] FEHLER: Shrink für $1 fehlgeschlagen oder Ergebnis verdächtig. Originaldatei bleibt erhalten." >> "$LOG_FILE"
             send_mail "Shrink für '$1' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei bleibt erhalten." "Shrink-Fehler"
             rm -f "$OUT" # Die fehlerhafte Ausgabedatei löschen
             return 1
         fi
-        mv "$OUT" "$1"
-        chown vdr:vdr "$1" 2>/dev/null || true
-        /usr/bin/vdr --genindex="$(dirname "$1")" >/dev/null 2>&1
-        # VDR-Cache leeren, auch wenn Shrink manuell via OSD als Standalone-Befehl aufgerufen wird
-        touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+        if mv -T "$1" "${1}.bak"; then
+            if mv -T "$OUT" "$1"; then
+                rm -f "${1}.bak"
+                chown vdr:vdr "$1" 2>/dev/null || true
+                /usr/bin/vdr --genindex="$(dirname "$1")" >/dev/null 2>&1
+                # VDR-Cache leeren, auch wenn Shrink manuell via OSD als Standalone-Befehl aufgerufen wird
+                touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+                return 0
+            else
+                echo "[$(date +%T)] FEHLER: Shrink: Neues File konnte nicht nach $1 verschoben werden. Starte Rollback." >> "$LOG_FILE"
+                if mv -T "${1}.bak" "$1"; then
+                    echo "[$(date +%T)] Shrink: Rollback erfolgreich." >> "$LOG_FILE"
+                else
+                    echo "[$(date +%T)] KRITISCH: Shrink: Rollback fehlgeschlagen! Backup liegt bei ${1}.bak" >> "$LOG_FILE"
+                fi
+            fi
+        else
+            echo "[$(date +%T)] FEHLER: Shrink: Konnte Original nicht nach ${1}.bak sichern." >> "$LOG_FILE"
+        fi
+        rm -f "$OUT"
+        return 1
     else
         echo "[$(date +%T)] FEHLER: FFmpeg Shrink für $1 abgebrochen (Status $FF_STATUS)." >> "$LOG_FILE"
         rm -f "$OUT"
@@ -188,7 +205,7 @@ apply_vdr_marks() {
         fi
         
         local FF_STATUS=${PIPESTATUS[0]}
-        if [[ $FF_STATUS -eq 0 && -f "$seg_file" ]]; then
+        if [[ $FF_STATUS -eq 0 && -s "$seg_file" ]]; then
             # Absolute Pfade nutzen, um Abstürze zu verhindern, falls das Arbeitsverzeichnis abweicht
             local escaped_seg_file="${seg_file//\'/\'\\\'\'}"
             echo "file '$escaped_seg_file'" >> "$concat_file"
@@ -207,7 +224,7 @@ apply_vdr_marks() {
     local FF_STATUS=${PIPESTATUS[0]}
     rm -f "${segment_files[@]}" "$concat_file"
 
-    if [[ $FF_STATUS -eq 0 && -f "$OUT_FILE" ]]; then
+    if [[ $FF_STATUS -eq 0 && -s "$OUT_FILE" ]]; then
         # Check: Ist die Datei nicht versehentlich extrem geschrumpft? (Erwarten min. 10% der Originalgröße)
         local IN_SIZE=$(stat -c%s "$TARGET_FILE" 2>/dev/null || echo 0)
         local OUT_SIZE=$(stat -c%s "$OUT_FILE" 2>/dev/null || echo 0)
@@ -218,9 +235,24 @@ apply_vdr_marks() {
             return 1
         fi
         
-        echo "[$(date +%T)] ERFOLG: Werbeschnitt abgeschlossen." >> "$LOG_FILE"
-        mv "$OUT_FILE" "$TARGET_FILE"
-        return 0
+        if mv -T "$TARGET_FILE" "${TARGET_FILE}.bak"; then
+            if mv -T "$OUT_FILE" "$TARGET_FILE"; then
+                rm -f "${TARGET_FILE}.bak"
+                echo "[$(date +%T)] ERFOLG: Werbeschnitt abgeschlossen." >> "$LOG_FILE"
+                return 0
+            else
+                echo "[$(date +%T)] FEHLER: Cut: Neues File konnte nicht verschoben werden. Starte Rollback." >> "$LOG_FILE"
+                if mv -T "${TARGET_FILE}.bak" "$TARGET_FILE"; then
+                    echo "[$(date +%T)] Cut: Rollback erfolgreich." >> "$LOG_FILE"
+                else
+                    echo "[$(date +%T)] KRITISCH: Cut: Rollback fehlgeschlagen! Backup liegt bei ${TARGET_FILE}.bak" >> "$LOG_FILE"
+                fi
+            fi
+        else
+            echo "[$(date +%T)] FEHLER: Cut: Konnte Original nicht sichern." >> "$LOG_FILE"
+        fi
+        rm -f "$OUT_FILE"
+        return 1
     else
         echo "[$(date +%T)] FEHLER: Zusammenfügen der Segmente fehlgeschlagen." >> "$LOG_FILE"
         rm -f "$OUT_FILE"
