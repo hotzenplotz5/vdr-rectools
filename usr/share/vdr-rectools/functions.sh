@@ -906,11 +906,15 @@ convert_pes2ts() {
     mkdir -p "$STAGING_REC"
 
     # Metadaten (Cover, NFOs, etc.) ins Staging kopieren, ohne Videodaten zu duplizieren
+    shopt -s dotglob
     for file in *; do
-        if [[ ! "$file" =~ ^[0-9]{3}\.vdr$ ]]; then
-            cp -a "$file" "$STAGING_REC/" 2>/dev/null || true
+        if [[ ! "$file" =~ ^[0-9]{3}\.vdr$ && ! "$file" =~ \.(ts|TS|m2ts|mts)$ ]]; then
+            if [[ -f "$file" || -L "$file" ]]; then
+                cp -a "$file" "$STAGING_REC/" 2>/dev/null || true
+            fi
         fi
     done
+    shopt -u dotglob
 
     # Veraltete Caches im Staging entfernen
     rm -f "$STAGING_REC"/index.vdr "$STAGING_REC"/resume.vdr 2>/dev/null
@@ -928,7 +932,8 @@ convert_pes2ts() {
         tr '\n' '|' < "$STAGING_REC/summary.vdr" | sed 's/|$//' >> "$STAGING_REC/info"
         echo "" >> "$STAGING_REC/info"
     fi
-    rm -f "$STAGING_REC"/*.vdr 2>/dev/null # Putzt restliche alte Hilfsdateien weg
+    # Gezielt alte VDR-Hilfsdateien wegraeumen, statt blind *.vdr zu loeschen
+    rm -f "$STAGING_REC/summary.vdr" "$STAGING_REC/info.vdr" "$STAGING_REC/marks.vdr" 2>/dev/null
 
     # 2. VDR-Dateien konvertieren
     echo "[$(date +%T)] INFO: Fasse alte .vdr Dateien zusammen und wandle in .ts um..." >> "$LOG_FILE"
@@ -1334,6 +1339,7 @@ fi
     if [[ $IS_RUNNING -eq 1 ]]; then
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_IMPORT:-▶️ Import starten}</span>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_PES2TS:-🔄 PES->TS}</span>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_ABORT:-🛑 Abbrechen}</a>"
         ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_EXPLORER:-📁 Datei-Explorer}</span>"
@@ -1342,6 +1348,7 @@ fi
     else
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_IMPORT:-▶️ Import starten}</a>"
+        ACTION_HTML+="<a href='rectools_confirm.php?action=pes2ts' onclick=\"return confirm('${TXT_PES2TS_CONFIRM:-Alte PES-Aufnahmen suchen und in TS konvertieren?}');\" style='display: inline-block; background: #00BCD4; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_PES2TS:-🔄 PES->TS}</a>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_ABORT:-🛑 Abbrechen}</span>"
         ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
         ACTION_HTML+="<a href='explorer.php' style='display: inline-block; background: #9C27B0; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_EXPLORER:-📁 Datei-Explorer}</a>"
