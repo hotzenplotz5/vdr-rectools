@@ -1,4 +1,10 @@
 <?php
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
+clearstatcache(true);
+
 $config_candidates = [
     '/etc/vdr/vdr-rectools.conf',
     '/etc/vdr/conf.d/vdr-rectools.conf'
@@ -76,6 +82,7 @@ function getRecordingMetadata($recPath, $fallbackName) {
     ];
     
     $infoFile = rtrim($recPath, '/\\') . DIRECTORY_SEPARATOR . 'info';
+    clearstatcache(true, $infoFile); // Garantiert, dass wir die frischeste info-Datei lesen
     if (file_exists($infoFile)) {
         $fp = @fopen($infoFile, 'r');
         if ($fp) {
