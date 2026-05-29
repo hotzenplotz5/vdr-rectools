@@ -471,7 +471,8 @@ move_recording() {
     mkdir -p "$TARGET_ABS"
     local REAL_TARGET_ABS=$(realpath "$TARGET_ABS" 2>/dev/null)
 
-    if [[ -z "$REAL_TARGET_ABS" || "$REAL_TARGET_ABS" != "$VIDEO_DIR_REAL"/* ]]; then
+    # Zielpfad muss VIDEO_DIR entsprechen (bei Ziel = Root-Verzeichnis) oder strikt darunter liegen
+    if [[ -z "$REAL_TARGET_ABS" || ( "$REAL_TARGET_ABS" != "$VIDEO_DIR_REAL" && "$REAL_TARGET_ABS" != "$VIDEO_DIR_REAL"/* ) ]]; then
         echo "[$(date +%T)] FEHLER: Move abgebrochen - Zielpfad nach Erstellung ausserhalb von VIDEO_DIR." >> "$LOG_FILE"
         return 1
     fi

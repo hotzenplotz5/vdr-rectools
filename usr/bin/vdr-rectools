@@ -173,6 +173,7 @@ case "$1" in
     move_single)
         shift
         move_recording "$1" "$2"
+        chown -R vdr:vdr "${VIDEO_DIR:-/srv/vdr/video}" 2>/dev/null || true
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
         ;;
 

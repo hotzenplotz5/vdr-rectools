@@ -43,9 +43,8 @@ function renameRecording($path, $name) {
 }
 
 function moveRecording($path, $target) {
-    $target = trim(preg_replace('/[\r\n]+/', '', $target));
-    $target = str_replace(['..', '\\'], '', $target);
-    $target = ltrim($target, '/'); // Verhindert absolute Pfade
+    // Alle strikten Pfad- und Sicherheitsprüfungen finden ausschließlich im Backend statt
+    $target = trim(preg_replace('/[\r\n]+/', '', (string)$target));
     if ($target !== '' && $path !== '') {
         return dispatch_job('move', $path . '|' . $target);
     }
