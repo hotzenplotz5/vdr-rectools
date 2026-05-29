@@ -115,6 +115,11 @@ for job in "$JOB_DIR"/*.job; do
     elif [ "$ACTION" == "check" ]; then
         /usr/bin/vdr-rectools check_single "$PARAM" >/dev/null 2>&1
         SUCCESS=$?
+    elif [ "$ACTION" == "rename" ]; then
+        OLD_PATH="${PARAM%%|*}"
+        NEW_NAME="${PARAM#*|}"
+        /usr/bin/vdr-rectools rename_single "$OLD_PATH" "$NEW_NAME" >/dev/null 2>&1
+        SUCCESS=$?
     elif [ "$ACTION" == "trash" ]; then
         /usr/bin/vdr-rectools trash_single "$PARAM" >/dev/null 2>&1
         SUCCESS=$?
