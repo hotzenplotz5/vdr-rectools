@@ -65,7 +65,7 @@ function waitForJobDone($job_id, $timeoutSeconds = 5) {
                 return;
             }
         }
-        usleep(200000);
+        usleep(100000);
     }
 }
 
@@ -90,7 +90,7 @@ if (isset($_GET['action'])) {
         if ($action_req === 'rename') {
             $job_id = renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
             if ($job_id) {
-                waitForJobDone($job_id, 5);
+                waitForJobDone($job_id, 2);
             }
         } elseif ($action_req === 'trash') {
             $job_id = trashRecording($path);
