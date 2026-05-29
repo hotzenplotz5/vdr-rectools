@@ -385,6 +385,63 @@ check_disk_space() {
     return 0
 }
 
+rename_recording() {
+    local REC_PATH="${1%/}"
+    local NEW_NAME="$2"
+    
+    if [[ ! -d "$REC_PATH" || -z "$NEW_NAME" ]]; then
+        echo "[$(date +%T)] FEHLER: Rename abgebrochen - Pfad oder Name ungueltig." >> "$LOG_FILE"
+        return 1
+    fi
+
+    # HTML-Entities ggf. dekodieren und Pfad-Sonderzeichen bereinigen
+    local CLEAN_NAME=$(echo "$NEW_NAME" | sed 's/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#039;/'\''/g' | sed 's/[\\/:"*?<>|]/_/g')
+    
+    local PARENT_DIR=$(dirname "$REC_PATH")
+    local GRANDPARENT_DIR=$(dirname "$PARENT_DIR")
+    local REC_DIR_NAME=$(basename "$REC_PATH")
+    
+    echo "[$(date +%T)] Starte Umbenennen für: $REC_PATH nach '$CLEAN_NAME'" >> "$LOG_FILE"
+    
+    local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
+    local OTHER_DIRS=$(find "$PARENT_DIR" -mindepth 1 -maxdepth 1 -type d ! -name "*.rec" 2>/dev/null | wc -l)
+    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
+    
+    if [[ "$REC_COUNT" -eq 1 && "$OTHER_DIRS" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
+        # Ordnernamen umbenennen (Parent)
+        local NEW_PARENT_PATH="$GRANDPARENT_DIR/$CLEAN_NAME"
+        if [[ "$PARENT_DIR" != "$NEW_PARENT_PATH" ]]; then
+            if [[ -d "$NEW_PARENT_PATH" ]]; then
+                echo "[$(date +%T)] FEHLER: Zielordner $NEW_PARENT_PATH existiert bereits!" >> "$LOG_FILE"
+                return 1
+            fi
+            mv "$PARENT_DIR" "$NEW_PARENT_PATH"
+            # Update info file
+            if [[ -f "$NEW_PARENT_PATH/$REC_DIR_NAME/info" ]]; then
+                sed -i "s/^T .*/T $CLEAN_NAME/" "$NEW_PARENT_PATH/$REC_DIR_NAME/info"
+            fi
+            chown -R vdr:vdr "$NEW_PARENT_PATH" 2>/dev/null || true
+            echo "[$(date +%T)] ERFOLG: Elternordner umbenannt in $CLEAN_NAME." >> "$LOG_FILE"
+        fi
+    else
+        # Nur die Aufnahme umbenennen (Verschieben in neuen Parent)
+        local NEW_PARENT_PATH="$GRANDPARENT_DIR/$CLEAN_NAME"
+        mkdir -p "$NEW_PARENT_PATH"
+        mv "$REC_PATH" "$NEW_PARENT_PATH/"
+        
+        if [[ -f "$NEW_PARENT_PATH/$REC_DIR_NAME/info" ]]; then
+            sed -i "s/^T .*/T $CLEAN_NAME/" "$NEW_PARENT_PATH/$REC_DIR_NAME/info"
+        fi
+        
+        chown -R vdr:vdr "$NEW_PARENT_PATH" 2>/dev/null || true
+        rmdir "$PARENT_DIR" 2>/dev/null || true # Cleanup falls leer
+        echo "[$(date +%T)] ERFOLG: Aufnahme in neuen Ordner $CLEAN_NAME verschoben." >> "$LOG_FILE"
+    fi
+    
+    touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+    return 0
+}
+
 process_folder() {
     local REC_DIR="$1"
     local MODE="$2"

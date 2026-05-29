@@ -56,6 +56,7 @@ BEFEHLE:
     import          Startet nur den Import-Prozess für neue Videodateien.
     repair          Startet einen Reparatur-Lauf für alle Aufnahmen.
     repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
+    rename_single   <Pfad> <Name> Benennt eine Aufnahme gezielt um.
     pes2ts          Sucht rekursiv nach alten PES-Aufnahmen (*.vdr) und konvertiert sie in TS.
     pes2ts_single   <Pfad> Konvertiert gezielt eine einzelne PES-Aufnahme in TS.
     status          Zeigt den Status laufender Prozesse an.
@@ -161,6 +162,12 @@ case "$1" in
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
         ;;    
         
+    rename_single)
+        shift
+        rename_recording "$1" "$2"
+        /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        ;;
+
     repair_single)
         shift
         process_folder "$1" "repair"

@@ -22,11 +22,21 @@ function load_video_dir() {
 
 $video_dir = load_video_dir();
 
+// VDR-Suite Helfer-Funktion (API Vorbereitung)
+function renameRecording($path, $name) {
+    $name = trim(preg_replace('/[\/\\\]+/', '', $name)); // Keine Slashes
+    $name = str_replace('..', '', $name); // Keine Pfadbestandteile
+    $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); // HTML escapen
+    if ($name !== '' && $path !== '') {
+        dispatch_job('rename', $path . '|' . $name);
+    }
+}
+
 if (isset($_GET['action'])) {
     $action_req = trim((string)$_GET['action']);
     if ($action_req === 'import') {
         dispatch_job('import');
-    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check'], true)) {
+    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
@@ -38,7 +48,11 @@ if (isset($_GET['action'])) {
                 exit('Zugriff verweigert oder ungueltiger Pfad.');
             }
         }
-        dispatch_job($action_req, $path);
+        if ($action_req === 'rename') {
+            renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
+        } else {
+            dispatch_job($action_req, $path);
+        }
     } elseif ($action_req === 'stop') {
         dispatch_job('stop');
     } elseif ($action_req === 'restart_vdr') {

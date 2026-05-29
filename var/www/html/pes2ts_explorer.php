@@ -34,6 +34,22 @@ if ($current_path === false || ($current_path !== $base_dir && strpos($current_p
 
 $rel_path = ltrim(substr($current_path, strlen($base_dir)), DIRECTORY_SEPARATOR);
 
+// VDR-Suite Helfer-Funktionen (API Vorbereitung)
+function getRecordingDate($pathname) {
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\./', basename($pathname), $m)) {
+        return $m[3] . '.' . $m[2] . '.' . $m[1] . ' ' . $m[4] . ':' . $m[5];
+    }
+    $mtime = @filemtime($pathname);
+    if ($mtime) {
+        return date('d.m.Y H:i', $mtime);
+    }
+    return 'Unbekannt';
+}
+
+function getRecordingTitle($filename) {
+    return str_replace('_', ' ', $filename);
+}
+
 $folders = [];
 $recordings = [];
 $counts = ['folders' => 0, 'total' => 0, 'pes' => 0, 'ts' => 0, 'unknown' => 0];
@@ -112,6 +128,8 @@ try {
                 $recordings[] = [
                     'path' => $rec_path,
                     'name' => $rec_name,
+                    'title' => getRecordingTitle($rec_name),
+                    'date' => getRecordingDate($rec_path),
                     'status' => $status,
                     'sort' => $sort
                 ];
@@ -231,7 +249,8 @@ foreach ($parts as $part) {
                     <?php $status = $rec['status']; ?>
                     <tr>
                         <td>
-                            <div class="title"><?php echo htmlspecialchars(str_replace('_', ' ', $rec['name']), ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div class="title"><?php echo htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div style="font-size: 0.85em; color: #888; margin-top: 4px;">Aufgenommen: <?php echo htmlspecialchars($rec['date'], ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
                             <?php if ($status === 'pes'): ?>
@@ -243,16 +262,17 @@ foreach ($parts as $part) {
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if ($status === 'pes'): ?>
-                                <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
-                            <?php elseif ($status === 'ts'): ?>
-                                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                <a href="#" class="btn" style="background: #607D8B;" onclick="renameRecordingUI('<?php echo rawurlencode($rec['path']); ?>', '<?php echo htmlspecialchars(addslashes($rec['title']), ENT_QUOTES, 'UTF-8'); ?>'); return false;">Umbenennen</a>
+                                <?php if ($status === 'pes'): ?>
+                                    <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
+                                <?php elseif ($status === 'ts'): ?>
                                     <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn shrink" onclick="return confirm('Diese Aufnahme in H.265 schrumpfen?');">Shrink</a>
                                     <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn cut" onclick="return confirm('Werbung aus dieser Aufnahme schneiden?');">Cut</a>
                                     <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?>" class="btn repair" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Repair</a>
                                     <a href="rectools_confirm.php?action=check&path=<?php echo rawurlencode($rec['path']); ?>" class="btn check">Check</a>
-                                </div>
-                            <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -263,5 +283,14 @@ foreach ($parts as $part) {
             Dieser Ordner ist leer oder enthaelt keine VDR-Aufnahmen.
         </div>
     <?php endif; ?>
+<script>
+function renameRecordingUI(path, currentName) {
+    var n = prompt('Neuen Namen eingeben:', currentName);
+    if (n && n.trim() !== '') {
+        var safeName = encodeURIComponent(n.trim());
+        window.location.href = 'rectools_confirm.php?action=rename&path=' + encodeURIComponent(path) + '&name=' + safeName;
+    }
+}
+</script>
 </body>
 </html>
