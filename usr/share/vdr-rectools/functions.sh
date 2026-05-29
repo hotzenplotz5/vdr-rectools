@@ -406,8 +406,8 @@ rename_recording() {
         return 1
     fi
 
-    # HTML-Entities ggf. dekodieren und Pfad-Sonderzeichen bereinigen
-    local CLEAN_NAME=$(echo "$NEW_NAME" | sed 's/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#039;/'\''/g' | sed 's/[\\/:"*?<>|]/_/g')
+    # Zeilenumbrueche entfernen (Titel muss einzeilig sein). Keine Pfad-Bereinigung mehr noetig!
+    local CLEAN_NAME=$(echo "$NEW_NAME" | tr -d '\r\n')
     
     local INFO_FILE="$REC_PATH/info"
     local TMP_FILE="$REC_PATH/info.tmp"
@@ -421,7 +421,8 @@ rename_recording() {
     
     if [[ -f "$INFO_FILE" ]]; then
         if grep -q "^T " "$INFO_FILE"; then
-            sed "s/^T .*/T $CLEAN_NAME/" "$INFO_FILE" > "$TMP_FILE"
+            # awk nutzen, da sed bei Sonderzeichen wie & im Titel (z.B. "Fast & Furious") kaputt geht
+            awk -v new_title="T $CLEAN_NAME" '{ if ($0 ~ /^T /) print new_title; else print $0 }' "$INFO_FILE" > "$TMP_FILE"
         else
             echo "T $CLEAN_NAME" > "$TMP_FILE"
             cat "$INFO_FILE" >> "$TMP_FILE"

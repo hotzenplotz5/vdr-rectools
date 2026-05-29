@@ -36,22 +36,25 @@ $video_dir = load_video_dir();
 function renameRecording($path, $name) {
     $name = trim(preg_replace('/[\/\\\]+/', '', $name)); // Keine Slashes
     $name = str_replace('..', '', $name); // Keine Pfadbestandteile
-    $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); // HTML escapen
     if ($name !== '' && $path !== '') {
-        dispatch_job('rename', $path . '|' . $name);
+        return dispatch_job('rename', $path . '|' . $name);
     }
+    return null;
 }
 
 function trashRecording($path) {
     if ($path !== '') {
-        dispatch_job('trash', $path);
+        return dispatch_job('trash', $path);
     }
+    return null;
 }
+
+$job_id = null;
 
 if (isset($_GET['action'])) {
     $action_req = trim((string)$_GET['action']);
     if ($action_req === 'import') {
-        dispatch_job('import');
+        $job_id = dispatch_job('import');
     } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'trash'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
@@ -65,16 +68,16 @@ if (isset($_GET['action'])) {
             }
         }
         if ($action_req === 'rename') {
-            renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
+            $job_id = renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
         } elseif ($action_req === 'trash') {
-            trashRecording($path);
+            $job_id = trashRecording($path);
         } else {
-            dispatch_job($action_req, $path);
+            $job_id = dispatch_job($action_req, $path);
         }
     } elseif ($action_req === 'stop') {
-        dispatch_job('stop');
+        $job_id = dispatch_job('stop');
     } elseif ($action_req === 'restart_vdr') {
-        dispatch_job('restart_vdr');
+        $job_id = dispatch_job('restart_vdr');
     } else {
         $prompt_file = $video_dir . '/.vdr-rectools.prompt';
         if (file_exists($prompt_file)) {
@@ -94,13 +97,17 @@ if (isset($_GET['action'])) {
             }
         }
         // UI Update anfordern, damit der Prompt sofort verschwindet
-        dispatch_job('update-html');
+        $job_id = dispatch_job('update-html');
     }
 }
 
 $return = isset($_GET['return']) ? (string)$_GET['return'] : '';
 if ($return !== '' && preg_match('/^(rectools\.html|pes2ts_explorer\.php|config\.php)(\?.*)?$/', $return)) {
-    header('Location: ' . $return);
+    if ($job_id) {
+        header('Location: job_wait.php?id=' . urlencode($job_id) . '&return=' . urlencode($return));
+    } else {
+        header('Location: ' . $return);
+    }
 } else {
     header('Location: rectools.html?t=' . time());
 }
