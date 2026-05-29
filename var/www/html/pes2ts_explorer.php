@@ -406,7 +406,7 @@ foreach ($parts as $part) {
         <h3 style="margin-top:0; color:#FF9800;">Zielordner auswählen</h3>
         <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">Wohin soll die Aufnahme verschoben werden?</p>
         <select id="moveSelect" onchange="document.getElementById('moveNew').style.display = this.value === '__NEW__' ? 'block' : 'none';" style="width:100%; padding:8px; margin-bottom:10px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
-            <option value="/">/ (Hauptverzeichnis)</option>
+            <option value="">-- Zielordner auswählen --</option>
             <?php foreach ($target_folders as $tf): ?>
                 <option value="<?php echo htmlspecialchars($tf, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($tf, ENT_QUOTES, 'UTF-8'); ?></option>
             <?php endforeach; ?>
@@ -432,7 +432,7 @@ function renameRecordingUI(path, currentName) {
 var currentMovePath = '';
 function moveRecordingUI(path) {
     currentMovePath = path;
-    document.getElementById('moveSelect').value = '/';
+    document.getElementById('moveSelect').value = '';
     document.getElementById('moveNew').value = '';
     document.getElementById('moveNew').style.display = 'none';
     document.getElementById('moveModal').style.display = 'flex';
@@ -448,7 +448,10 @@ function executeMove() {
         alert('Bitte einen gültigen Zielordner eingeben.');
         return;
     }
-    if (target === '') { target = '.'; }
+    if (target === '') {
+        alert('Bitte einen Zielordner auswählen.');
+        return;
+    }
     if (target.includes('..')) {
         alert('Ungültiger Pfad: ".." ist nicht erlaubt.');
         return;
