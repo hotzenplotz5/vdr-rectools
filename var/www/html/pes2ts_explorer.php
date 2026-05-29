@@ -110,6 +110,44 @@ function naturalRecordingSortKey($name) {
     return str_replace(['~', '%', '(', ')'], [' ', ' ', ' ', ' '], $name);
 }
 
+function getRecordingSize($path) {
+    $size = 0;
+    try {
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            $size += $file->getSize();
+        }
+    } catch (Exception $e) {}
+    if ($size >= 1073741824) return round($size / 1073741824, 2) . ' GB';
+    if ($size >= 1048576) return round($size / 1048576, 2) . ' MB';
+    return round($size / 1024, 2) . ' KB';
+}
+
+function getMoveTargetFolders($base_dir) {
+    $folders = [];
+    $level1 = @glob($base_dir . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [];
+    foreach ($level1 as $dir1) {
+        $name1 = basename($dir1);
+        if ($name1 === '.trash' || $name1 === 'lost+found' || strpos($name1, '.') === 0 || substr($name1, -4) === '.rec') {
+            continue;
+        }
+        $folders[] = $name1;
+        
+        $level2 = @glob($dir1 . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [];
+        foreach ($level2 as $dir2) {
+            $name2 = basename($dir2);
+            if (strpos($name2, '.') === 0 || substr($name2, -4) === '.rec') {
+                continue;
+            }
+            $folders[] = $name1 . '/' . $name2;
+        }
+    }
+    sort($folders);
+    return $folders;
+}
+
+$target_folders = getMoveTargetFolders($base_dir);
+
 $folders = [];
 $recordings = [];
 $counts = ['folders' => 0, 'total' => 0, 'pes' => 0, 'ts' => 0, 'unknown' => 0];
@@ -200,6 +238,7 @@ try {
                     'subtitle' => $meta['subtitle'],
                     'description' => $meta['description'],
                     'date' => getRecordingDate($rec_path),
+                    'size' => getRecordingSize($rec_path),
                     'status' => $status,
                     'sort' => $sort
                 ];
@@ -325,7 +364,7 @@ foreach ($parts as $part) {
                         <?php if ($rec['subtitle'] !== ''): ?>
                             <div style="font-size: 0.9em; color: #aaa; margin-top: 2px;"><?php echo htmlspecialchars($rec['subtitle'], ENT_QUOTES, 'UTF-8'); ?></div>
                         <?php endif; ?>
-                            <div style="font-size: 0.85em; color: #888; margin-top: 4px;">Aufgenommen: <?php echo htmlspecialchars($rec['date'], ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div style="font-size: 0.85em; color: #888; margin-top: 4px;">Aufgenommen: <?php echo htmlspecialchars($rec['date'], ENT_QUOTES, 'UTF-8'); ?> &bull; Größe: <?php echo htmlspecialchars($rec['size'], ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
                             <?php if ($status === 'pes'): ?>
@@ -360,6 +399,26 @@ foreach ($parts as $part) {
             Dieser Ordner ist leer oder enthaelt keine VDR-Aufnahmen.
         </div>
     <?php endif; ?>
+
+<!-- Move Modal -->
+<div id="moveModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#1e1e1e; padding:20px; border-radius:8px; border:1px solid #444; width:350px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+        <h3 style="margin-top:0; color:#FF9800;">Zielordner auswählen</h3>
+        <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">Wohin soll die Aufnahme verschoben werden?</p>
+        <select id="moveSelect" onchange="document.getElementById('moveNew').style.display = this.value === '__NEW__' ? 'block' : 'none';" style="width:100%; padding:8px; margin-bottom:10px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+            <option value="/">/ (Hauptverzeichnis)</option>
+            <?php foreach ($target_folders as $tf): ?>
+                <option value="<?php echo htmlspecialchars($tf, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($tf, ENT_QUOTES, 'UTF-8'); ?></option>
+            <?php endforeach; ?>
+            <option value="__NEW__">-- Neuer Ordner --</option>
+        </select>
+        <input type="text" id="moveNew" placeholder="Neuer Ordner (z.B. Filme/Action)" style="display:none; width:100%; padding:8px; margin-bottom:15px; background:#000; color:#fff; border:1px solid #555; border-radius:4px; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; gap:10px; margin-top:15px;">
+            <button onclick="document.getElementById('moveModal').style.display='none';" class="btn" style="background:#555; flex:1; margin:0;">Abbrechen</button>
+            <button onclick="executeMove()" class="btn" style="background:#FF9800; color:#000; flex:1; margin:0;">Verschieben</button>
+        </div>
+    </div>
+</div>
 <script>
 function renameRecordingUI(path, currentName) {
     var n = prompt('Neuen Titel/Anzeigenamen eingeben:', currentName);
@@ -369,13 +428,34 @@ function renameRecordingUI(path, currentName) {
         window.location.href = 'rectools_confirm.php?action=rename&path=' + encodeURIComponent(path) + '&name=' + safeName + '&return=' + encodeURIComponent(returnUrl);
     }
 }
+
+var currentMovePath = '';
 function moveRecordingUI(path) {
-    var target = prompt('Zielordner relativ zu VIDEO_DIR eingeben, z.B. Filme oder Doku/Natur:');
-    if (target && target.trim() !== '') {
-        var safeTarget = encodeURIComponent(target.trim());
-        var returnUrl = 'pes2ts_explorer.php?dir=<?php echo rawurlencode($rel_path); ?>';
-        window.location.href = 'rectools_confirm.php?action=move&path=' + encodeURIComponent(path) + '&target=' + safeTarget + '&return=' + encodeURIComponent(returnUrl);
+    currentMovePath = path;
+    document.getElementById('moveSelect').value = '/';
+    document.getElementById('moveNew').value = '';
+    document.getElementById('moveNew').style.display = 'none';
+    document.getElementById('moveModal').style.display = 'flex';
+}
+
+function executeMove() {
+    var target = document.getElementById('moveSelect').value;
+    if (target === '__NEW__') {
+        target = document.getElementById('moveNew').value;
     }
+    target = target.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (target === '' && document.getElementById('moveSelect').value === '__NEW__') {
+        alert('Bitte einen gültigen Zielordner eingeben.');
+        return;
+    }
+    if (target === '') { target = '.'; }
+    if (target.includes('..')) {
+        alert('Ungültiger Pfad: ".." ist nicht erlaubt.');
+        return;
+    }
+    var safeTarget = encodeURIComponent(target);
+    var returnUrl = 'pes2ts_explorer.php?dir=<?php echo rawurlencode($rel_path); ?>';
+    window.location.href = 'rectools_confirm.php?action=move&path=' + encodeURIComponent(currentMovePath) + '&target=' + safeTarget + '&return=' + encodeURIComponent(returnUrl);
 }
 </script>
 </body>
