@@ -47,11 +47,48 @@ try {
             $filename = $fileinfo->getFilename();
             $pathname = $fileinfo->getRealPath();
             
+            $is_rec = false;
+            $rec_path = '';
+            $rec_name = '';
+
             if (substr($filename, -4) === '.rec') {
+                $is_rec = true;
+                $rec_path = $pathname;
+                $rec_name = $filename;
+            } else {
+                $rec_count = 0;
+                $non_rec_dir_count = 0;
+                $single_rec_path = '';
+                
+                try {
+                    $sub_iterator = new DirectoryIterator($pathname);
+                    foreach ($sub_iterator as $sub_fileinfo) {
+                        if ($sub_fileinfo->isDot()) continue;
+                        if ($sub_fileinfo->isDir()) {
+                            if (substr($sub_fileinfo->getFilename(), -4) === '.rec') {
+                                $rec_count++;
+                                $single_rec_path = $sub_fileinfo->getRealPath();
+                            } else {
+                                $non_rec_dir_count++;
+                                break;
+                            }
+                        }
+                    }
+                    if ($rec_count === 1 && $non_rec_dir_count === 0) {
+                        $is_rec = true;
+                        $rec_path = $single_rec_path;
+                        $rec_name = $filename;
+                    }
+                } catch (Exception $e) {
+                    // Ignorieren falls Berechtigungsfehler
+                }
+            }
+
+            if ($is_rec) {
                 $has_pes = false;
                 $has_ts = false;
                 
-                if ($dh = @opendir($pathname)) {
+                if ($dh = @opendir($rec_path)) {
                     while (($item = readdir($dh)) !== false) {
                         if (preg_match('/^[0-9]{3}\.vdr$/', $item)) {
                             $has_pes = true;
@@ -73,8 +110,8 @@ try {
                 $counts['total']++;
                 
                 $recordings[] = [
-                    'path' => $pathname,
-                    'name' => $filename,
+                    'path' => $rec_path,
+                    'name' => $rec_name,
                     'status' => $status,
                     'sort' => $sort
                 ];
