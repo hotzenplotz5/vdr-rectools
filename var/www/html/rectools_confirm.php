@@ -32,11 +32,17 @@ function renameRecording($path, $name) {
     }
 }
 
+function trashRecording($path) {
+    if ($path !== '') {
+        dispatch_job('trash', $path);
+    }
+}
+
 if (isset($_GET['action'])) {
     $action_req = trim((string)$_GET['action']);
     if ($action_req === 'import') {
         dispatch_job('import');
-    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'delete'], true)) {
+    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'trash'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
@@ -50,6 +56,8 @@ if (isset($_GET['action'])) {
         }
         if ($action_req === 'rename') {
             renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
+        } elseif ($action_req === 'trash') {
+            trashRecording($path);
         } else {
             dispatch_job($action_req, $path);
         }

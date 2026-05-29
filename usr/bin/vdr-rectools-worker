@@ -115,6 +115,9 @@ for job in "$JOB_DIR"/*.job; do
     elif [ "$ACTION" == "check" ]; then
         /usr/bin/vdr-rectools check_single "$PARAM" >/dev/null 2>&1
         SUCCESS=$?
+    elif [ "$ACTION" == "trash" ]; then
+        /usr/bin/vdr-rectools trash_single "$PARAM" >/dev/null 2>&1
+        SUCCESS=$?
     elif [ "$ACTION" == "stop" ]; then
         /usr/bin/vdr-rectools stop >/dev/null 2>&1
         SUCCESS=$?

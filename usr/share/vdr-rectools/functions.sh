@@ -442,31 +442,46 @@ rename_recording() {
     return 0
 }
 
-delete_recording() {
+trash_recording() {
     local REC_PATH="${1%/}"
     
+    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
+    local REAL_REC_PATH=$(realpath "$REC_PATH" 2>/dev/null)
+
     if [[ ! -d "$REC_PATH" || ! "$REC_PATH" =~ \.rec$ ]]; then
-        echo "[$(date +%T)] FEHLER: Delete abgebrochen - Pfad ungueltig oder keine .rec Aufnahme." >> "$LOG_FILE"
+        echo "[$(date +%T)] FEHLER: Papierkorb abgebrochen - Pfad ungueltig oder keine .rec Aufnahme." >> "$LOG_FILE"
         return 1
     fi
 
-    echo "[$(date +%T)] Starte Loeschen für: $REC_PATH" >> "$LOG_FILE"
-    
-    local PARENT_DIR=$(dirname "$REC_PATH")
-    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
-    
-    rm -rf "$REC_PATH"
-    
-    local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
-    if [[ "$REC_COUNT" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
-        rm -rf "$PARENT_DIR" 2>/dev/null || true
-        echo "[$(date +%T)] ERFOLG: Aufnahme und leerer Elternordner geloescht." >> "$LOG_FILE"
-    else
-        echo "[$(date +%T)] ERFOLG: Aufnahme geloescht." >> "$LOG_FILE"
+    if [[ -z "$REAL_REC_PATH" || "$REAL_REC_PATH" != "$VIDEO_DIR_REAL"/* ]]; then
+        echo "[$(date +%T)] FEHLER: Papierkorb abgebrochen - Pfad liegt ausserhalb des erlaubten Video-Verzeichnisses." >> "$LOG_FILE"
+        return 1
     fi
-    
-    touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
-    return 0
+
+    local PARENT_DIR=$(dirname "$REC_PATH")
+    local TITLE=$(basename "$PARENT_DIR")
+    local CLEAN_TITLE=$(echo "$TITLE" | sed 's/[\\/:"*?<>| ]/_/g')
+    local TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+    local TRASH_DIR="$VIDEO_DIR_REAL/.trash"
+    local TARGET_DIR="$TRASH_DIR/${TIMESTAMP}_${CLEAN_TITLE}"
+
+    echo "[$(date +%T)] Verschiebe in Papierkorb: $REC_PATH" >> "$LOG_FILE"
+    mkdir -p "$TARGET_DIR"
+
+    if mv "$REC_PATH" "$TARGET_DIR/"; then
+        local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
+        if [[ "$REC_COUNT" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
+            rmdir "$PARENT_DIR" 2>/dev/null || true
+            echo "[$(date +%T)] ERFOLG: Aufnahme in Papierkorb verschoben und leerer Elternordner entfernt." >> "$LOG_FILE"
+        else
+            echo "[$(date +%T)] ERFOLG: Aufnahme in Papierkorb verschoben." >> "$LOG_FILE"
+        fi
+        touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+        return 0
+    else
+        echo "[$(date +%T)] FEHLER: Verschieben in den Papierkorb fehlgeschlagen." >> "$LOG_FILE"
+        return 1
+    fi
 }
 
 process_folder() {
@@ -652,7 +667,7 @@ process_folder() {
                 send_mail "$M_BODY" "$M_SUBJ"
             fi
             
-            rm -rf "$STAGING_REC"
+            rm -f -r "$STAGING_REC"
             cd "$OLD_PWD" 2>/dev/null || true
             return "$CHECK_FAILED"
                 ;;
@@ -675,17 +690,17 @@ process_folder() {
                 chown vdr:vdr 00001.ts index 2>/dev/null || true
                 # VDR-Cache zwingend leeren! Sonst zeigt das OSD falsche Längen nach dem Schnitt/Shrink an
                 touch "$VIDEO_DIR/.update" 2>/dev/null || true
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
                 echo "[$(date +%T)] $MODE erfolgreich abgeschlossen" >> "$LOG_FILE"
             else
                 echo "[$(date +%T)] FEHLER: $MODE fehlgeschlagen, Index konnte final nicht erstellt werden." >> "$LOG_FILE"
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
             fi
         else
             # Wenn 00001.ts nach den Vorgängen nicht mehr existiert, gab es einen Abbruch.
             if [ -d "$STAGING_REC" ]; then
                 echo "[$(date +%T)] INFO: $MODE fehlgeschlagen. Räume temporären Staging-Ordner auf." >> "$LOG_FILE"
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
             fi
         fi
     fi
@@ -918,7 +933,7 @@ process_import() {
     esac
 
     if [[ "$VCODEC" == "dvvideo" ]]; then
-        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -f -r "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: MiniDV-Stream erkannt. Starte Re-Encode mit Deinterlacing nach H.264..." >> "$LOG_FILE"
         ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -vf yadif -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" $AUDIO_OPTS -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -933,7 +948,7 @@ process_import() {
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H264:-70}" # Example: expect max 70% of original size
         ACTION_TYPE_LOG="Import-Encode (DV)"
     elif [[ "$VCODEC" =~ ^(vp8|vp9|av1)$ ]]; then
-        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -f -r "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Web-Format ($VCODEC) erkannt. Starte Re-Encode nach H.265 (HEVC)..." >> "$LOG_FILE"
         ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H265_ENC" -preset "${PRESET_H265_DEFAULT}" -crf "${CRF_H265_DEFAULT}" $AUDIO_OPTS -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -948,7 +963,7 @@ process_import() {
         EXPECTED_RATIO="${MIN_COMPRESSION_RATIO_H265:-50}" # Example: expect max 50% of original size
         ACTION_TYPE_LOG="Import-Encode (Web)"
     elif [[ "$VCODEC" == "mpeg4" ]]; then
-        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
+        confirm_encoding "$PRETTY_TITLE" "$VCODEC" "$SOURCE_FILE" || { rm -f -r "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Legacy-Format (mpeg4) erkannt. Starte Re-Encode nach H.264..." >> "$LOG_FILE"
         ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_DEFAULT}" -crf "${CRF_H264_DEFAULT}" $AUDIO_OPTS -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -969,7 +984,7 @@ process_import() {
         ffmpeg -y -hide_banner -i "$SOURCE_FILE" $AUDIO_PARAMS -copyts -fflags +genpts+igndts -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
     else
-        confirm_encoding "$PRETTY_TITLE" "${VCODEC:-unbekannt}" "$SOURCE_FILE" || { rm -rf "$STAGING_REC"; return 1; }
+        confirm_encoding "$PRETTY_TITLE" "${VCODEC:-unbekannt}" "$SOURCE_FILE" || { rm -f -r "$STAGING_REC"; return 1; }
         echo "[$(date +%T)] Aktion: Unbekannter/Anderer Codec (${VCODEC:-unbekannt}). Fallback auf H.264 Re-Encode..." >> "$LOG_FILE"
         ffmpeg -y -hide_banner $FFMPEG_HW_OPTS -i "$SOURCE_FILE" -map 0:v? -map 0:a? -c:v "$H264_ENC" -preset "${PRESET_H264_FALLBACK}" -crf "${CRF_H264_FALLBACK}" $AUDIO_OPTS -f mpegts -max_muxing_queue_size 4000 "$STAGING_REC/joined.ts" </dev/null 2>&1 | filter_ffmpeg_log >> "$LOG_FILE"
         FF_STATUS=${PIPESTATUS[0]}
@@ -994,7 +1009,7 @@ process_import() {
             local M_BODY; printf -v M_BODY "${TXT_MAIL_IMP_ERR_BODY:-%s für '%s' fehlgeschlagen oder Ergebnis verdächtig. Originaldatei wurde nicht gelöscht.}" "$ACTION_TYPE_LOG" "$PRETTY_TITLE"
             local M_SUBJ="${TXT_MAIL_IMP_ERR_SUBJ:-Import-Fehler}"
             send_mail "$M_BODY" "$M_SUBJ"
-            rm -rf "$STAGING_REC" # Den fehlerhaften Staging-Ordner löschen
+            rm -f -r "$STAGING_REC" # Den fehlerhaften Staging-Ordner löschen
             return 1
         fi
 
@@ -1071,7 +1086,7 @@ process_import() {
             local M_BODY; printf -v M_BODY "${TXT_MAIL_IMP_ERR_MOVE:-Fehler beim Verschieben in den Zielordner für '%s'. Die Originaldatei bleibt erhalten.}" "$PRETTY_TITLE"
             local M_SUBJ="${TXT_MAIL_IMP_ERR_SUBJ:-Import-Fehler}"
             send_mail "$M_BODY" "$M_SUBJ"
-            rm -rf "$STAGING_REC"
+            rm -f -r "$STAGING_REC"
             return 1
         fi
 
@@ -1093,7 +1108,7 @@ process_import() {
         return 0
     else
         echo "[$(date +%T)] FEHLER: FFmpeg-Verarbeitung fuer $FILENAME abgebrochen (Status $FF_STATUS)." >> "$LOG_FILE"
-        rm -rf "$STAGING_REC"
+        rm -f -r "$STAGING_REC"
         return 1
     fi
 }
@@ -1218,7 +1233,7 @@ convert_pes2ts() {
 
         if [[ ! -s "$STAGING_REC/info" ]]; then
             echo "[$(date +%T)] FEHLER: info konnte aus summary.vdr nicht erzeugt werden." >> "$LOG_FILE"
-            rm -rf "$STAGING_REC"
+            rm -f -r "$STAGING_REC"
             cd "$OLD_PWD" || true
             return 1
         fi
@@ -1266,14 +1281,14 @@ convert_pes2ts() {
             # Prüfen, ob das Zielverzeichnis durch eine abweichende Benennung schon kollidiert
             if [[ "$DIR_NAME" != "$NEW_DIR_NAME" && -d "$NEW_DIR_NAME" ]]; then
                 echo "[$(date +%T)] FEHLER: Zielverzeichnis $NEW_DIR_NAME existiert bereits! Swap abgebrochen." >> "$LOG_FILE"
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
                 cd "$OLD_PWD" || true
                 return 1
             fi
 
             if [[ -e "${DIR_NAME}.bak" ]]; then
                 echo "[$(date +%T)] FEHLER: Backup-Ziel ${DIR_NAME}.bak existiert bereits! Swap abgebrochen." >> "$LOG_FILE"
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
                 cd "$OLD_PWD" || true
                 return 1
             fi
@@ -1286,7 +1301,7 @@ convert_pes2ts() {
                 # Staging an Zielort verschieben
                 if mv -T "$STAGING_REC" "$NEW_DIR_NAME"; then
                     echo "[$(date +%T)] ERFOLG: Swap erfolgreich. Aufnahme in TS migriert. Entferne altes Backup..." >> "$LOG_FILE"
-                    rm -rf "${DIR_NAME}.bak"
+                    rm -f -r "${DIR_NAME}.bak"
                     chown -R vdr:vdr "$TARGET_DIR" 2>/dev/null || true
                     
                     # VDR-Cache zwingend leeren
@@ -1297,25 +1312,25 @@ convert_pes2ts() {
                     # Rollback bei Fehler im zweiten Swap-Schritt
                     echo "[$(date +%T)] KRITISCH: Swap fehlgeschlagen. Starte Rollback..." >> "$LOG_FILE"
                     mv -T "${DIR_NAME}.bak" "$DIR_NAME"
-                    rm -rf "$STAGING_REC"
+                    rm -f -r "$STAGING_REC"
                     cd "$OLD_PWD" || true
                     return 1
                 fi
             else
                 echo "[$(date +%T)] FEHLER: Konnte Original-Verzeichnis nicht umbenennen. Breche ab." >> "$LOG_FILE"
-                rm -rf "$STAGING_REC"
+                rm -f -r "$STAGING_REC"
                 cd "$OLD_PWD" || true
                 return 1
             fi
         else
             echo "[$(date +%T)] FEHLER: VDR-Index konnte in Staging nicht erstellt werden. Breche ab (Original bleibt erhalten)." >> "$LOG_FILE"
-            rm -rf "$STAGING_REC"
+            rm -f -r "$STAGING_REC"
             cd "$OLD_PWD" || true
             return 1
         fi
     else
         echo "[$(date +%T)] FEHLER: ffmpeg Konvertierung fehlgeschlagen (Status $FF_STATUS). Original bleibt erhalten." >> "$LOG_FILE"
-        rm -rf "$STAGING_REC"
+        rm -f -r "$STAGING_REC"
         cd "$OLD_PWD" || true
         return 1
     fi
@@ -1327,7 +1342,7 @@ cleanup_orphans() {
         # Finde Ordner, die älter als 24 Stunden (+1440 Minuten) sind
         find "$REPAIR_STAGING" -mindepth 1 -maxdepth 1 -type d -mmin +1440 2>/dev/null | while read -r orphan; do
             echo "[$(date +%T)] WARNUNG: Orphan-Sweeper löscht veralteten Crash-Ordner: $orphan" >> "$LOG_FILE"
-            rm -rf "$orphan"
+            rm -f -r "$orphan"
         done
     fi
 }

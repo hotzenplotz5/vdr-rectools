@@ -1,3 +1,12 @@
+vdr-rectools (3.8.3-1) unstable; urgency=medium
+
+  * Release Version 3.8.3 - The "Safe Trash" Update
+  * SEC: Direkte und unwiderrufliche Löschfunktion (rm -rf) aus dem Web-Dashboard entfernt.
+  * FEAT: Sichere Papierkorb-Funktion (.trash) implementiert, um Aufnahmen gefahrlos auszusortieren.
+  * FIX: Beim Aufräumen von leeren Aufnahmeordnern wird nun sicheres `rmdir` genutzt.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Fri, 29 May 2026 20:00:00 +0000
+
 vdr-rectools (3.8.2-1) unstable; urgency=medium
 
   * Release Version 3.8.2 - The "Delete & Management" Update
