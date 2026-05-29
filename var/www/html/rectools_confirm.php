@@ -49,6 +49,26 @@ function trashRecording($path) {
     return null;
 }
 
+function waitForJobDone($job_id, $timeoutSeconds = 5) {
+    $job_id = preg_replace('/[^a-zA-Z0-9_.-]/', '', (string)$job_id);
+    if ($job_id === '') return;
+
+    $status_file = '/tmp/vdr-rectools-jobs/' . $job_id . '.status';
+    $end = microtime(true) + $timeoutSeconds;
+
+    while (microtime(true) < $end) {
+        clearstatcache(true, $status_file);
+        if (file_exists($status_file)) {
+            $data = parseConfig((string)@file_get_contents($status_file));
+            $state = $data['state'] ?? '';
+            if ($state === 'done' || $state === 'error') {
+                return;
+            }
+        }
+        usleep(200000);
+    }
+}
+
 $job_id = null;
 
 if (isset($_GET['action'])) {
@@ -69,6 +89,9 @@ if (isset($_GET['action'])) {
         }
         if ($action_req === 'rename') {
             $job_id = renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
+            if ($job_id) {
+                waitForJobDone($job_id, 5);
+            }
         } elseif ($action_req === 'trash') {
             $job_id = trashRecording($path);
         } else {
