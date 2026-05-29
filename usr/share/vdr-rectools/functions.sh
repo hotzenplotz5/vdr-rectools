@@ -388,58 +388,59 @@ check_disk_space() {
 rename_recording() {
     local REC_PATH="${1%/}"
     local NEW_NAME="$2"
-    
-    if [[ ! -d "$REC_PATH" || -z "$NEW_NAME" ]]; then
-        echo "[$(date +%T)] FEHLER: Rename abgebrochen - Pfad oder Name ungueltig." >> "$LOG_FILE"
+    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
+    local REAL_REC_PATH=$(realpath "$REC_PATH" 2>/dev/null)
+
+    if [[ ! -d "$REC_PATH" || ! "$REC_PATH" =~ \.rec$ ]]; then
+        echo "[$(date +%T)] FEHLER: Rename abgebrochen - Pfad ungueltig oder keine .rec Aufnahme." >> "$LOG_FILE"
+        return 1
+    fi
+
+    if [[ -z "$REAL_REC_PATH" || "$REAL_REC_PATH" != "$VIDEO_DIR_REAL"/* ]]; then
+        echo "[$(date +%T)] FEHLER: Rename abgebrochen - Pfad liegt ausserhalb des erlaubten Video-Verzeichnisses." >> "$LOG_FILE"
+        return 1
+    fi
+
+    if [[ -z "$NEW_NAME" || "$NEW_NAME" == *"/"* || "$NEW_NAME" == *"\\"* || "$NEW_NAME" == *".."* ]]; then
+        echo "[$(date +%T)] FEHLER: Rename abgebrochen - Neuer Name ist leer oder enthaelt ungueltige Zeichen." >> "$LOG_FILE"
         return 1
     fi
 
     # HTML-Entities ggf. dekodieren und Pfad-Sonderzeichen bereinigen
     local CLEAN_NAME=$(echo "$NEW_NAME" | sed 's/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#039;/'\''/g' | sed 's/[\\/:"*?<>|]/_/g')
     
-    local PARENT_DIR=$(dirname "$REC_PATH")
-    local GRANDPARENT_DIR=$(dirname "$PARENT_DIR")
-    local REC_DIR_NAME=$(basename "$REC_PATH")
+    local INFO_FILE="$REC_PATH/info"
+    local TMP_FILE="$REC_PATH/info.tmp"
+    local OLD_TITLE="Unbekannt"
     
-    echo "[$(date +%T)] Starte Umbenennen für: $REC_PATH nach '$CLEAN_NAME'" >> "$LOG_FILE"
-    
-    local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
-    local OTHER_DIRS=$(find "$PARENT_DIR" -mindepth 1 -maxdepth 1 -type d ! -name "*.rec" 2>/dev/null | wc -l)
-    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
-    
-    if [[ "$REC_COUNT" -eq 1 && "$OTHER_DIRS" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
-        # Ordnernamen umbenennen (Parent)
-        local NEW_PARENT_PATH="$GRANDPARENT_DIR/$CLEAN_NAME"
-        if [[ "$PARENT_DIR" != "$NEW_PARENT_PATH" ]]; then
-            if [[ -d "$NEW_PARENT_PATH" ]]; then
-                echo "[$(date +%T)] FEHLER: Zielordner $NEW_PARENT_PATH existiert bereits!" >> "$LOG_FILE"
-                return 1
-            fi
-            mv "$PARENT_DIR" "$NEW_PARENT_PATH"
-            # Update info file
-            if [[ -f "$NEW_PARENT_PATH/$REC_DIR_NAME/info" ]]; then
-                sed -i "s/^T .*/T $CLEAN_NAME/" "$NEW_PARENT_PATH/$REC_DIR_NAME/info"
-            fi
-            chown -R vdr:vdr "$NEW_PARENT_PATH" 2>/dev/null || true
-            echo "[$(date +%T)] ERFOLG: Elternordner umbenannt in $CLEAN_NAME." >> "$LOG_FILE"
-        fi
-    else
-        # Nur die Aufnahme umbenennen (Verschieben in neuen Parent)
-        local NEW_PARENT_PATH="$GRANDPARENT_DIR/$CLEAN_NAME"
-        mkdir -p "$NEW_PARENT_PATH"
-        mv "$REC_PATH" "$NEW_PARENT_PATH/"
-        
-        if [[ -f "$NEW_PARENT_PATH/$REC_DIR_NAME/info" ]]; then
-            sed -i "s/^T .*/T $CLEAN_NAME/" "$NEW_PARENT_PATH/$REC_DIR_NAME/info"
-        fi
-        
-        chown -R vdr:vdr "$NEW_PARENT_PATH" 2>/dev/null || true
-        rmdir "$PARENT_DIR" 2>/dev/null || true # Cleanup falls leer
-        echo "[$(date +%T)] ERFOLG: Aufnahme in neuen Ordner $CLEAN_NAME verschoben." >> "$LOG_FILE"
+    if [[ -f "$INFO_FILE" ]]; then
+        OLD_TITLE=$(grep "^T " "$INFO_FILE" | head -n 1 | cut -c3- | tr -d '\r')
     fi
     
-    touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
-    return 0
+    echo "[$(date +%T)] Starte Umbenennen (Metadaten) fuer: $REC_PATH" >> "$LOG_FILE"
+    
+    if [[ -f "$INFO_FILE" ]]; then
+        if grep -q "^T " "$INFO_FILE"; then
+            sed "s/^T .*/T $CLEAN_NAME/" "$INFO_FILE" > "$TMP_FILE"
+        else
+            echo "T $CLEAN_NAME" > "$TMP_FILE"
+            cat "$INFO_FILE" >> "$TMP_FILE"
+        fi
+    else
+        echo "T $CLEAN_NAME" > "$TMP_FILE"
+    fi
+    
+    if [[ -s "$TMP_FILE" ]]; then
+        mv -T "$TMP_FILE" "$INFO_FILE"
+        chown vdr:vdr "$INFO_FILE" 2>/dev/null || true
+        echo "[$(date +%T)] ERFOLG: Titel umbenannt: '$OLD_TITLE' -> '$CLEAN_NAME'" >> "$LOG_FILE"
+        touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+        return 0
+    else
+        echo "[$(date +%T)] FEHLER: info-Datei konnte nicht atomar geschrieben werden." >> "$LOG_FILE"
+        rm -f -r "$TMP_FILE" 2>/dev/null || true
+        return 1
+    fi
 }
 
 trash_recording() {

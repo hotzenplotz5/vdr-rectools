@@ -45,6 +45,9 @@ if ($current_path === false || ($current_path !== $base_dir && strpos($current_p
 
 $rel_path = ltrim(substr($current_path, strlen($base_dir)), DIRECTORY_SEPARATOR);
 
+$base_return_url = 'pes2ts_explorer.php?dir=' . rawurlencode($rel_path);
+$return_param = '&return=' . rawurlencode($base_return_url);
+
 // VDR-Suite Helfer-Funktionen (API Vorbereitung)
 function getRecordingDate($pathname) {
     if (preg_match('/^(\d{4})-(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\./', basename($pathname), $m)) {
@@ -329,15 +332,15 @@ foreach ($parts as $part) {
                         </td>
                         <td>
                             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                                <a href="#" class="btn" style="background: #607D8B;" onclick="renameRecordingUI(<?php echo htmlspecialchars(json_encode($rec['path']), ENT_QUOTES, 'UTF-8'); ?>, <?php echo htmlspecialchars(json_encode($rec['title']), ENT_QUOTES, 'UTF-8'); ?>); return false;">Umbenennen</a>
-                                <a href="#" class="btn" style="background: #D32F2F;" onclick="if(confirm('Diese Aufnahme wirklich in den Papierkorb verschieben? Sie wird nicht endgültig gelöscht.')) { window.location.href='rectools_confirm.php?action=trash&path=<?php echo rawurlencode($rec['path']); ?>'; } return false;">In Papierkorb</a>
+                                <a href="#" class="btn" style="background: #607D8B;" title="Ändert nur den angezeigten Titel der Aufnahme. Die Ordnerstruktur bleibt unverändert." onclick="renameRecordingUI(<?php echo htmlspecialchars(json_encode($rec['path']), ENT_QUOTES, 'UTF-8'); ?>, <?php echo htmlspecialchars(json_encode($rec['title']), ENT_QUOTES, 'UTF-8'); ?>); return false;">Titel ändern</a>
+                                <a href="#" class="btn" style="background: #D32F2F;" onclick="if(confirm('Diese Aufnahme wirklich in den Papierkorb verschieben? Sie wird nicht endgültig gelöscht.')) { window.location.href='rectools_confirm.php?action=trash&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>'; } return false;">In Papierkorb</a>
                                 <?php if ($status === 'pes'): ?>
-                                    <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
+                                    <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn convert">PES&rarr;TS</a>
                                 <?php elseif ($status === 'ts'): ?>
-                                    <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?>" class="btn shrink" onclick="return confirm('Diese Aufnahme in H.265 schrumpfen?');">Shrink</a>
-                                    <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?>" class="btn cut" onclick="return confirm('Werbung aus dieser Aufnahme schneiden?');">Cut</a>
-                                    <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?>" class="btn repair" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Repair</a>
-                                    <a href="rectools_confirm.php?action=check&path=<?php echo rawurlencode($rec['path']); ?>" class="btn check">Check</a>
+                                    <a href="rectools_confirm.php?action=shrink&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn shrink" onclick="return confirm('Diese Aufnahme in H.265 schrumpfen?');">Shrink</a>
+                                    <a href="rectools_confirm.php?action=cut&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn cut" onclick="return confirm('Werbung aus dieser Aufnahme schneiden?');">Cut</a>
+                                    <a href="rectools_confirm.php?action=repair&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn repair" onclick="return confirm('Diese Aufnahme wirklich tiefgreifend reparieren?');">Repair</a>
+                                    <a href="rectools_confirm.php?action=check&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn check">Check</a>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -352,10 +355,11 @@ foreach ($parts as $part) {
     <?php endif; ?>
 <script>
 function renameRecordingUI(path, currentName) {
-    var n = prompt('Neuen Namen eingeben:', currentName);
+    var n = prompt('Neuen Titel/Anzeigenamen eingeben:', currentName);
     if (n && n.trim() !== '') {
         var safeName = encodeURIComponent(n.trim());
-        window.location.href = 'rectools_confirm.php?action=rename&path=' + encodeURIComponent(path) + '&name=' + safeName;
+        var returnUrl = 'pes2ts_explorer.php?dir=<?php echo rawurlencode($rel_path); ?>';
+        window.location.href = 'rectools_confirm.php?action=rename&path=' + encodeURIComponent(path) + '&name=' + safeName + '&return=' + encodeURIComponent(returnUrl);
     }
 }
 </script>

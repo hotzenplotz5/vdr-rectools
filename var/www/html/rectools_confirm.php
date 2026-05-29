@@ -98,6 +98,11 @@ if (isset($_GET['action'])) {
     }
 }
 
-header('Location: rectools.html?t=' . time());
+$return = isset($_GET['return']) ? (string)$_GET['return'] : '';
+if ($return !== '' && preg_match('/^(rectools\.html|pes2ts_explorer\.php|config\.php)(\?.*)?$/', $return)) {
+    header('Location: ' . $return);
+} else {
+    header('Location: rectools.html?t=' . time());
+}
 exit;
 ?>
