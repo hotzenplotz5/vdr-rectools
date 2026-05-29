@@ -339,6 +339,7 @@ foreach ($parts as $part) {
                         <td>
                             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                                 <a href="#" class="btn" style="background: #607D8B;" title="Ändert nur den angezeigten Titel der Aufnahme. Die Ordnerstruktur bleibt unverändert." onclick="renameRecordingUI(<?php echo htmlspecialchars(json_encode($rec['path']), ENT_QUOTES, 'UTF-8'); ?>, <?php echo htmlspecialchars(json_encode($rec['title']), ENT_QUOTES, 'UTF-8'); ?>); return false;">Titel ändern</a>
+                                <a href="#" class="btn" style="background: #FF9800;" title="Verschiebt die Aufnahme in einen anderen Ordner." onclick="moveRecordingUI(<?php echo htmlspecialchars(json_encode($rec['path']), ENT_QUOTES, 'UTF-8'); ?>); return false;">Verschieben</a>
                                 <a href="#" class="btn" style="background: #D32F2F;" onclick="if(confirm('Diese Aufnahme wirklich in den Papierkorb verschieben? Sie wird nicht endgültig gelöscht.')) { window.location.href='rectools_confirm.php?action=trash&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>'; } return false;">In Papierkorb</a>
                                 <?php if ($status === 'pes'): ?>
                                     <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?><?php echo $return_param; ?>" class="btn convert">PES&rarr;TS</a>
@@ -366,6 +367,14 @@ function renameRecordingUI(path, currentName) {
         var safeName = encodeURIComponent(n.trim());
         var returnUrl = 'pes2ts_explorer.php?dir=<?php echo rawurlencode($rel_path); ?>';
         window.location.href = 'rectools_confirm.php?action=rename&path=' + encodeURIComponent(path) + '&name=' + safeName + '&return=' + encodeURIComponent(returnUrl);
+    }
+}
+function moveRecordingUI(path) {
+    var target = prompt('Zielordner relativ zu VIDEO_DIR eingeben, z.B. Filme oder Doku/Natur:');
+    if (target && target.trim() !== '') {
+        var safeTarget = encodeURIComponent(target.trim());
+        var returnUrl = 'pes2ts_explorer.php?dir=<?php echo rawurlencode($rel_path); ?>';
+        window.location.href = 'rectools_confirm.php?action=move&path=' + encodeURIComponent(path) + '&target=' + safeTarget + '&return=' + encodeURIComponent(returnUrl);
     }
 }
 </script>

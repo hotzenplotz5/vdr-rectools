@@ -120,6 +120,11 @@ for job in "$JOB_DIR"/*.job; do
         NEW_NAME="${PARAM#*|}"
         /usr/bin/vdr-rectools rename_single "$OLD_PATH" "$NEW_NAME" >/dev/null 2>&1
         SUCCESS=$?
+    elif [ "$ACTION" == "move" ]; then
+        OLD_PATH="${PARAM%%|*}"
+        TARGET_DIR="${PARAM#*|}"
+        /usr/bin/vdr-rectools move_single "$OLD_PATH" "$TARGET_DIR" >/dev/null 2>&1
+        SUCCESS=$?
     elif [ "$ACTION" == "trash" ]; then
         /usr/bin/vdr-rectools trash_single "$PARAM" >/dev/null 2>&1
         SUCCESS=$?

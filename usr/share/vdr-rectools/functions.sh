@@ -444,6 +444,65 @@ rename_recording() {
     fi
 }
 
+move_recording() {
+    local REC_PATH="${1%/}"
+    local TARGET_REL="$2"
+    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
+    local REAL_REC_PATH=$(realpath "$REC_PATH" 2>/dev/null)
+
+    if [[ ! -d "$REC_PATH" || ! "$REC_PATH" =~ \.rec$ ]]; then
+        echo "[$(date +%T)] FEHLER: Move abgebrochen - Pfad ungueltig oder keine .rec Aufnahme." >> "$LOG_FILE"
+        return 1
+    fi
+
+    if [[ -z "$REAL_REC_PATH" || "$REAL_REC_PATH" != "$VIDEO_DIR_REAL"/* ]]; then
+        echo "[$(date +%T)] FEHLER: Move abgebrochen - Quellpfad liegt ausserhalb des erlaubten Video-Verzeichnisses." >> "$LOG_FILE"
+        return 1
+    fi
+
+    if [[ -z "$TARGET_REL" || "$TARGET_REL" == *".."* || "$TARGET_REL" == *"\\"* || "$TARGET_REL" == /* ]]; then
+        echo "[$(date +%T)] FEHLER: Move abgebrochen - Zielordner ungueltig." >> "$LOG_FILE"
+        return 1
+    fi
+
+    local TARGET_ABS="$VIDEO_DIR_REAL/$TARGET_REL"
+    TARGET_ABS=$(echo "$TARGET_ABS" | tr -s '/')
+
+    mkdir -p "$TARGET_ABS"
+    local REAL_TARGET_ABS=$(realpath "$TARGET_ABS" 2>/dev/null)
+
+    if [[ -z "$REAL_TARGET_ABS" || "$REAL_TARGET_ABS" != "$VIDEO_DIR_REAL"/* ]]; then
+        echo "[$(date +%T)] FEHLER: Move abgebrochen - Zielpfad nach Erstellung ausserhalb von VIDEO_DIR." >> "$LOG_FILE"
+        return 1
+    fi
+
+    local REC_NAME=$(basename "$REC_PATH")
+    local FINAL_DEST="$REAL_TARGET_ABS/$REC_NAME"
+
+    if [[ -e "$FINAL_DEST" ]]; then
+        echo "[$(date +%T)] FEHLER: Move abgebrochen - Ziel $FINAL_DEST existiert bereits!" >> "$LOG_FILE"
+        return 1
+    fi
+
+    echo "[$(date +%T)] Starte Verschieben: $REC_PATH nach $REAL_TARGET_ABS" >> "$LOG_FILE"
+
+    if mv "$REC_PATH" "$REAL_TARGET_ABS/"; then
+        local PARENT_DIR=$(dirname "$REC_PATH")
+        local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
+        if [[ "$REC_COUNT" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
+            rmdir "$PARENT_DIR" 2>/dev/null || true
+            echo "[$(date +%T)] ERFOLG: Aufnahme nach $REAL_TARGET_ABS verschoben und leerer Elternordner entfernt." >> "$LOG_FILE"
+        else
+            echo "[$(date +%T)] ERFOLG: Aufnahme nach $REAL_TARGET_ABS verschoben." >> "$LOG_FILE"
+        fi
+        touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+        return 0
+    else
+        echo "[$(date +%T)] FEHLER: Verschieben nach $REAL_TARGET_ABS fehlgeschlagen." >> "$LOG_FILE"
+        return 1
+    fi
+}
+
 trash_recording() {
     local REC_PATH="${1%/}"
     

@@ -57,6 +57,7 @@ BEFEHLE:
     repair          Startet einen Reparatur-Lauf für alle Aufnahmen.
     repair_single   <Pfad> Repariert eine einzelne Aufnahme (Pfad zum .rec Ordner).
     rename_single   <Pfad> <Name> Benennt eine Aufnahme gezielt um.
+    move_single     <Pfad> <Ziel> Verschiebt eine Aufnahme in einen anderen Ordner.
     trash_single    <Pfad> Verschiebt eine einzelne Aufnahme sicher in den Papierkorb.
     pes2ts          Sucht rekursiv nach alten PES-Aufnahmen (*.vdr) und konvertiert sie in TS.
     pes2ts_single   <Pfad> Konvertiert gezielt eine einzelne PES-Aufnahme in TS.
@@ -166,6 +167,12 @@ case "$1" in
     rename_single)
         shift
         rename_recording "$1" "$2"
+        /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        ;;
+
+    move_single)
+        shift
+        move_recording "$1" "$2"
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
         ;;
 

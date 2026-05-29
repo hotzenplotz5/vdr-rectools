@@ -42,6 +42,16 @@ function renameRecording($path, $name) {
     return null;
 }
 
+function moveRecording($path, $target) {
+    $target = trim(preg_replace('/[\r\n]+/', '', $target));
+    $target = str_replace(['..', '\\'], '', $target);
+    $target = ltrim($target, '/'); // Verhindert absolute Pfade
+    if ($target !== '' && $path !== '') {
+        return dispatch_job('move', $path . '|' . $target);
+    }
+    return null;
+}
+
 function trashRecording($path) {
     if ($path !== '') {
         return dispatch_job('trash', $path);
@@ -75,7 +85,7 @@ if (isset($_GET['action'])) {
     $action_req = trim((string)$_GET['action']);
     if ($action_req === 'import') {
         $job_id = dispatch_job('import');
-    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'trash'], true)) {
+    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'trash', 'move'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
@@ -89,6 +99,11 @@ if (isset($_GET['action'])) {
         }
         if ($action_req === 'rename') {
             $job_id = renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
+            if ($job_id) {
+                waitForJobDone($job_id, 2);
+            }
+        } elseif ($action_req === 'move') {
+            $job_id = moveRecording($path, isset($_GET['target']) ? (string)$_GET['target'] : '');
             if ($job_id) {
                 waitForJobDone($job_id, 2);
             }
