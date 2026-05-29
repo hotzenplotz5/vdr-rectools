@@ -36,7 +36,7 @@ if (isset($_GET['action'])) {
     $action_req = trim((string)$_GET['action']);
     if ($action_req === 'import') {
         dispatch_job('import');
-    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename'], true)) {
+    } elseif (in_array($action_req, ['pes2ts', 'shrink', 'repair', 'cut', 'check', 'rename', 'delete'], true)) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {

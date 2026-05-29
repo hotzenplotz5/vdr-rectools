@@ -147,11 +147,11 @@ try {
 }
 
 usort($folders, function($a, $b) {
-    return strcasecmp($a['name'], $b['name']);
+    return strnatcasecmp($a['name'], $b['name']);
 });
 usort($recordings, function($a, $b) {
     if ($a['sort'] !== $b['sort']) return $a['sort'] - $b['sort'];
-    return strcasecmp($a['name'], $b['name']);
+    return strnatcasecmp($a['title'] ?? $a['name'], $b['title'] ?? $b['name']);
 });
 
 // Breadcrumb Navigation
@@ -264,6 +264,7 @@ foreach ($parts as $part) {
                         <td>
                             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                                 <a href="#" class="btn" style="background: #607D8B;" onclick="renameRecordingUI('<?php echo rawurlencode($rec['path']); ?>', '<?php echo htmlspecialchars(addslashes($rec['title']), ENT_QUOTES, 'UTF-8'); ?>'); return false;">Umbenennen</a>
+                                <a href="#" class="btn" style="background: #F44336;" onclick="if(confirm('Diese Aufnahme wirklich UNWIDERRUFLICH löschen?')) { window.location.href='rectools_confirm.php?action=delete&path=<?php echo rawurlencode($rec['path']); ?>'; } return false;">Löschen</a>
                                 <?php if ($status === 'pes'): ?>
                                     <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
                                 <?php elseif ($status === 'ts'): ?>

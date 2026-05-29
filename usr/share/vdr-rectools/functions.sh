@@ -442,6 +442,33 @@ rename_recording() {
     return 0
 }
 
+delete_recording() {
+    local REC_PATH="${1%/}"
+    
+    if [[ ! -d "$REC_PATH" || ! "$REC_PATH" =~ \.rec$ ]]; then
+        echo "[$(date +%T)] FEHLER: Delete abgebrochen - Pfad ungueltig oder keine .rec Aufnahme." >> "$LOG_FILE"
+        return 1
+    fi
+
+    echo "[$(date +%T)] Starte Loeschen für: $REC_PATH" >> "$LOG_FILE"
+    
+    local PARENT_DIR=$(dirname "$REC_PATH")
+    local VIDEO_DIR_REAL=$(realpath "${VIDEO_DIR:-/srv/vdr/video}")
+    
+    rm -rf "$REC_PATH"
+    
+    local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
+    if [[ "$REC_COUNT" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
+        rm -rf "$PARENT_DIR" 2>/dev/null || true
+        echo "[$(date +%T)] ERFOLG: Aufnahme und leerer Elternordner geloescht." >> "$LOG_FILE"
+    else
+        echo "[$(date +%T)] ERFOLG: Aufnahme geloescht." >> "$LOG_FILE"
+    fi
+    
+    touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
+    return 0
+}
+
 process_folder() {
     local REC_DIR="$1"
     local MODE="$2"
@@ -1646,7 +1673,7 @@ fi
     if [[ $IS_RUNNING -eq 1 ]]; then
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_IMPORT:-▶️ Import starten}</span>"
-        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_PES2TS:-🔄 PES->TS}</span>"
+        ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_START_PES2TS:-🎬 VDR-Aufnahmen}</span>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=stop' style='display: inline-block; background: #F44336; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_ABORT:-🛑 Abbrechen}</a>"
         ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_EXPLORER:-📁 Datei-Explorer}</span>"
@@ -1655,7 +1682,7 @@ fi
     else
         ACTION_HTML="<div style='margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;'>"
         ACTION_HTML+="<a href='rectools_confirm.php?action=import' style='display: inline-block; background: #2196F3; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_IMPORT:-▶️ Import starten}</a>"
-        ACTION_HTML+="<a href='pes2ts_explorer.php' style='display: inline-block; background: #00BCD4; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_PES2TS:-🔄 PES->TS}</a>"
+        ACTION_HTML+="<a href='pes2ts_explorer.php' style='display: inline-block; background: #00BCD4; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_START_PES2TS:-🎬 VDR-Aufnahmen}</a>"
         ACTION_HTML+="<span style='display: inline-block; background: rgba(255,255,255,0.1); color: #555; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;'>${TXT_ABORT:-🛑 Abbrechen}</span>"
         ACTION_HTML+="<a href='config.php' style='display: inline-block; background: #555; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_SETTINGS:-⚙️ Einstellungen}</a>"
         ACTION_HTML+="<a href='explorer.php' style='display: inline-block; background: #9C27B0; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>${TXT_EXPLORER:-📁 Datei-Explorer}</a>"
