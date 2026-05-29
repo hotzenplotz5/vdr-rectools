@@ -103,11 +103,8 @@ if (isset($_GET['action'])) {
 
 $return = isset($_GET['return']) ? (string)$_GET['return'] : '';
 if ($return !== '' && preg_match('/^(rectools\.html|pes2ts_explorer\.php|config\.php)(\?.*)?$/', $return)) {
-    if ($job_id) {
-        header('Location: job_wait.php?id=' . urlencode($job_id) . '&return=' . urlencode($return));
-    } else {
-        header('Location: ' . $return);
-    }
+    $sep = (strpos($return, '?') !== false) ? '&' : '?';
+    header('Location: ' . $return . $sep . 't=' . time());
 } else {
     header('Location: rectools.html?t=' . time());
 }
