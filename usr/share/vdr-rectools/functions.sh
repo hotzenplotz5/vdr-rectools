@@ -469,6 +469,8 @@ move_recording() {
     TARGET_ABS=$(echo "$TARGET_ABS" | tr -s '/')
 
     mkdir -p "$TARGET_ABS"
+    chown vdr:vdr "$TARGET_ABS" 2>/dev/null || true
+
     local REAL_TARGET_ABS=$(realpath "$TARGET_ABS" 2>/dev/null)
 
     # Zielpfad muss VIDEO_DIR entsprechen (bei Ziel = Root-Verzeichnis) oder strikt darunter liegen
