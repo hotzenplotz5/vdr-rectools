@@ -3,8 +3,18 @@ require_once __DIR__ . '/job_dispatcher.php';
 
 function load_video_dir() {
     $video_dir = '/srv/vdr/video';
-    $config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
-    if (file_exists($config_file)) {
+    $config_candidates = [
+        '/etc/vdr/vdr-rectools.conf',
+        '/etc/vdr/conf.d/vdr-rectools.conf'
+    ];
+    $config_file = '';
+    foreach ($config_candidates as $cand) {
+        if (file_exists($cand)) {
+            $config_file = $cand;
+            break;
+        }
+    }
+    if ($config_file !== '') {
         $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             $line = trim($line);

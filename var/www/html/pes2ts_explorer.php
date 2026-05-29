@@ -1,8 +1,19 @@
 <?php
-$config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+$config_candidates = [
+    '/etc/vdr/vdr-rectools.conf',
+    '/etc/vdr/conf.d/vdr-rectools.conf'
+];
+$config_file = '';
+foreach ($config_candidates as $cand) {
+    if (file_exists($cand)) {
+        $config_file = $cand;
+        break;
+    }
+}
+
 $video_dir = '/srv/vdr/video';
 
-if (file_exists($config_file)) {
+if ($config_file !== '') {
     $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         $line = trim($line);
@@ -46,8 +57,48 @@ function getRecordingDate($pathname) {
     return 'Unbekannt';
 }
 
-function getRecordingTitle($filename) {
-    return str_replace('_', ' ', $filename);
+function getDisplayName($filename) {
+    // VDR Sonderzeichen (z.B. #3A für Doppelpunkt) dekodieren
+    $name = preg_replace_callback('/#([0-9A-Fa-f]{2})/', function($matches) {
+        return chr(hexdec($matches[1]));
+    }, $filename);
+    return str_replace('_', ' ', $name);
+}
+
+function getRecordingMetadata($recPath, $fallbackName) {
+    $meta = [
+        'title' => getDisplayName($fallbackName),
+        'subtitle' => '',
+        'description' => ''
+    ];
+    
+    $infoFile = rtrim($recPath, '/\\') . DIRECTORY_SEPARATOR . 'info';
+    if (file_exists($infoFile)) {
+        $fp = @fopen($infoFile, 'r');
+        if ($fp) {
+            while (($line = fgets($fp)) !== false) {
+                if (strpos($line, 'T ') === 0) {
+                    $meta['title'] = trim(substr($line, 2));
+                } elseif (strpos($line, 'S ') === 0) {
+                    $meta['subtitle'] = trim(substr($line, 2));
+                } elseif (strpos($line, 'D ') === 0) {
+                    $meta['description'] = trim(substr($line, 2));
+                }
+            }
+            fclose($fp);
+        }
+    }
+    
+    if ($meta['title'] === '') {
+        $meta['title'] = getDisplayName($fallbackName);
+    }
+    
+    return $meta;
+}
+
+function naturalRecordingSortKey($name) {
+    // VDR-Sonderformate für natürliche Sortierung normalisieren (z.B. ~ oder % ignorieren)
+    return str_replace(['~', '%', '(', ')'], [' ', ' ', ' ', ' '], $name);
 }
 
 $folders = [];
@@ -62,8 +113,10 @@ try {
         if ($fileinfo->isDir()) {
             $filename = $fileinfo->getFilename();
             
-            // Security: .trash Ordner niemals im Explorer anzeigen
-            if ($filename === '.trash') continue;
+            // Security: Systemordner und Papierkorb niemals im Explorer anzeigen
+            if ($filename === '.trash' || $filename === 'lost+found' || strpos($filename, '.vdr-rectools') === 0) {
+                continue;
+            }
             
             $pathname = $fileinfo->getRealPath();
             
@@ -129,10 +182,14 @@ try {
                 }
                 $counts['total']++;
                 
+                $meta = getRecordingMetadata($rec_path, $rec_name);
+                
                 $recordings[] = [
                     'path' => $rec_path,
                     'name' => $rec_name,
-                    'title' => getRecordingTitle($rec_name),
+                    'title' => $meta['title'],
+                    'subtitle' => $meta['subtitle'],
+                    'description' => $meta['description'],
                     'date' => getRecordingDate($rec_path),
                     'status' => $status,
                     'sort' => $sort
@@ -151,11 +208,13 @@ try {
 }
 
 usort($folders, function($a, $b) {
-    return strnatcasecmp($a['name'], $b['name']);
+    return strnatcasecmp(naturalRecordingSortKey($a['name']), naturalRecordingSortKey($b['name']));
 });
 usort($recordings, function($a, $b) {
     if ($a['sort'] !== $b['sort']) return $a['sort'] - $b['sort'];
-    return strnatcasecmp($a['title'] ?? $a['name'], $b['title'] ?? $b['name']);
+    $nameA = $a['title'] ?? $a['name'];
+    $nameB = $b['title'] ?? $b['name'];
+    return strnatcasecmp(naturalRecordingSortKey($nameA), naturalRecordingSortKey($nameB));
 });
 
 // Breadcrumb Navigation
@@ -199,8 +258,8 @@ foreach ($parts as $part) {
     </style>
 </head>
 <body>
-    <h2>🔄 VDR-Aufnahmen Explorer</h2>
-    <p style="color: #ccc;">Navigiere durch deine VDR-Aufnahmen. Aktionen wie Konvertieren, Reparieren oder Schrumpfen (H.265) koennen gezielt gestartet werden.</p>
+    <h2>🎬 VDR-Aufnahmen</h2>
+    <p style="color: #ccc;">Verwalte deine VDR-Aufnahmen, prüfe, repariere, schneide oder konvertiere sie.</p>
     
     <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
         <a href="rectools.html" class="btn back" style="margin-bottom: 0;">🔙 Zurueck zum Dashboard</a>
@@ -254,6 +313,9 @@ foreach ($parts as $part) {
                     <tr>
                         <td>
                             <div class="title"><?php echo htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></div>
+                        <?php if ($rec['subtitle'] !== ''): ?>
+                            <div style="font-size: 0.9em; color: #aaa; margin-top: 2px;"><?php echo htmlspecialchars($rec['subtitle'], ENT_QUOTES, 'UTF-8'); ?></div>
+                        <?php endif; ?>
                             <div style="font-size: 0.85em; color: #888; margin-top: 4px;">Aufgenommen: <?php echo htmlspecialchars($rec['date'], ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
@@ -267,7 +329,7 @@ foreach ($parts as $part) {
                         </td>
                         <td>
                             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                                <a href="#" class="btn" style="background: #607D8B;" onclick="renameRecordingUI('<?php echo rawurlencode($rec['path']); ?>', '<?php echo htmlspecialchars(addslashes($rec['title']), ENT_QUOTES, 'UTF-8'); ?>'); return false;">Umbenennen</a>
+                                <a href="#" class="btn" style="background: #607D8B;" onclick="renameRecordingUI(<?php echo htmlspecialchars(json_encode($rec['path']), ENT_QUOTES, 'UTF-8'); ?>, <?php echo htmlspecialchars(json_encode($rec['title']), ENT_QUOTES, 'UTF-8'); ?>); return false;">Umbenennen</a>
                                 <a href="#" class="btn" style="background: #D32F2F;" onclick="if(confirm('Diese Aufnahme wirklich in den Papierkorb verschieben? Sie wird nicht endgültig gelöscht.')) { window.location.href='rectools_confirm.php?action=trash&path=<?php echo rawurlencode($rec['path']); ?>'; } return false;">In Papierkorb</a>
                                 <?php if ($status === 'pes'): ?>
                                     <a href="rectools_confirm.php?action=pes2ts&path=<?php echo rawurlencode($rec['path']); ?>" class="btn convert">PES&rarr;TS</a>
