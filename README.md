@@ -146,7 +146,10 @@ Datei: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools osd-confirm <yes|no>` - Bestätigt oder verwirft einen ausstehenden Re-Encode via OSD.
 * `vdr-rectools stop` - Beendet laufende Hintergrundprozesse sauber.
 * `vdr-rectools cron` - Simuliert den Timer-Aufruf (prüft `AUTO_START_NIGHT`).
+* `vdr-rectools check_single <Pfad>` - Prüft gezielt eine einzelne Aufnahme auf Integrität.
 * `vdr-rectools repair_single <Pfad>` - Repariert gezielt eine einzelne Aufnahme (Pfad zum .rec Ordner).
+* `vdr-rectools cut_single <Pfad>` - Schneidet Werbung gezielt für eine Aufnahme anhand der Schnittmarken.
+* `vdr-rectools shrink_single <Pfad>` - Komprimiert gezielt eine einzelne Aufnahme nach H.265.
 * `vdr-rectools pes2ts` - Sucht rekursiv nach alten PES-Aufnahmen (`.vdr`) und konvertiert sie in das moderne TS-Format (`.ts`).
 * `vdr-rectools pes2ts_single <Pfad>` - Konvertiert gezielt eine einzelne PES-Aufnahme in das TS-Format.
 
@@ -180,26 +183,24 @@ Das Skript meldet sich dann bei erfolgreichen Importen oder Fehlern direkt auf d
 
 ## 📺 VDR OSD-Integration
 Die Befehle werden automatisch in das VDR-Menü (Befehle-Taste innerhalb einer Aufnahme) eingebunden:
-* **Aufnahme reparieren (Rectools):** Startet Reparatur der aktuellen Aufnahme.
-* **Werbung schneiden (Rectools):** Schneidet Aufnahme basierend auf VDR-Marken.
+* **Integrität prüfen (Rectools):** Prüft die aktuelle Aufnahme auf Stream-Fehler.
+* **Aufnahme reparieren (Rectools):** Startet die Reparatur der aktuellen Aufnahme.
+* **Werbung schneiden (Rectools):** Schneidet die Aufnahme basierend auf VDR-Marken.
 * **Platz sparen H.265 (Rectools):** Konvertiert die Aufnahme nach HEVC.
-* **Plex/Kodi Sync (Rectools):** Triggert die Synchronisation für externe Player.
+* **PES zu TS konvertieren (Rectools):** Wandelt eine alte PES-Aufnahme in das TS-Format um.
 
 ### Globales OSD-Menü (`commands.conf`)
-Du kannst ein eigenes Untermenü in der globalen `commands.conf` (z.B. `/var/lib/vdr/commands.conf` oder `/etc/vdr/commands.conf`) anlegen, um den Status direkt am Fernseher zu prüfen und globale Importe zu starten:
+Du kannst ein eigenes Untermenü in der globalen `commands.conf` (z.B. `/var/lib/vdr/commands.conf` oder `/etc/vdr/commands.conf`) anlegen, um den Status direkt am Fernseher zu prüfen und globale Importe zu starten. Die Menüstruktur sieht dann so aus:
 
-```text
-VDR-Rectools {
-    Status anzeigen : /usr/bin/vdr-rectools osd-status
-    Import starten (im Hintergrund) : /usr/bin/vdr-rectools import > /dev/null 2>&1 &
-    ---
-    Re-Encode ausstehend? {
-        JA, Re-Encode jetzt starten : /usr/bin/vdr-rectools osd-confirm yes
-        NEIN, ueberspringen & ignorieren : /usr/bin/vdr-rectools osd-confirm no
-    }
-}
-```
-*(Nach einer Änderung der `commands.conf` muss meistens der VDR-Dienst neugestartet werden).*
+*   **VDR-Rectools** (Menütitel)
+    *   **Status anzeigen:** `/usr/bin/vdr-rectools osd-status`
+    *   **Import starten (im Hintergrund):** `/usr/bin/vdr-rectools import > /dev/null 2>&1 &`
+    *   **PES zu TS Konvertierung starten:** `/usr/bin/vdr-rectools pes2ts > /dev/null 2>&1 &`
+    *   **---** (Trennlinie)
+    *   **Re-Encode ausstehend?** (Untermenü)
+        *   **JA, Re-Encode jetzt starten:** `/usr/bin/vdr-rectools osd-confirm yes`
+        *   **NEIN, überspringen & ignorieren:** `/usr/bin/vdr-rectools osd-confirm no`
+        *   **Am PC (Handbrake) bearbeiten:** `/usr/bin/vdr-rectools osd-confirm manual`
 
 ---
 

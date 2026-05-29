@@ -143,7 +143,11 @@ File: `/etc/vdr/conf.d/vdr-rectools.conf`
 * `vdr-rectools osd-confirm <yes|no>` - Confirms or rejects a pending re-encode via OSD.
 * `vdr-rectools stop` - Stops running background processes cleanly.
 * `vdr-rectools cron` - Simulates the timer call (checks `AUTO_START_NIGHT`).
+* `vdr-rectools check_single <path>` - Checks a single recording for integrity.
 * `vdr-rectools repair_single <path>` - Repairs a single recording (path to the .rec folder).
+* `vdr-rectools cut_single <path>` - Cuts commercials for a single recording based on marks.
+* `vdr-rectools shrink_single <path>` - Compresses a single recording to H.265.
+* `vdr-rectools pes2ts_single <path>` - Converts a single PES recording to TS.
 
 ### Systemd Timer (Automation)
 The timer is active by default and triggers the scan (usually at night). However, it only runs if `AUTO_START_NIGHT=1` is set.
@@ -175,25 +179,25 @@ The script will instantly notify your smartphone upon successful imports or erro
 
 ## 📺 VDR OSD Integration
 The commands are automatically integrated into the VDR menu (Commands key within a recording):
+* **Check integrity (Rectools):** Checks the current recording for stream errors.
 * **Repair recording (Rectools):** Starts repair for the current recording.
 * **Cut commercials (Rectools):** Cuts the recording based on VDR marks.
 * **Save space H.265 (Rectools):** Converts the recording to HEVC.
-* **Plex/Kodi Sync (Rectools):** Triggers synchronization for external players.
+* **Convert PES to TS (Rectools):** Converts an old PES recording to the TS format.
 
 ### Global OSD Menu (`commands.conf`)
-You can add a dedicated menu to your main VDR `commands.conf` (e.g. `/var/lib/vdr/commands.conf` or `/etc/vdr/commands.conf`) to monitor the status and start global imports directly from your TV:
+You can add a dedicated menu to your main VDR `commands.conf` (e.g. `/var/lib/vdr/commands.conf` or `/etc/vdr/commands.conf`) to monitor the status and start global imports directly from your TV. The menu structure would look like this:
 
-```text
-VDR-Rectools {
-    Show Status : /usr/bin/vdr-rectools osd-status
-    Start Import (Background) : /usr/bin/vdr-rectools import > /dev/null 2>&1 &
-    ---
-    Pending Re-Encode? {
-        YES, start Re-Encode now : /usr/bin/vdr-rectools osd-confirm yes
-        NO, skip & ignore : /usr/bin/vdr-rectools osd-confirm no
-    }
-}
-```
+*   **VDR-Rectools** (Menu Title)
+    *   **Show Status:** `/usr/bin/vdr-rectools osd-status`
+    *   **Start Import (Background):** `/usr/bin/vdr-rectools import > /dev/null 2>&1 &`
+    *   **Start PES to TS Conversion:** `/usr/bin/vdr-rectools pes2ts > /dev/null 2>&1 &`
+    *   **---** (Separator)
+    *   **Pending Re-Encode?** (Submenu)
+        *   **YES, start Re-Encode now:** `/usr/bin/vdr-rectools osd-confirm yes`
+        *   **NO, skip & ignore:** `/usr/bin/vdr-rectools osd-confirm no`
+        *   **Process on PC (Handbrake):** `/usr/bin/vdr-rectools osd-confirm manual`
+
 *(After modifying the `commands.conf`, you usually need to restart the VDR service).*
 
 ---
