@@ -131,6 +131,12 @@ function getMoveTargetFolders($base_dir) {
         if ($name1 === '.trash' || $name1 === 'lost+found' || strpos($name1, '.') === 0 || substr($name1, -4) === '.rec') {
             continue;
         }
+        
+        $has_recs1 = !empty(@glob($dir1 . '/*.rec', GLOB_ONLYDIR | GLOB_NOSORT));
+        if ($has_recs1) {
+            continue;
+        }
+        
         $folders[] = $name1;
         
         $level2 = @glob($dir1 . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [];
@@ -139,7 +145,11 @@ function getMoveTargetFolders($base_dir) {
             if (strpos($name2, '.') === 0 || substr($name2, -4) === '.rec') {
                 continue;
             }
-            $folders[] = $name1 . '/' . $name2;
+            
+            $has_recs2 = !empty(@glob($dir2 . '/*.rec', GLOB_ONLYDIR | GLOB_NOSORT));
+            if (!$has_recs2) {
+                $folders[] = $name1 . '/' . $name2;
+            }
         }
     }
     sort($folders);
