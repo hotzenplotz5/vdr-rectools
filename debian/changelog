@@ -1,3 +1,13 @@
+vdr-rectools (3.8.1-1) unstable; urgency=medium
+
+  * Release Version 3.8.1 - The "Explorer Performance" Update
+  * PERF: Web-Explorer (pes2ts_explorer.php) auf blitzschnelle Ordner-Navigation umgebaut.
+  * FEAT: Breadcrumb-Navigation und Verzeichnis-Statistiken im Web-Explorer hinzugefügt.
+  * FIX: Ladezeiten bei riesigen Aufnahme-Archiven drastisch reduziert (keine Rekursion mehr).
+  * SEC: Strikte Directory-Traversal Checks (Schutz gegen Path-Escaping) eingebaut.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Fri, 29 May 2026 18:20:00 +0000
+
 vdr-rectools (3.8.0-1) unstable; urgency=medium
 
   * Release Version 3.8.0 - The "Documentation & Polish" Update

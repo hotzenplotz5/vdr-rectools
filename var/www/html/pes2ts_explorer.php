@@ -16,31 +16,46 @@ if (file_exists($config_file)) {
     }
 }
 
-$real_video_dir = realpath($video_dir);
-$recordings = [];
-$counts = ['total' => 0, 'pes' => 0, 'ts' => 0, 'unknown' => 0];
+$base_dir = realpath($video_dir);
+if (!$base_dir || !is_dir($base_dir)) {
+    die("VIDEO_DIR existiert nicht oder ist ungueltig.");
+}
 
-if ($real_video_dir && is_dir($real_video_dir)) {
-    try {
-        $dir_iterator = new RecursiveDirectoryIterator($real_video_dir, RecursiveDirectoryIterator::SKIP_DOTS);
-        $iterator = new RecursiveIteratorIterator($dir_iterator, RecursiveIteratorIterator::SELF_FIRST);
+$req_dir = isset($_GET['dir']) ? (string)$_GET['dir'] : '';
+$req_dir = trim($req_dir, '/\\');
+
+$target_path = $req_dir === '' ? $base_dir : $base_dir . DIRECTORY_SEPARATOR . $req_dir;
+$current_path = realpath($target_path);
+
+// Security-Check: Verhindert Directory-Traversal (z.B. ../video2)
+if ($current_path === false || ($current_path !== $base_dir && strpos($current_path, $base_dir . DIRECTORY_SEPARATOR) !== 0)) {
+    $current_path = $base_dir;
+}
+
+$rel_path = ltrim(substr($current_path, strlen($base_dir)), DIRECTORY_SEPARATOR);
+
+$folders = [];
+$recordings = [];
+$counts = ['folders' => 0, 'total' => 0, 'pes' => 0, 'ts' => 0, 'unknown' => 0];
+
+try {
+    $iterator = new DirectoryIterator($current_path);
+    foreach ($iterator as $fileinfo) {
+        if ($fileinfo->isDot()) continue;
         
-        foreach ($iterator as $file) {
-            if ($file->isDir() && substr($file->getFilename(), -4) === '.rec') {
-                $rec_path = $file->getRealPath();
-                $rel_path = substr($rec_path, strlen($real_video_dir) + 1);
-                
-                $title = basename(dirname($rec_path));
-                $title = str_replace('_', ' ', $title);
-                
+        if ($fileinfo->isDir()) {
+            $filename = $fileinfo->getFilename();
+            $pathname = $fileinfo->getRealPath();
+            
+            if (substr($filename, -4) === '.rec') {
                 $has_pes = false;
                 $has_ts = false;
                 
-                if ($dh = @opendir($rec_path)) {
+                if ($dh = @opendir($pathname)) {
                     while (($item = readdir($dh)) !== false) {
                         if (preg_match('/^[0-9]{3}\.vdr$/', $item)) {
                             $has_pes = true;
-                            break; // PES hat Prio, wir koennen die Schleife abbrechen
+                            break;
                         } elseif (preg_match('/^000.*\.ts$/', $item)) {
                             $has_ts = true;
                         }
@@ -58,23 +73,40 @@ if ($real_video_dir && is_dir($real_video_dir)) {
                 $counts['total']++;
                 
                 $recordings[] = [
-                    'path' => $rec_path,
-                    'rel_path' => $rel_path,
-                    'title' => $title,
+                    'path' => $pathname,
+                    'name' => $filename,
                     'status' => $status,
                     'sort' => $sort
                 ];
+            } else {
+                $folders[] = [
+                    'name' => $filename,
+                    'rel_path' => $rel_path === '' ? $filename : $rel_path . '/' . $filename
+                ];
+                $counts['folders']++;
             }
         }
-    } catch (Exception $e) {
-        // Ignorieren falls Berechtigungsfehler in tieferen Strukturen auftreten
     }
+} catch (Exception $e) {
+    // Ignorieren falls Berechtigungsfehler
 }
 
+usort($folders, function($a, $b) {
+    return strcasecmp($a['name'], $b['name']);
+});
 usort($recordings, function($a, $b) {
     if ($a['sort'] !== $b['sort']) return $a['sort'] - $b['sort'];
-    return strcasecmp($a['title'], $b['title']);
+    return strcasecmp($a['name'], $b['name']);
 });
+
+// Breadcrumb Navigation
+$parts = $rel_path === '' ? [] : explode('/', $rel_path);
+$breadcrumb_html = '<a href="?dir=" style="color: #00BCD4; text-decoration: none; font-weight: bold;">Start</a>';
+$accumulated = '';
+foreach ($parts as $part) {
+    $accumulated .= ($accumulated === '' ? '' : '/') . $part;
+    $breadcrumb_html .= ' / <a href="?dir=' . rawurlencode($accumulated) . '" style="color: #00BCD4; text-decoration: none; font-weight: bold;">' . htmlspecialchars(str_replace('_', ' ', $part), ENT_QUOTES, 'UTF-8') . '</a>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -86,13 +118,14 @@ usort($recordings, function($a, $b) {
         body { background-color: #121212; color: #fff; font-family: Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
         a.btn { display: inline-block; background: #00BCD4; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; text-align: center; font-size: 0.9em; }
         a.btn:hover { filter: brightness(1.1); }
-        a.btn.global { background: #FF9800; margin-bottom: 20px; display: block; width: fit-content; }
         a.btn.back { background: #555; margin-bottom: 20px; }
         a.btn.shrink { background: #2196F3; }
         a.btn.repair { background: #FF9800; }
         a.btn.check  { background: #4CAF50; }
         a.btn.cut    { background: #9C27B0; }
         a.btn.convert{ background: #F44336; }
+        .breadcrumb { margin-bottom: 20px; font-size: 1.1em; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        .breadcrumb a:hover { text-decoration: underline; }
         .stats { display: flex; gap: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
         .stat-box { flex: 1; text-align: center; }
         .stat-num { font-size: 1.5em; font-weight: bold; }
@@ -108,37 +141,60 @@ usort($recordings, function($a, $b) {
 </head>
 <body>
     <h2>🔄 VDR-Aufnahmen Explorer</h2>
-    <p style="color: #ccc;">Hier werden alle VDR-Aufnahmen angezeigt. Aktionen wie Konvertieren, Reparieren oder Schrumpfen (H.265) koennen gezielt gestartet werden.</p>
+    <p style="color: #ccc;">Navigiere durch deine VDR-Aufnahmen. Aktionen wie Konvertieren, Reparieren oder Schrumpfen (H.265) koennen gezielt gestartet werden.</p>
     
-    <a href="rectools.html" class="btn back">🔙 Zurueck zum Dashboard</a>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+        <a href="rectools.html" class="btn back" style="margin-bottom: 0;">🔙 Zurueck zum Dashboard</a>
+        <?php if ($rel_path !== ''): ?>
+            <?php 
+                $up_dir = dirname($rel_path); 
+                if ($up_dir === '.') $up_dir = '';
+            ?>
+            <a href="?dir=<?php echo rawurlencode($up_dir); ?>" class="btn back" style="margin-bottom: 0;">⬅️ .. (Eine Ebene hoch)</a>
+        <?php endif; ?>
+    </div>
+
+    <div class="breadcrumb">
+        📍 <?php echo $breadcrumb_html; ?>
+    </div>
     
     <div class="stats">
+        <div class="stat-box" style="color: #00BCD4;"><div class="stat-num"><?php echo $counts['folders']; ?></div>Ordner</div>
         <div class="stat-box"><div class="stat-num"><?php echo $counts['total']; ?></div>Gesamt</div>
         <div class="stat-box" style="color: #FF9800;"><div class="stat-num"><?php echo $counts['pes']; ?></div>PES</div>
         <div class="stat-box" style="color: #4CAF50;"><div class="stat-num"><?php echo $counts['ts']; ?></div>TS</div>
         <div class="stat-box" style="color: #9E9E9E;"><div class="stat-num"><?php echo $counts['unknown']; ?></div>Unbekannt</div>
     </div>
     
-    <?php if ($counts['pes'] > 0): ?>
-        <a href="rectools_confirm.php?action=pes2ts" class="btn global" onclick="return confirm('Wirklich ALLE gefundenen PES-Aufnahmen konvertieren? Das kann je nach Archivgroesse eine Weile dauern.');">⚡ Alle <?php echo $counts['pes']; ?> PES-Aufnahmen konvertieren</a>
-    <?php endif; ?>
-        
-    <?php if (count($recordings) > 0): ?>
+    <?php if (count($folders) > 0 || count($recordings) > 0): ?>
         <table>
             <thead>
                 <tr>
-                    <th>Titel & Pfad</th>
+                    <th>Name</th>
                     <th>Status</th>
                     <th>Aktion</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($recordings as $rec): ?>
-                    <?php $status = strtolower(trim((string)$rec['status'])); ?>
+                <?php foreach ($folders as $folder): ?>
                     <tr>
                         <td>
-                            <div class="title"><?php echo htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></div>
-                            <div class="path">📂 <?php echo htmlspecialchars($rec['rel_path'], ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div class="title">
+                                <a href="?dir=<?php echo rawurlencode($folder['rel_path']); ?>" style="color: #e0e0e0; text-decoration: none;">
+                                    📁 <?php echo htmlspecialchars(str_replace('_', ' ', $folder['name']), ENT_QUOTES, 'UTF-8'); ?>
+                                </a>
+                            </div>
+                        </td>
+                        <td><span style="color: #bbb;">Ordner</span></td>
+                        <td><a href="?dir=<?php echo rawurlencode($folder['rel_path']); ?>" class="btn">Öffnen</a></td>
+                    </tr>
+                <?php endforeach; ?>
+
+                <?php foreach ($recordings as $rec): ?>
+                    <?php $status = $rec['status']; ?>
+                    <tr>
+                        <td>
+                            <div class="title"><?php echo htmlspecialchars(str_replace('_', ' ', $rec['name']), ENT_QUOTES, 'UTF-8'); ?></div>
                         </td>
                         <td>
                             <?php if ($status === 'pes'): ?>
@@ -167,7 +223,7 @@ usort($recordings, function($a, $b) {
         </table>
     <?php else: ?>
         <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 5px; text-align: center; color: #bbb;">
-            Es wurden keine VDR-Aufnahmen (.rec) im Videoverzeichnis gefunden.
+            Dieser Ordner ist leer oder enthaelt keine VDR-Aufnahmen.
         </div>
     <?php endif; ?>
 </body>
