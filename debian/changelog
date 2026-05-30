@@ -1,3 +1,14 @@
+vdr-rectools (3.8.4-1) unstable; urgency=medium
+
+  * Release Version 3.8.4 - The "Move & Polish" Update
+  * FEAT: Sicheres Verschieben (Move) von Aufnahmen im Explorer integriert.
+  * FEAT: Dateigröße (GB/MB) wird nun im Aufnahmen-Explorer angezeigt.
+  * FEAT: Manuelles Installationsskript (install.sh) inkl. README hinzugefügt.
+  * FIX: Browser-Caching nach Metadaten-Änderungen (Rename) behoben.
+  * PERF: Beschleunigtes Status-Polling nach Aktionen im Explorer.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 30 May 2026 08:00:00 +0000
+
 vdr-rectools (3.8.3-1) unstable; urgency=medium
 
   * Release Version 3.8.3 - The "Safe Trash" Update
