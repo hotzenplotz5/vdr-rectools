@@ -1,5 +1,20 @@
 debian/debhelper-build-stamp
 debian/vdr-rectools/
-debian/vdr-rectools.substvars
+debian/vdr-rectools-cli/
+debian/vdr-rectools-web/
+debian/*.debhelper
+debian/*.substvars
 debian/files
+*.build
+*.buildinfo
+*.changes
 *.deb
+# Debian
+debian/.debhelper/
+debian/tmp/
+debian/*.log
+
+# Editor
+*~
+*.swp
+*.swo
