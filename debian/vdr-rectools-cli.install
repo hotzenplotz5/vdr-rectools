@@ -1,0 +1,11 @@
+usr/bin/vdr-rectools usr/bin/
+usr/bin/vdr-rectools-worker usr/bin/
+usr/share/vdr-rectools/functions.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/media_tools.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/html_template.sh usr/share/vdr-rectools/
+usr/share/vdr-rectools/lang/* usr/share/vdr-rectools/lang/
+usr/share/man/* usr/share/man/
+lib/systemd/system/vdr-rectools.service lib/systemd/system/
+lib/systemd/system/vdr-rectools.timer lib/systemd/system/
+debian/vdr-rectools.conf etc/vdr/
+debian/commands.vdr-rectools.conf etc/vdr/command-hooks/

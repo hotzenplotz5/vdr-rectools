@@ -5,11 +5,17 @@ Maintainer: Holger Schvestka <hotzenplotz5@gmx.de>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.5.0
 
-Package: vdr-rectools
+Package: vdr-rectools-cli
 Architecture: all
-Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo, curl, php-cli, php-json, nginx, php-fpm
+Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo, curl
 Conflicts: vdr-reccleaner
 Replaces: vdr-reccleaner
-Description: VDR Media-Suite: Join, Import, Repair, Auto-Subtitles & Systemd.
+Description: VDR Media-Suite CLI & Backend: Join, Import, Repair, Auto-Subtitles & Systemd.
  Modulares Bash-Tool zur Verwaltung, Reparatur und zum Import von VDR-Aufnahmen.
- Bietet OSD-Integration und nahtlose Plex/Kodi-Unterstützung.
+ Bietet OSD-Integration und nahtlose Plex/Kodi-Unterstützung. (Basis-Paket)
+
+Package: vdr-rectools-web
+Architecture: all
+Depends: vdr-rectools-cli, php-cli, php-json, nginx, php-fpm
+Description: VDR Media-Suite Web-Frontend & Dashboard.
+ Optionale Web-Oberfläche und Aufnahmen-Explorer für vdr-rectools.

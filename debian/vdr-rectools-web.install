@@ -1,0 +1,9 @@
+var/www/html/explorer.php var/www/html/
+var/www/html/config.php var/www/html/
+var/www/html/log_viewer.php var/www/html/
+var/www/html/router.php var/www/html/
+var/www/html/rectools_confirm.php var/www/html/
+var/www/html/pes2ts_explorer.php var/www/html/
+var/www/html/job_wait.php var/www/html/
+var/www/html/lang/* var/www/html/lang/
+debian/nginx/vdr-rectools-php.conf etc/nginx/snippets/

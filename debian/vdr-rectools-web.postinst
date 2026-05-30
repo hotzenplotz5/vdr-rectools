@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+touch /var/www/html/rectools.html
+chmod 666 /var/www/html/rectools.html
+
+touch /tmp/rectools_debug.log
+chown vdr:vdr /tmp/rectools_debug.log
+chmod 666 /tmp/rectools_debug.log
+
+if [ -f /etc/nginx/snippets/vdr-rectools-php.conf ] && [ -f /etc/nginx/sites-enabled/default ]; then
+    if ! grep -q "vdr-rectools-php.conf" /etc/nginx/sites-enabled/default; then
+        sed -i '/location \/ {/i\
+        include snippets/vdr-rectools-php.conf;\
+' /etc/nginx/sites-enabled/default
+    fi
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+fi
+
+if [ -d /run/systemd/system ]; then
+    for svc in $(systemctl list-units --type=service --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}'); do
+        systemctl reload-or-restart "$svc" >/dev/null 2>&1 || true
+    done
+fi
+
+#DEBHELPER#
+exit 0

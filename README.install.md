@@ -8,11 +8,13 @@ Dieses Dokument beschreibt die verschiedenen Wege, um **vdr-rectools** auf deine
 
 ### Methode A: Debian-Paket (.deb) - **BEVORZUGT**
 
-Für alle Debian- und Ubuntu-basierten Systeme (z.B. yaVDR, MLD) ist die Installation über das fertige `.deb`-Paket der empfohlene Weg. Das Paket kümmert sich automatisch um Abhängigkeiten, Systemd-Dienste, OSD-Menü-Integration und Updates.
+Für alle Debian- und Ubuntu-basierten Systeme (z.B. yaVDR, MLD) ist die Installation über die fertigen `.deb`-Pakete der empfohlene Weg. Das Projekt ist nun in zwei Pakete aufgeteilt:
+*   **vdr-rectools-cli:** Das Backend (CLI-Tools, Worker, Systemd-Dienste).
+*   **vdr-rectools-web:** Das Web-Dashboard (setzt das CLI-Paket voraus).
 
 ```bash
 # Heruntergeladenes Paket installieren
-sudo apt install ./vdr-rectools_*.deb
+sudo apt install ./vdr-rectools-cli_*.deb ./vdr-rectools-web_*.deb
 ```
 
 ---
