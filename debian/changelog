@@ -1,3 +1,11 @@
+vdr-rectools (3.8.6-1) unstable; urgency=medium
+
+  * Release Version 3.8.6 - The "Config & Polish" Update
+  * FIX: Konfigurationspfade im Backend und in den postinst-Skripten 
+    konsistent auf /etc/vdr/vdr-rectools.conf aktualisiert.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 30 May 2026 10:00:00 +0000
+
 vdr-rectools (3.8.5-1) unstable; urgency=medium
 
   * Release Version 3.8.5 - The "Split & Deploy" Update
