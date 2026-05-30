@@ -120,6 +120,11 @@ if [ -f /etc/nginx/snippets/vdr-rectools-php.conf ] && [ -f /etc/nginx/sites-ena
     nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
 fi
 
+# PHP OPcache nach Update leeren (versionsunabhängig), damit neue PHP-Dateien sofort aktiv werden
+if [ -d /run/systemd/system ]; then
+    systemctl reload-or-restart 'php*-fpm.service' >/dev/null 2>&1 || true
+fi
+
 db_stop
 #DEBHELPER#
 exit 0

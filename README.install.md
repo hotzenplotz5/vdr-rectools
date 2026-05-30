@@ -1,10 +1,12 @@
 # 🛠️ VDR-Rectools Installation
 
-Dieses Dokument beschreibt die verschiedenen Wege, um **vdr-rectools** auf deinem System zu installieren. 
+Dieses Dokument beschreibt die verschiedenen Wege, um **vdr-rectools** auf deinem System zu installieren und wieder zu entfernen.
 
 ---
 
-## 1. Installation per Debian-Paket (.deb) - **BEVORZUGT**
+## 1. Installationsmethoden
+
+### Methode A: Debian-Paket (.deb) - **BEVORZUGT**
 
 Für alle Debian- und Ubuntu-basierten Systeme (z.B. yaVDR, MLD) ist die Installation über das fertige `.deb`-Paket der empfohlene Weg. Das Paket kümmert sich automatisch um Abhängigkeiten, Systemd-Dienste, OSD-Menü-Integration und Updates.
 
