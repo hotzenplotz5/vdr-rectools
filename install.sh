@@ -38,14 +38,27 @@ cp -r var/www/html/* /var/www/html/
 # 4. Rechte setzen
 echo "-> Setze Berechtigungen..."
 chmod +x /usr/bin/vdr-rectools /usr/bin/vdr-rectools-worker
-chmod +x /usr/share/vdr-rectools/*.sh
+find /usr/share/vdr-rectools -type f -name "*.sh" -exec chmod +x {} \;
 chmod 777 /tmp/vdr-rectools-jobs
 
 # 5. Konfiguration sichern/kopieren
 echo "-> Prüfe Konfiguration..."
 if [ ! -f /etc/vdr/vdr-rectools.conf ] && [ ! -f /etc/vdr/conf.d/vdr-rectools.conf ]; then
     echo "   Erstelle Standardkonfiguration unter /etc/vdr/vdr-rectools.conf"
-    cp debian/vdr-rectools.conf /etc/vdr/vdr-rectools.conf
+    if [ -f debian/vdr-rectools.conf ]; then
+        cp debian/vdr-rectools.conf /etc/vdr/vdr-rectools.conf
+    elif [ -f vdr-rectools.conf ]; then
+        cp vdr-rectools.conf /etc/vdr/vdr-rectools.conf
+    else
+        cat <<EOFCONF > /etc/vdr/vdr-rectools.conf
+VIDEO_DIR="/srv/vdr/video"
+IMPORT_DIR="/srv/vdr/import"
+REPAIR_STAGING="/srv/vdr/tmp/staging"
+HTML_DASHBOARD=1
+HTML_PATH="/var/www/html/rectools.html"
+LANGUAGE="de"
+EOFCONF
+    fi
 else
     echo "   Konfiguration existiert bereits, wird nicht überschrieben."
 fi
@@ -78,7 +91,9 @@ fi
 # 7. PHP-FPM neuladen
 echo "-> Lade PHP-FPM neu (für OPcache)..."
 if [ -d /run/systemd/system ]; then
-    systemctl reload-or-restart 'php*-fpm.service' >/dev/null 2>&1 || true
+    for svc in $(systemctl list-units --type=service --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}'); do
+        systemctl reload-or-restart "$svc" >/dev/null 2>&1 || true
+    done
 fi
 
 echo "=========================================================="
