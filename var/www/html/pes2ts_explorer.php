@@ -132,11 +132,29 @@ function getMoveTargetFolders($base_dir) {
             continue;
         }
         
-        $has_recs1 = !empty(@glob($dir1 . '/*.rec', GLOB_ONLYDIR | GLOB_NOSORT));
-        if ($has_recs1) {
+        $has_recs1 = false;
+        $has_subdirs1 = false;
+        if ($dh = @opendir($dir1)) {
+            while (($item = readdir($dh)) !== false) {
+                if ($item === '.' || $item === '..') continue;
+                $path = $dir1 . DIRECTORY_SEPARATOR . $item;
+                if (is_dir($path)) {
+                    if (substr($item, -4) === '.rec') {
+                        $has_recs1 = true;
+                    } elseif ($item !== '.trash' && $item !== 'lost+found' && strpos($item, '.') !== 0) {
+                        $has_subdirs1 = true;
+                    }
+                }
+            }
+            closedir($dh);
+        }
+        
+        // Rekursion stoppen und Ordner ignorieren, wenn es ein reiner Aufnahmecontainer ist
+        if ($has_recs1 && !$has_subdirs1) {
             continue;
         }
         
+        // Kategorieordner (Level 1) immer anzeigen
         $folders[] = $name1;
         
         $level2 = @glob($dir1 . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [];
@@ -146,10 +164,24 @@ function getMoveTargetFolders($base_dir) {
                 continue;
             }
             
-            $has_recs2 = !empty(@glob($dir2 . '/*.rec', GLOB_ONLYDIR | GLOB_NOSORT));
-            if (!$has_recs2) {
-                $folders[] = $name1 . '/' . $name2;
+            $has_recs2 = false;
+            if ($dh = @opendir($dir2)) {
+                while (($item = readdir($dh)) !== false) {
+                    if ($item === '.' || $item === '..') continue;
+                    if (substr($item, -4) === '.rec' && is_dir($dir2 . DIRECTORY_SEPARATOR . $item)) {
+                        $has_recs2 = true;
+                        break;
+                    }
+                }
+                closedir($dh);
             }
+            
+            // Aufnahmecontainer in Level 2 ausblenden
+            if ($has_recs2) {
+                continue;
+            }
+            
+            $folders[] = $name1 . '/' . $name2;
         }
     }
     sort($folders);
