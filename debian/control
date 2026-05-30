@@ -9,7 +9,9 @@ Package: vdr-rectools-cli
 Architecture: all
 Depends: vdr, ffmpeg, bash (>= 4.0), coreutils, findutils, debconf, bsd-mailx | mailx, subliminal, mediainfo, curl
 Conflicts: vdr-reccleaner
-Replaces: vdr-reccleaner
+Breaks: vdr-rectools (<< 3.8.4-1)
+Replaces: vdr-reccleaner, vdr-rectools (<< 3.8.4-1)
+Provides: vdr-rectools
 Description: VDR Media-Suite CLI & Backend: Join, Import, Repair, Auto-Subtitles & Systemd.
  Modulares Bash-Tool zur Verwaltung, Reparatur und zum Import von VDR-Aufnahmen.
  Bietet OSD-Integration und nahtlose Plex/Kodi-Unterstützung. (Basis-Paket)
@@ -17,5 +19,7 @@ Description: VDR Media-Suite CLI & Backend: Join, Import, Repair, Auto-Subtitles
 Package: vdr-rectools-web
 Architecture: all
 Depends: vdr-rectools-cli, php-cli, php-json, nginx, php-fpm
+Breaks: vdr-rectools (<< 3.8.4-1)
+Replaces: vdr-rectools (<< 3.8.4-1)
 Description: VDR Media-Suite Web-Frontend & Dashboard.
  Optionale Web-Oberfläche und Aufnahmen-Explorer für vdr-rectools.
