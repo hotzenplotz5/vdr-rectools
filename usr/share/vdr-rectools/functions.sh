@@ -40,7 +40,10 @@ USE_TVSCRAPER=0
 TVSCRAPER_MODE="batch"
 
 # 2. CONFIG EINLESEN
-CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
+CONFIG_FILE="/etc/vdr/vdr-rectools.conf"
+if [ ! -f "$CONFIG_FILE" ] && [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+    CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
+fi
 if [ -f "$CONFIG_FILE" ]; then
     # Windows CRLF on-the-fly entfernen, falls Config per Samba (Windows) bearbeitet wurde
     source <(sed 's/\r$//' "$CONFIG_FILE")
@@ -1683,7 +1686,9 @@ export_html_status() {
        # Sprache frisch aus Config laden
 unset LANGUAGE
 
-if [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
+    source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
+elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
     source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
 fi
 

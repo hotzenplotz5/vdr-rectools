@@ -11,7 +11,11 @@ PID_FILE="/tmp/vdr-rectools.pid"
 # Stellt sicher, dass das Skript nicht bereits läuft
 is_running() {
     local V_DIR="/srv/vdr/video"
-    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+    if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
+        source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
+    elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+        source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+    fi
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
     local L_FILE="$V_DIR/.vdr-rectools.lock"
     
@@ -173,7 +177,6 @@ case "$1" in
     move_single)
         shift
         move_recording "$1" "$2"
-        chown -R vdr:vdr "${VIDEO_DIR:-/srv/vdr/video}" 2>/dev/null || true
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
         ;;
 
@@ -233,7 +236,11 @@ case "$1" in
     confirm)
         V_DIR="/srv/vdr/video"
         I_DIR="/srv/vdr/import"
-        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+        if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
+            source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
+        elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+            source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+        fi
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         [ -n "${IMPORT_DIR}" ] && I_DIR="${IMPORT_DIR}"
         PROMPT_FILE="$V_DIR/.vdr-rectools.prompt"
@@ -351,7 +358,11 @@ case "$1" in
         echo "Stoppe vdr-rectools und alle Kindprozesse..."
         
         V_DIR="/srv/vdr/video"
-        [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+        if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
+            source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
+        elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
+            source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+        fi
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         L_FILE="$V_DIR/.vdr-rectools.lock"
         P_PROMPT="$V_DIR/.vdr-rectools.prompt"

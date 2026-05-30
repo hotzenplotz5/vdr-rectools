@@ -4,8 +4,11 @@ set -e
 # Debconf-Modul laden
 . /usr/share/debconf/confmodule
 
-CONF="/etc/vdr/conf.d/vdr-rectools.conf"
-mkdir -p /etc/vdr/conf.d
+CONF="/etc/vdr/vdr-rectools.conf"
+
+if [ ! -f "$CONF" ] && [ -f /etc/vdr/conf.d/vdr-rectools.conf ]; then
+    CONF="/etc/vdr/conf.d/vdr-rectools.conf"
+fi
 
 # 1. FIX FÃœR DAS CONFFILE-PROBLEM (Warum keine Abfrage kam)
 # Wenn dpkg wegen alter sed-Ã„nderungen die neue Datei als .dpkg-dist ablegt,

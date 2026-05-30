@@ -4,8 +4,11 @@ set -e
 # Debconf-Modul laden
 . /usr/share/debconf/confmodule
 
-CONF="/etc/vdr/conf.d/vdr-rectools.conf"
-mkdir -p /etc/vdr/conf.d
+CONF="/etc/vdr/vdr-rectools.conf"
+
+if [ ! -f "$CONF" ] && [ -f /etc/vdr/conf.d/vdr-rectools.conf ]; then
+    CONF="/etc/vdr/conf.d/vdr-rectools.conf"
+fi
 
 if [ -f "${CONF}.dpkg-dist" ]; then
     mv "${CONF}.dpkg-dist" "$CONF"
