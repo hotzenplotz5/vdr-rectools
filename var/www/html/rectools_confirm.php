@@ -88,13 +88,20 @@ if (isset($_GET['action'])) {
         // Die Pfad-Validierung greift nun sicher und dynamisch fuer alle Einzel-Aktionen!
         $path = '';
         if (!empty($_GET['path'])) {
-            $real = realpath($_GET['path']);
-            $base = realpath($video_dir);
-            if ($real && $base && ($real === $base || strpos($real, $base . '/') === 0) && is_dir($real)) {
-                $path = $real;
-            } else {
+            $videoRoot = realpath($video_dir);
+            $realPath  = realpath($_GET['path']);
+            
+            error_log("RECTOOLS MOVE path=" . $_GET['path'] . " real=" . $realPath . " root=" . $videoRoot);
+
+            if (
+                $realPath === false ||
+                $videoRoot === false ||
+                ($realPath !== $videoRoot && strpos($realPath, $videoRoot . DIRECTORY_SEPARATOR) !== 0) ||
+                !is_dir($realPath)
+            ) {
                 exit('Zugriff verweigert oder ungueltiger Pfad.');
             }
+            $path = $realPath;
         }
         if ($action_req === 'rename') {
             $job_id = renameRecording($path, isset($_GET['name']) ? (string)$_GET['name'] : '');
