@@ -1,3 +1,12 @@
+vdr-rectools (3.8.5-1) unstable; urgency=medium
+
+  * Release Version 3.8.5 - The "Split & Deploy" Update
+  * ARCH: Projekt in eigenständige Pakete (vdr-rectools-cli und -web) aufgeteilt.
+  * FIX: Upgrade-Pfad (Breaks/Replaces) für die neuen Split-Pakete repariert.
+  * FIX: Robusterer PHP-FPM Reload im postinst-Skript (versionsunabhängig).
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Sat, 30 May 2026 09:30:00 +0000
+
 vdr-rectools (3.8.4-1) unstable; urgency=medium
 
   * Release Version 3.8.4 - The "Move & Polish" Update
