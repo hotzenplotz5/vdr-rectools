@@ -80,11 +80,16 @@ Description=VDR-Rectools Job Queue Watcher
 [Path]
 PathModified=/tmp/vdr-rectools-jobs
 MakeDirectory=yes
+DirectoryMode=0777
 [Install]
 WantedBy=multi-user.target
 EOFP
 
     systemctl daemon-reload || true
+
+    mkdir -p /tmp/vdr-rectools-jobs
+    chmod 0777 /tmp/vdr-rectools-jobs
+
     systemctl enable vdr-rectools-worker.path --now >/dev/null 2>&1 || true
 fi
 
