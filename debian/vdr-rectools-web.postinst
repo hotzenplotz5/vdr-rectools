@@ -1,20 +1,26 @@
 #!/bin/sh
 set -e
 
+mkdir -p /var/www/html
+
 touch /var/www/html/rectools.html
 chmod 666 /var/www/html/rectools.html
 
 touch /tmp/rectools_debug.log
-chown vdr:vdr /tmp/rectools_debug.log
+chown vdr:vdr /tmp/rectools_debug.log 2>/dev/null || true
 chmod 666 /tmp/rectools_debug.log
 
-if [ -f /etc/nginx/snippets/vdr-rectools-php.conf ] && [ -f /etc/nginx/sites-enabled/default ]; then
-    if ! grep -q "vdr-rectools-php.conf" /etc/nginx/sites-enabled/default; then
-        sed -i '/location \/ {/i\
-        include snippets/vdr-rectools-php.conf;\
-' /etc/nginx/sites-enabled/default
-    fi
-    nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+PHP_SOCK=$(find /run/php -name "php*-fpm.sock" 2>/dev/null | head -n 1)
+if [ -n "$PHP_SOCK" ] && [ -f /etc/nginx/snippets/vdr-rectools-php.conf ]; then
+    sed -i "s|unix:/run/php/php-fpm.sock;|unix:$PHP_SOCK;|g" /etc/nginx/snippets/vdr-rectools-php.conf
+else
+    echo "WARNUNG: Konnte keinen PHP-FPM Socket unter /run/php/ finden. Nginx-Snippet bleibt unverändert." >&2
+fi
+
+nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+
+if [ -x /usr/bin/vdr-rectools ]; then
+    /usr/bin/vdr-rectools update-html >/dev/null 2>&1 || true
 fi
 
 if [ -d /run/systemd/system ]; then

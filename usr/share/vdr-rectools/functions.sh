@@ -482,24 +482,43 @@ move_recording() {
         return 1
     fi
 
+    local SOURCE_PARENT=$(dirname "$REC_PATH")
+    local REAL_SOURCE_PARENT=$(realpath "$SOURCE_PARENT" 2>/dev/null)
+    local TITLE_DIR_NAME=""
+
+    # Fallback: Wenn die Datei direkt im Root liegt, Titel aus info-Datei rekonstruieren
+    if [[ "$REAL_SOURCE_PARENT" == "$VIDEO_DIR_REAL" ]]; then
+        if [[ -f "$REC_PATH/info" ]]; then
+            TITLE_DIR_NAME=$(grep "^T " "$REC_PATH/info" | head -n 1 | cut -c3- | tr -d '\r' | sed 's/[\\/:"*?<>| ]/_/g')
+        fi
+        if [[ -z "$TITLE_DIR_NAME" ]]; then
+            TITLE_DIR_NAME="Unsortiert"
+        fi
+    else
+        TITLE_DIR_NAME=$(basename "$SOURCE_PARENT")
+    fi
+
+    local FINAL_TITLE_DIR="$REAL_TARGET_ABS/$TITLE_DIR_NAME"
+    mkdir -p "$FINAL_TITLE_DIR"
+    chown vdr:vdr "$FINAL_TITLE_DIR" 2>/dev/null || true
+
     local REC_NAME=$(basename "$REC_PATH")
-    local FINAL_DEST="$REAL_TARGET_ABS/$REC_NAME"
+    local FINAL_DEST="$FINAL_TITLE_DIR/$REC_NAME"
 
     if [[ -e "$FINAL_DEST" ]]; then
         echo "[$(date +%T)] FEHLER: Move abgebrochen - Ziel $FINAL_DEST existiert bereits!" >> "$LOG_FILE"
         return 1
     fi
 
-    echo "[$(date +%T)] Starte Verschieben: $REC_PATH nach $REAL_TARGET_ABS" >> "$LOG_FILE"
+    echo "[$(date +%T)] Starte Verschieben: $REC_PATH nach $FINAL_TITLE_DIR" >> "$LOG_FILE"
 
-    if mv "$REC_PATH" "$REAL_TARGET_ABS/"; then
-        local PARENT_DIR=$(dirname "$REC_PATH")
-        local REC_COUNT=$(find "$PARENT_DIR" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
-        if [[ "$REC_COUNT" -eq 0 && "$(realpath "$PARENT_DIR")" != "$VIDEO_DIR_REAL" ]]; then
-            rmdir "$PARENT_DIR" 2>/dev/null || true
-            echo "[$(date +%T)] ERFOLG: Aufnahme nach $REAL_TARGET_ABS verschoben und leerer Elternordner entfernt." >> "$LOG_FILE"
+    if mv "$REC_PATH" "$FINAL_TITLE_DIR/"; then
+        local REC_COUNT=$(find "$SOURCE_PARENT" -maxdepth 1 -type d -name "*.rec" 2>/dev/null | wc -l)
+        if [[ "$REC_COUNT" -eq 0 && "$REAL_SOURCE_PARENT" != "$VIDEO_DIR_REAL" ]]; then
+            rmdir "$SOURCE_PARENT" 2>/dev/null || true
+            echo "[$(date +%T)] ERFOLG: Aufnahme nach $FINAL_TITLE_DIR verschoben und leerer Elternordner entfernt." >> "$LOG_FILE"
         else
-            echo "[$(date +%T)] ERFOLG: Aufnahme nach $REAL_TARGET_ABS verschoben." >> "$LOG_FILE"
+            echo "[$(date +%T)] ERFOLG: Aufnahme nach $FINAL_TITLE_DIR verschoben." >> "$LOG_FILE"
         fi
         touch "${VIDEO_DIR:-/srv/vdr/video}/.update" 2>/dev/null || true
         return 0

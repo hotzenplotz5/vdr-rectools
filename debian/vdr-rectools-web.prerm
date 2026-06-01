@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+# Wird ausgeführt BEVOR die Dateien des Pakets gelöscht werden
+if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
+    # Die Nginx Datei in snippets/ wird von dpkg entfernt. 
+    # Ein Reload wendet die saubere Umgebung an.
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+fi
+
+#DEBHELPER#
+exit 0
