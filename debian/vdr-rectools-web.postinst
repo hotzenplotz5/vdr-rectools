@@ -17,24 +17,7 @@ else
     echo "WARNUNG: Konnte keinen PHP-FPM Socket unter /run/php/ finden. Nginx-Snippet bleibt unverändert." >&2
 fi
 
-if [ -f /etc/nginx/snippets/vdr-rectools-php.conf ] && [ -f /etc/nginx/sites-enabled/default ]; then
-    if ! grep -q "vdr-rectools-php.conf" /etc/nginx/sites-enabled/default; then
-        cp -a /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.bak
-        sed -i '/location \/ {/i\
-        include snippets/vdr-rectools-php.conf;\
-' /etc/nginx/sites-enabled/default
-
-        if nginx -t >/dev/null 2>&1; then
-            systemctl reload nginx >/dev/null 2>&1 || true
-            rm -f /etc/nginx/sites-enabled/default.bak
-        else
-            echo "WARNUNG: nginx -t fehlgeschlagen nach Einfügen des Snippets. Führe Rollback durch..." >&2
-            mv /etc/nginx/sites-enabled/default.bak /etc/nginx/sites-enabled/default
-        fi
-    else
-        nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
-    fi
-fi
+nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
 
 if [ -x /usr/bin/vdr-rectools ]; then
     /usr/bin/vdr-rectools update-html >/dev/null 2>&1 || true
