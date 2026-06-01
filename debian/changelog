@@ -6,6 +6,7 @@ vdr-rectools (3.8.7-1) unstable; urgency=medium
   * FIX: move_recording() erhaelt den Titelordner beim Verschieben.
   * FIX: Live-Plugin zeigte zuvor teilweise 'Action' statt des eigentlichen Aufnahmetitels.
   * FIX: router.php wird im Nginx-Snippet jetzt korrekt ueber PHP-FPM verarbeitet.
+  * FIX: VDR-Aufnahmen und Titelordner werden im Datei-Explorer wieder korrekt als solche erkannt.
   * PACKAGING: vdr-rectools-web.postinst und prerm manipulieren keine Ansible-/yaVDR-verwaltete Nginx-Default-Site mehr.
   * PACKAGING: Web-Paket enthaelt alle PHP- und Sprachdateien.
   * PACKAGING: Nginx-Snippet bleibt unter /etc/nginx/snippets/vdr-rectools-php.conf.

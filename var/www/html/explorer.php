@@ -234,6 +234,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+function read_vdr_title($rec_path) {
+    $info_file = $rec_path . '/info';
+    if (!file_exists($info_file)) $info_file = $rec_path . '/info.vdr';
+    if (file_exists($info_file)) {
+        $lines = @file($info_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (is_array($lines)) {
+            foreach ($lines as $line) {
+                if (strpos($line, 'T ') === 0) {
+                    return trim(substr($line, 2));
+                }
+            }
+        }
+    }
+    return '';
+}
+
+function is_vdr_rec_dir($path) {
+    return (substr($path, -4) === '.rec' && is_dir($path));
+}
+
+function find_rec_dirs_in_title_dir($path) {
+    $rec_dirs = [];
+    if (!is_dir($path)) return $rec_dirs;
+    $items = @scandir($path);
+    if (is_array($items)) {
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+            if (is_vdr_rec_dir($path . '/' . $item)) {
+                $rec_dirs[] = $path . '/' . $item;
+            }
+        }
+    }
+    return $rec_dirs;
+}
+
 function get_dir_contents($dir) {
     $items = @scandir($dir);
     $dirs = []; $files = [];
@@ -245,8 +280,24 @@ function get_dir_contents($dir) {
                 if ($dir !== '/') $dirs[] = ['name' => __('dir_up'), 'path' => dirname($dir)];
                 continue;
             }
-            if (is_dir($path)) $dirs[] = ['name' => '📁 ' . $item, 'path' => $path];
-            else {
+                if (is_dir($path)) {
+                    $icon = '📁 ';
+                    $display_name = $item;
+                    if (is_vdr_rec_dir($path)) {
+                        $icon = '🎬 ';
+                        $title = read_vdr_title($path);
+                        if ($title !== '') $display_name = $title . ' (' . $item . ')';
+                    } else {
+                        $recs = find_rec_dirs_in_title_dir($path);
+                        if (count($recs) > 0) {
+                            $icon = '🗂️ '; // Spezielles Icon für Aufnahme-Gruppen
+                            $title = read_vdr_title($recs[0]);
+                            $display_name = ($title !== '') ? $title : str_replace('_', ' ', $item);
+                            if (count($recs) > 1) $display_name .= ' (' . count($recs) . ' Aufnahmen)';
+                        }
+                    }
+                    $dirs[] = ['name' => $icon . $display_name, 'path' => $path];
+                } else {
                 $size = @filesize($path);
                 $size_str = $size >= 1073741824 ? round($size / 1073741824, 2) . ' GB' : ($size >= 1048576 ? round($size / 1048576, 2) . ' MB' : round($size / 1024, 2) . ' KB');
                 $files[] = ['name' => '📄 ' . $item, 'path' => $path, 'raw_path' => $path, 'size' => $size_str];
