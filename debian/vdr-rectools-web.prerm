@@ -3,15 +3,9 @@ set -e
 
 # Wird ausgeführt BEVOR die Dateien des Pakets gelöscht werden
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
-    if [ -f /etc/nginx/sites-enabled/default ]; then
-        # Entfernt den Include-Befehl wieder sauber aus der Nginx-Konfiguration
-        sed -i '/include snippets\/vdr-rectools-php.conf;/d' /etc/nginx/sites-enabled/default
-        if nginx -t >/dev/null 2>&1; then
-            systemctl reload nginx >/dev/null 2>&1 || true
-        else
-            echo "WARNUNG: nginx Konfigurationstest nach Entfernung des Snippets fehlgeschlagen." >&2
-        fi
-    fi
+    # Die Nginx Datei in snippets/ wird von dpkg entfernt. 
+    # Ein Reload wendet die saubere Umgebung an.
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
 fi
 
 #DEBHELPER#
