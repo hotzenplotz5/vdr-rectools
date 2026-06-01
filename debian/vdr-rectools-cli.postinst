@@ -50,6 +50,7 @@ Description=VDR-Rectools Job Queue Watcher
 [Path]
 PathModified=/tmp/vdr-rectools-jobs
 MakeDirectory=yes
+DirectoryMode=0777
 
 [Install]
 WantedBy=multi-user.target
@@ -58,6 +59,10 @@ EOFP
     systemctl daemon-reload
     systemctl disable vdr-rectools-worker.service || true
     systemctl stop vdr-rectools-worker.service || true
+
+    mkdir -p /tmp/vdr-rectools-jobs
+    chmod 0777 /tmp/vdr-rectools-jobs
+
     systemctl enable vdr-rectools-worker.path || true
     systemctl start vdr-rectools-worker.path || true
 fi
