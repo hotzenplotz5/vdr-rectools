@@ -74,18 +74,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
         $msg = "<div class='msg msg-err'>" . __('err_upload_too_large') . "</div>";
     } elseif (isset($_POST['single_move'])) {
-        $file = $_POST['single_move'];
-        $filename = basename($file);
-        $target = $dst . '/' . $filename;
+        $source = $_POST['single_move'];
+        $basename = basename($source);
+        $target = $dst . '/' . $basename;
         
-        if (!file_exists($file)) {
+        if (!file_exists($source)) {
             $msg = "<div class='msg msg-err'>" . __('err_src_not_found') . "</div>";
         } elseif (file_exists($target)) {
-            $msg = "<div class='msg msg-err'>" . __('err_target_exists', $filename) . "</div>";
+            $msg = "<div class='msg msg-err'>" . __('err_target_exists', $basename) . "</div>";
         } else {
             // Verschieben (kann bei großen Dateien über Partitionsgrenzen hinweg dauern)
-            if (@rename($file, $target)) {
-                $msg = "<div class='msg msg-ok'>" . __('ok_file_moved', $filename) . "</div>";
+            if (@rename($source, $target)) {
+                $msg = "<div class='msg msg-ok'>" . __('ok_file_moved', $basename) . "</div>";
             } else {
                 $msg = "<div class='msg msg-err'>" . __('err_move_failed') . "</div>";
             }
@@ -283,10 +283,12 @@ function get_dir_contents($dir) {
                 if (is_dir($path)) {
                     $icon = '📁 ';
                     $display_name = $item;
+                    $is_recording = false;
                     if (is_vdr_rec_dir($path)) {
                         $icon = '🎬 ';
                         $title = read_vdr_title($path);
                         if ($title !== '') $display_name = $title . ' (' . $item . ')';
+                        $is_recording = true;
                     } else {
                         $recs = find_rec_dirs_in_title_dir($path);
                         if (count($recs) > 0) {
@@ -294,9 +296,10 @@ function get_dir_contents($dir) {
                             $title = read_vdr_title($recs[0]);
                             $display_name = ($title !== '') ? $title : str_replace('_', ' ', $item);
                             if (count($recs) > 1) $display_name .= ' (' . count($recs) . ' Aufnahmen)';
+                            $is_recording = true;
                         }
                     }
-                    $dirs[] = ['name' => $icon . $display_name, 'path' => $path];
+                    $dirs[] = ['name' => $icon . $display_name, 'path' => $path, 'is_recording' => $is_recording];
                 } else {
                 $size = @filesize($path);
                 $size_str = $size >= 1073741824 ? round($size / 1073741824, 2) . ' GB' : ($size >= 1048576 ? round($size / 1048576, 2) . ' MB' : round($size / 1024, 2) . ' KB');
@@ -381,6 +384,11 @@ $dst_contents = get_dir_contents($dst);
                     <?php foreach ($src_contents['dirs'] as $d): ?>
                         <div class="item" style="display: flex; justify-content: space-between; align-items: center;">
                             <a href="?src=<?= urlencode($d['path']) ?>&dst=<?= urlencode($dst) ?>" style="flex-grow: 1;"><strong><?= htmlspecialchars($d['name']) ?></strong></a>
+                            <?php if (!empty($d['is_recording'])): ?>
+                            <form method="POST" style="margin: 0;">
+                                <button type="submit" name="single_move" value="<?= htmlspecialchars($d['path']) ?>" class="btn btn-move" onclick="return confirm('<?= __('confirm_single_move') ?>');"><?= __('btn_single_move') ?></button>
+                            </form>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 
