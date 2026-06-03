@@ -30,6 +30,23 @@ VDR-Suite  = Orchestrierung, API, moderne Oberflaeche und Rechte-/Statusmodell
 
 Diese Trennung verhindert Doppelimplementierungen und haelt VDR-Suite VDR-zentriert.
 
+## Wichtiger Projektstatus: VDR-Suite zuerst lauffaehig machen
+
+Die langfristige Frage, ob einzelne Rectools-Funktionen spaeter direkt in VDR-Suite uebernommen werden, darf die aktuelle Entwicklung nicht blockieren.
+
+Die Prioritaet bleibt:
+
+```text
+1. VDR-Suite lauffaehig machen
+2. RESTfulAPI sauber anbinden
+3. Rectools als stabiles externes Werkzeug nutzbar halten
+4. Erst danach ueber native Uebernahme einzelner Funktionen entscheiden
+```
+
+Zum aktuellen Zeitpunkt wird kein Paketkonflikt zwischen VDR-Suite und VDR-Rectools eingefuehrt.
+
+Ein spaeteres Paketmodell mit `Conflicts`, `Replaces` oder einer Migration von Rectools-Funktionen nach VDR-Suite darf erst geplant werden, wenn VDR-Suite funktional gleichwertige Ersatzfunktionen bereitstellt und diese mit echten Aufnahmen getestet wurden.
+
 ## RESTfulAPI bevorzugen fuer native VDR-Funktionen
 
 RESTfulAPI soll spaeter bevorzugt genutzt werden fuer:
@@ -48,6 +65,29 @@ RESTfulAPI soll spaeter bevorzugt genutzt werden fuer:
 
 Diese Funktionen gehoeren fachlich zum VDR-Kern und sollten nicht erneut in Rectools oder VDR-Suite nachgebaut werden.
 
+## Einfluss einer nativen VDR-PES-zu-TS-Migration
+
+Die langfristige Rolle der PES-zu-TS-Konvertierung in VDR-Rectools haengt von der weiteren Entwicklung des VDR-Kerns ab.
+
+Wenn VDR kuenftig eine native PES-zu-TS-Migration bereitstellt, soll diese Funktion fuer VDR-Suite bevorzugt ueber VDR selbst genutzt werden.
+
+In diesem Fall dient die Rectools-Implementierung von PES-zu-TS primaer:
+
+- der Abwaertskompatibilitaet
+- bestehenden Installationen
+- aelteren VDR-Versionen
+- Fallback-Szenarien
+
+Fuer VDR-Suite ist keine dauerhafte eigene PES-zu-TS-Neuimplementierung vorgesehen, sofern eine native VDR-Loesung verfuegbar ist.
+
+Langfristige Prioritaet:
+
+```text
+1. Native VDR-Funktion
+2. RESTfulAPI-Anbindung an die native VDR-Funktion
+3. Rectools-Fallback fuer aeltere Systeme
+```
+
 ## Fuer VDR-Suite wertvolle Rectools-Funktionen
 
 Langfristig relevante Rectools-CLI-Funktionen:
@@ -61,6 +101,8 @@ Langfristig relevante Rectools-CLI-Funktionen:
 
 Diese Funktionen bieten Mehrwert, der ueber native VDR-RESTfulAPI-Funktionen hinausgeht.
 
+Sollte PES-zu-TS in VDR selbst verfuegbar werden, verschiebt sich `pes2ts` in Richtung Legacy-/Fallback-Funktion.
+
 ## Rectools-Funktionen mit Legacy- oder Fallback-Charakter
 
 Folgende Rectools-Kommandos bleiben fuer Kompatibilitaet und Notfall-/Fallback-Szenarien erhalten, sollen aber fuer VDR-Suite nicht die primaere Schnittstelle sein, wenn RESTfulAPI verfuegbar ist:
@@ -71,6 +113,28 @@ Folgende Rectools-Kommandos bleiben fuer Kompatibilitaet und Notfall-/Fallback-S
 - trash_single
 
 Diese Kommandos muessen trotzdem stabile Exit-Codes liefern, weil sie im Worker, in bestehenden Installationen oder als Fallback genutzt werden koennen.
+
+## Langfristige Perspektive von Rectools
+
+Nach aktueller Analyse werden zahlreiche klassische Recording-Funktionen bereits durch VDR und RESTfulAPI bereitgestellt:
+
+- Delete
+- Move
+- Rename, sofern sauber ueber Move abbildbar
+- Cut
+- Marks
+
+Sollte zusaetzlich PES-zu-TS in den VDR-Kern wandern, verbleiben in Rectools hauptsaechlich:
+
+- Import
+- Check
+- Repair
+- Shrink/Reencode
+- Worker- und Batch-Verarbeitung
+
+Diese Funktionen koennen langfristig entweder als eigenstaendiges Backend bestehen bleiben oder schrittweise in VDR-Suite uebernommen werden.
+
+Zum aktuellen Zeitpunkt ist keine Entscheidung ueber eine Abloesung von Rectools getroffen.
 
 ## Legacy-Funktionen
 
@@ -93,7 +157,7 @@ VDR-Rectools bleibt zustaendig fuer:
 
 - Import vorhandener Videodateien in VDR-Aufnahmen
 - Pruefung und Reparatur von Aufnahmen
-- PES-zu-TS-Konvertierung
+- PES-zu-TS-Konvertierung als Uebergang oder Fallback, solange keine native VDR-Loesung genutzt wird
 - Schrumpfen und Reencode-Workflows
 - lang laufende Worker-Jobs
 - Batch-Verarbeitung
@@ -221,7 +285,10 @@ C++ kann spaeter fuer einzelne Kernfunktionen sinnvoll sein, insbesondere fuer:
 
 - check_single
 - repair_single
-- pes2ts_single
+- shrink/reencode
+- import
+
+PES-zu-TS soll nicht dauerhaft in VDR-Suite nachgebaut werden, wenn VDR selbst diese Migration bereitstellt.
 
 Move, Rename, Delete und Cut sollen fuer VDR-Suite primaer ueber RESTfulAPI genutzt werden, sofern das jeweilige Zielsystem RESTfulAPI bereitstellt und die Funktion dort korrekt arbeitet.
 
@@ -237,6 +304,8 @@ Nicht geplant sind:
 - grosse Architekturumbauten
 - vollstaendige C++-Portierung
 - Nachbau nativer VDR-Funktionen, die RESTfulAPI bereits bereitstellt
+- dauerhafte eigene PES-zu-TS-Neuimplementierung in VDR-Suite, falls VDR diese Funktion nativ bereitstellt
+- Paketkonflikt zwischen VDR-Suite und VDR-Rectools, bevor VDR-Suite funktional gleichwertige Ersatzfunktionen besitzt
 - HTML als zukuenftige Schnittstelle fuer VDR-Suite
 
 ## Roadmap
@@ -266,8 +335,10 @@ Nicht geplant sind:
 
 ### Phase D: VDR-Suite-Anbindung vorbereiten
 
+- VDR-Suite zuerst lauffaehig machen
 - RESTfulAPI bevorzugt fuer native VDR-Funktionen einplanen
 - RectoolsAdapter nur fuer Import, Check, Repair, PES2TS, Shrink und Worker-Jobs einplanen
+- PES2TS langfristig als VDR-native Funktion bevorzugen, falls verfuegbar
 - maschinenlesbare Ausgabe pruefen
 - JSON optional planen
 - keine bestehende CLI brechen
@@ -308,3 +379,4 @@ Nach funktionalen Aenderungen muessen echte Tests mit Testaufnahmen erfolgen.
 - Aenderungen klein halten
 - CLI-Verhalten nicht unbeabsichtigt brechen
 - native VDR-Funktionen nicht doppelt bauen, wenn RESTfulAPI sie bereits bereitstellt
+- keine Paketkonflikte einfuehren, bevor VDR-Suite lauffaehig ist und funktional gleichwertige Ersatzfunktionen besitzt
