@@ -147,11 +147,13 @@ case "$1" in
             echo "vdr-rectools läuft bereits."
             exit 1
         fi
-            shift
+        shift
         if [[ -n "$1" ]]; then
             echo "Starte PES->TS Konvertierung fuer: $1"
             convert_pes2ts "$1"
+            rc=$?
             /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+            exit "$rc"
         else
             echo "Starte PES->TS Konvertierung (Globales Archiv)..."
             run_scan "pes2ts"
@@ -165,58 +167,83 @@ case "$1" in
         fi
         shift
         convert_pes2ts "$1"
+        rc=$?
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;    
         
     rename_single)
         shift
         rename_recording "$1" "$2"
+        rc=$?
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     move_single)
         shift
         move_recording "$1" "$2"
+        rc=$?
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     trash_single)
         shift
         trash_recording "$1"
+        rc=$?
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     repair_single)
         shift
         process_folder "$1" "repair"
-        chown -R vdr:vdr "$1"
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
+            chown -R vdr:vdr "$1"
+        fi
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     check_single)
         shift
         process_folder "$1" "check"
+        exit $?
         ;;
         
     sync_single)
         shift
         process_folder "$1" "normal"
-        chown -R vdr:vdr "$1"
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
+            chown -R vdr:vdr "$1"
+        fi
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     shrink_single)
         shift
         process_folder "$1" "shrink"
-        chown -R vdr:vdr "$1"
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
+            chown -R vdr:vdr "$1"
+        fi
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     cut_single)
         shift
         process_folder "$1" "cut"
-        chown -R vdr:vdr "$1"
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
+            chown -R vdr:vdr "$1"
+        fi
         /usr/bin/svdrpsend UPDT >/dev/null 2>&1 || true
+        exit "$rc"
         ;;
 
     cron)
