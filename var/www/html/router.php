@@ -1,5 +1,5 @@
 <?php
-$config_file = '/etc/vdr/conf.d/vdr-rectools.conf';
+$config_file = '/etc/vdr/vdr-rectools.conf';
 $user = 'admin';
 $pass = 'vdr123';
 if (file_exists($config_file)) {
