@@ -41,9 +41,6 @@ TVSCRAPER_MODE="batch"
 
 # 2. CONFIG EINLESEN
 CONFIG_FILE="/etc/vdr/vdr-rectools.conf"
-if [ ! -f "$CONFIG_FILE" ] && [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-    CONFIG_FILE="/etc/vdr/conf.d/vdr-rectools.conf"
-fi
 if [ -f "$CONFIG_FILE" ]; then
     # Windows CRLF on-the-fly entfernen, falls Config per Samba (Windows) bearbeitet wurde
     source <(sed 's/\r$//' "$CONFIG_FILE")
@@ -1707,8 +1704,6 @@ unset LANGUAGE
 
 if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
     source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
-elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-    source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
 fi
 
 # HARD OVERRIDE hat IMMER Priorität

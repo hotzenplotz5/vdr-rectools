@@ -43,7 +43,8 @@ chmod 777 /tmp/vdr-rectools-jobs
 
 # 5. Konfiguration sichern/kopieren
 echo "-> Prüfe Konfiguration..."
-if [ ! -f /etc/vdr/vdr-rectools.conf ] && [ ! -f /etc/vdr/conf.d/vdr-rectools.conf ]; then
+/bin/sh /usr/share/vdr-rectools/migrate-config.sh
+if [ ! -f /etc/vdr/vdr-rectools.conf ]; then
     echo "   Erstelle Standardkonfiguration unter /etc/vdr/vdr-rectools.conf"
     if [ -f debian/vdr-rectools.conf ]; then
         cp debian/vdr-rectools.conf /etc/vdr/vdr-rectools.conf

@@ -13,8 +13,6 @@ is_running() {
     local V_DIR="/srv/vdr/video"
     if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
         source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
-    elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-        source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
     fi
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
     local L_FILE="$V_DIR/.vdr-rectools.lock"
@@ -99,7 +97,7 @@ interactive_status() {
     trap 'tput cnorm; exit' INT # Cursor bei Abbruch wiederherstellen
     tput civis # Cursor ausblenden
     local V_DIR="/srv/vdr/video"
-    [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
+    [ -f "/etc/vdr/vdr-rectools.conf" ] && source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
     [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
 
     while true; do
@@ -265,8 +263,6 @@ case "$1" in
         I_DIR="/srv/vdr/import"
         if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
             source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
-        elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-            source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
         fi
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         [ -n "${IMPORT_DIR}" ] && I_DIR="${IMPORT_DIR}"
@@ -387,8 +383,6 @@ case "$1" in
         V_DIR="/srv/vdr/video"
         if [ -f "/etc/vdr/vdr-rectools.conf" ]; then
             source <(sed 's/\r$//' "/etc/vdr/vdr-rectools.conf")
-        elif [ -f "/etc/vdr/conf.d/vdr-rectools.conf" ]; then
-            source <(sed 's/\r$//' "/etc/vdr/conf.d/vdr-rectools.conf")
         fi
         [ -n "${VIDEO_DIR}" ] && V_DIR="${VIDEO_DIR}"
         L_FILE="$V_DIR/.vdr-rectools.lock"
