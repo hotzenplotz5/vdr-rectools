@@ -7,17 +7,7 @@ header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 header("Expires: 0");
 
-$config_candidates = [
-    '/etc/vdr/vdr-rectools.conf',
-    '/etc/vdr/conf.d/vdr-rectools.conf'
-];
-$conf_file = '/etc/vdr/conf.d/vdr-rectools.conf'; // Fallback, falls keine der Dateien existiert
-foreach ($config_candidates as $cand) {
-    if (file_exists($cand)) {
-        $conf_file = $cand;
-        break;
-    }
-}
+$conf_file = '/etc/vdr/vdr-rectools.conf';
 
 $msg = '';
 $language = 'de';

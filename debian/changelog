@@ -1,3 +1,12 @@
+vdr-rectools (3.8.9-2) unstable; urgency=medium
+
+  * FIX: Migrate legacy shell settings out of VDR's conf.d plugin arguments
+    directory without overwriting existing configurations (Closes: #1).
+  * FIX: Use /etc/vdr/vdr-rectools.conf consistently in CLI, Web and installer.
+  * TEST: Add migration regression scenarios; remove unused monolithic postinst.
+
+ -- Holger Schvestka <hotzenplotz5@gmx.de>  Mon, 26 Oct 2026 18:00:00 +0100
+
 vdr-rectools (3.8.9-1) unstable; urgency=medium
 
   * Release Version 3.8.9 - CLI stability and integration documentation update.

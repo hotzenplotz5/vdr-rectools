@@ -90,7 +90,7 @@ sudo dpkg -i ../vdr-rectools_*.deb
 
 ## ⚙️ Configuration
 
-File: `/etc/vdr/conf.d/vdr-rectools.conf`
+File: `/etc/vdr/vdr-rectools.conf`
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |

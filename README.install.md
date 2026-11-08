@@ -46,11 +46,20 @@ Stelle sicher, dass folgende Pakete vor der manuellen Installation auf deinem Sy
 
 Unabhängig von der Installationsmethode nutzt VDR-Rectools folgende Standard-Pfade:
 
-* **Konfigurationsdatei:** `/etc/vdr/vdr-rectools.conf` oder `/etc/vdr/conf.d/vdr-rectools.conf`
+* **Konfigurationsdatei:** `/etc/vdr/vdr-rectools.conf`
 * **CLI-Kommando:** `/usr/bin/vdr-rectools`
 * **Web-UI:** `/var/www/html/rectools.html` und `/var/www/html/pes2ts_explorer.php`
 * **Logfile:** `/var/log/vdr-rectools.log`
 * **Job-Queue (Temporär):** `/tmp/vdr-rectools-jobs/`
+
+**Upgrade-Hinweis (Issue #1):** `/etc/vdr/conf.d/` ist für VDR-Startargumente
+bestimmt. Alte Rectools-Shell-Einstellungen werden daraus bei der Installation
+entfernt. Wenn die neue Datei noch fehlt, wird die alte nach
+`/etc/vdr/vdr-rectools.conf` verschoben. Wenn beide existieren, bleibt die
+aktuelle Konfiguration unverändert und die alte wird als
+`/etc/vdr/vdr-rectools.conf.legacy` (ggf. mit Nummer) gesichert. Prüfe, ob
+eigene Einstellungen manuell übernommen werden müssen. Starte VDR erst nach
+Ende laufender Aufnahmen neu, um falsch übergebene Argumente loszuwerden.
 
 ---
 

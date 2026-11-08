@@ -4,17 +4,12 @@ set -e
 # Debconf-Modul laden
 . /usr/share/debconf/confmodule
 
+# VDR conf.d parses plugin arguments; Rectools settings do not belong there.
+if [ "${1:-}" = "configure" ]; then
+    /bin/sh /usr/share/vdr-rectools/migrate-config.sh
+fi
+
 CONF="/etc/vdr/vdr-rectools.conf"
-
-if [ ! -f "$CONF" ] && [ -f /etc/vdr/conf.d/vdr-rectools.conf ]; then
-    CONF="/etc/vdr/conf.d/vdr-rectools.conf"
-fi
-
-if [ -f "${CONF}.dpkg-dist" ]; then
-    mv "${CONF}.dpkg-dist" "$CONF"
-elif [ -f "${CONF}.dpkg-new" ]; then
-    mv "${CONF}.dpkg-new" "$CONF"
-fi
 
 db_get vdr-rectools/mail || true
 MAIL_VAL="$RET"
